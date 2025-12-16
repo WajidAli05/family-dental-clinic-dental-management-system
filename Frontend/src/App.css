@@ -1,0 +1,320 @@
+#root {
+  margin: 0 auto;
+  padding: 0rem;
+  text-align: center;
+}
+
+.lab-gradient {
+  background: linear-gradient(135deg, #2ec4b6 0%, #1abc9c 100%);
+  color: white;
+}
+
+/* ===========Login Page CSS starts here=========== */
+/* src/pages/LoginPage.css */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.login-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: #f4f7fb;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+/* LEFT SIDE - 3D Tooth Display */
+.left-side {
+  width: 50%;
+  background: linear-gradient(135deg, #2ec4b6 0%, #1abc9c 100%);
+  color: white;
+  padding: 60px 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+    text-align: center; /* center the text horizontally */
+  align-items: center; /* center text container */
+}
+
+.tooth-3d-wrapper {
+  height: 400px;
+  width: 100%;
+  margin-bottom: 40px;
+}
+
+.welcome-title {
+  font-size: 36px;
+  margin-bottom: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.welcome-text {
+  font-size: 18px;
+  max-width: 400px;
+  opacity: 0.95;
+  line-height: 1.6;
+}
+
+/* RIGHT SIDE - Login Form */
+.right-side {
+  width: 50%;
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+}
+
+.form-box {
+  width: 400px;
+  max-width: 90%;
+}
+
+.signin-title {
+  font-size: 32px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.signin-subtitle {
+  font-size: 15px;
+  color: #7f8c8d;
+  margin-bottom: 35px;
+}
+
+.login-form {
+  width: 100%;
+}
+
+.input-group {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #34495e;
+}
+
+.input-group input {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #2ec4b6;
+  box-shadow: 0 0 0 3px rgba(46, 196, 182, 0.1);
+}
+
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #2ec4b6 0%, #1abc9c 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(46, 196, 182, 0.3);
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 196, 182, 0.4);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+/* RESPONSIVE DESIGN */
+
+/* Tablets and below (1024px) */
+@media (max-width: 1024px) {
+  .left-side,
+  .right-side {
+    width: 50%;
+    padding: 40px 30px;
+  }
+
+  .tooth-3d-wrapper {
+    height: 300px;
+  }
+
+  .welcome-title {
+    font-size: 28px;
+  }
+
+  .welcome-text {
+    font-size: 16px;
+  }
+
+  .signin-title {
+    font-size: 28px;
+  }
+}
+
+/* Mobile landscape and tablets portrait (768px) */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .left-side {
+    width: 100%;
+    min-height: 50vh;
+    padding: 40px 30px;
+  }
+
+  .tooth-3d-wrapper {
+    height: 250px;
+    margin-bottom: 30px;
+  }
+
+  .welcome-title {
+    font-size: 26px;
+    margin-bottom: 10px;
+  }
+
+  .welcome-text {
+    font-size: 15px;
+    max-width: 100%;
+  }
+
+  .right-side {
+    width: 100%;
+    min-height: 50vh;
+    padding: 40px 30px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .form-box {
+    width: 100%;
+  }
+
+  .signin-title {
+    font-size: 26px;
+  }
+
+  .signin-subtitle {
+    font-size: 14px;
+    margin-bottom: 25px;
+  }
+}
+
+/* Mobile devices (480px) */
+@media (max-width: 480px) {
+  .left-side {
+    padding: 30px 20px;
+    min-height: 45vh;
+  }
+
+  .tooth-3d-wrapper {
+    height: 200px;
+    margin-bottom: 20px;
+  }
+
+  .welcome-title {
+    font-size: 22px;
+  }
+
+  .welcome-text {
+    font-size: 14px;
+  }
+
+  .right-side {
+    padding: 30px 20px;
+  }
+
+  .signin-title {
+    font-size: 24px;
+  }
+
+  .signin-subtitle {
+    font-size: 13px;
+  }
+
+  .input-group {
+    margin-bottom: 20px;
+  }
+
+  .input-group input {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .login-btn {
+    padding: 12px;
+    font-size: 15px;
+  }
+}
+
+/* Small mobile devices (360px) */
+@media (max-width: 360px) {
+  .tooth-3d-wrapper {
+    height: 180px;
+  }
+
+  .welcome-title {
+    font-size: 20px;
+  }
+
+  .welcome-text {
+    font-size: 13px;
+  }
+
+  .signin-title {
+    font-size: 22px;
+  }
+}
+
+.wave-svg {
+  width: 100% !important;   /* force full width */
+}
+
+.wave-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;    /* ← FULL WIDTH */
+  height: 120px;  /* Increase height if needed */
+  overflow: hidden;
+}
+
+.wave-wrapper svg {
+  width: 150% !important;
+}
+
+
+.show-password-span {
+  position: absolute;
+  right: 12px;
+  top: 57%;
+  cursor: pointer;
+  font-size: 18px;
+  color: #7f8c8d;
+}

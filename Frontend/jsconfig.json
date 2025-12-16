@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "checkJs": false,        // disable type checking for JS
+    "types": []              // do not automatically include any type definitions
+  },
+  "exclude": ["node_modules", "**/*.test.js"]
+}
