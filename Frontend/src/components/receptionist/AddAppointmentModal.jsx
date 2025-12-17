@@ -7,8 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useDentistStore } from "@/store/dentistStore";
-
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -16,12 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Stores
+import { usePatientStore } from "@/store/patientStore";
+import { useAppointmentStore } from "@/store/appointmentStore";
+import { useDentistStore } from "@/store/dentistStore";
 
 // Icons
 import {
@@ -30,11 +32,9 @@ import {
   Calendar,
   User,
   Phone,
-  Stethoscope,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
-
-// Store
-import { usePatientStore } from "@/store/patientStore";
 
 const AddAppointmentModal = ({ open, onOpenChange }) => {
   const { patients } = usePatientStore();
@@ -42,7 +42,8 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
   const { dentists } = useDentistStore();
 
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // patient search
+  const [isSubmitting, setIsSubmitting] = useState(false); // ⬅️ NEW
   const [patient, setPatient] = useState(null);
   const [error, setError] = useState("");
 
@@ -53,9 +54,26 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     reason: "",
   });
 
+  const [notification, setNotification] = useState(null);
+
+  const resetState = () => {
+    setQuery("");
+    setPatient(null);
+    setError("");
+    setAppointment({
+      date: "",
+      time: "",
+      dentist: "",
+      reason: "",
+    });
+    setNotification(null);
+    setIsSubmitting(false);
+  };
+
   const handleSearch = () => {
     setError("");
     setPatient(null);
+    setNotification(null);
     setLoading(true);
 
     setTimeout(() => {
@@ -72,24 +90,60 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
       }
 
       setLoading(false);
-    }, 1200); // fake API delay
+    }, 1200);
   };
 
-const handleCreateAppointment = () => {
-  addAppointment({
-    mr: patient.mr,
-    patientName: patient.name,
-    dentist: appointment.dentist,
-    date: appointment.date,
-    time: appointment.time,
-    reason: appointment.reason,
-  });
+  const handleCreateAppointment = () => {
+    if (!appointment.date || !appointment.time || !appointment.dentist) {
+      setNotification({
+        type: "error",
+        message: "Please fill all required fields before confirming.",
+      });
+      return;
+    }
 
-  onOpenChange(false);
-};
+    setIsSubmitting(true);
+    setNotification(null);
+
+    // ⏳ Fake API delay
+    setTimeout(() => {
+      try {
+        addAppointment({
+          mr: patient.mr,
+          patientName: patient.name,
+          dentist: appointment.dentist,
+          date: appointment.date,
+          time: appointment.time,
+          reason: appointment.reason,
+        });
+
+        setNotification({
+          type: "success",
+          message: `Appointment booked successfully for ${patient.name}.`,
+        });
+
+        setTimeout(() => {
+          resetState();
+          onOpenChange(false);
+        }, 1500);
+      } catch {
+        setNotification({
+          type: "error",
+          message: "Failed to create appointment. Please try again.",
+        });
+        setIsSubmitting(false);
+      }
+    }, 1500);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) resetState();
+        onOpenChange(isOpen);
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Add Appointment</DialogTitle>
@@ -116,10 +170,7 @@ const handleCreateAppointment = () => {
               )}
             </Button>
           </div>
-
-          {error && (
-            <p className="text-sm text-red-500">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
         {/* Patient Found */}
@@ -165,28 +216,26 @@ const handleCreateAppointment = () => {
                 />
               </div>
 
-                <div className="space-y-1 col-span-2">
+              <div className="space-y-1 col-span-2">
                 <Label>Dentist</Label>
-
                 <Select
-                    value={appointment.dentist}
-                    onValueChange={(value) =>
+                  value={appointment.dentist}
+                  onValueChange={(value) =>
                     setAppointment({ ...appointment, dentist: value })
-                    }
+                  }
                 >
-                    <SelectTrigger>
+                  <SelectTrigger>
                     <SelectValue placeholder="Select dentist" />
-                    </SelectTrigger>
-
-                    <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                     {dentists.map((doc) => (
-                        <SelectItem key={doc.id} value={doc.name}>
+                      <SelectItem key={doc.id} value={doc.name}>
                         {doc.name} — {doc.specialization}
-                        </SelectItem>
+                      </SelectItem>
                     ))}
-                    </SelectContent>
+                  </SelectContent>
                 </Select>
-                </div>
+              </div>
 
               <div className="space-y-1 col-span-2">
                 <Label>Reason / Notes</Label>
@@ -203,22 +252,52 @@ const handleCreateAppointment = () => {
               </div>
             </div>
 
+            {/* Notification */}
+            {notification && (
+              <Alert
+                className={`${
+                  notification.type === "success"
+                    ? "bg-green-50 border-green-200 text-green-800"
+                    : "bg-red-50 border-red-200 text-red-800"
+                }`}
+              >
+                {notification.type === "success" ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-600" />
+                )}
+                <AlertDescription className="ml-2">
+                  {notification.message}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                disabled={isSubmitting}
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
+
               <Button
                 onClick={handleCreateAppointment}
+                disabled={isSubmitting}
                 className="bg-[#2ec4b6] hover:bg-[#26a699]"
-                disabled={
-                  !appointment.date ||
-                  !appointment.time ||
-                  !appointment.dentist
-                }
               >
-                <Calendar className="w-4 h-4 mr-2" />
-                Confirm Appointment
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Booking...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Confirm Appointment
+                  </>
+                )}
               </Button>
             </div>
           </>
