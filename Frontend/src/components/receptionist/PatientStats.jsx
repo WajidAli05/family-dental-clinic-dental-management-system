@@ -6,6 +6,8 @@ export default function PatientStats({ patients }) {
   const active = patients?.filter(p => p.status === "Active").length;
   const inactive = patients?.filter(p => p.status === "Inactive").length;
 
+  console.log(patients)
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <StatCard title="Total Patients" value={total} icon={Users} />

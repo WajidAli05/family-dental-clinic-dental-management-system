@@ -32,6 +32,7 @@ const Patients = () => {
     setIsModalOpen(true);
   };
 
+
   return (
     <div className="w-full space-y-8">
       {/* Header with Waves */}
@@ -56,7 +57,7 @@ const Patients = () => {
       </div>
 
       {/* Stats */}
-      <PatientStats stats={stats} />
+      <PatientStats patients={patients} />
 
       {/* Table */}
       <Card className="rounded-2xl">
