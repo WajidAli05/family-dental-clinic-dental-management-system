@@ -1,36 +1,39 @@
-import React, { useState } from "react"; 
-
+import React, { useState, useEffect } from "react"; 
 // Store
 import { usePatientStore } from "@/store/patientStore";
-
 // Components
 import PatientStats from "@/components/receptionist/PatientStats";
 import PatientSearch from "@/components/receptionist/PatientSearch";
 import PatientTable from "@/components/receptionist/PatientTable";
+import AddPatientModal from "@/components/receptionist/AddPatientModal";
 import { Card, CardContent } from "@/components/ui/card";
-
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 // Waves
 import Wavify from "react-wavify";
 
 const Patients = () => {
-  const { patients } = usePatientStore();
+  const { patients, searchPatients, getStats } = usePatientStore();
   const [filteredPatients, setFilteredPatients] = useState(patients);
+  const [stats, setStats] = useState(getStats());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    setFilteredPatients(patients);
+    setStats(getStats());
+  }, [patients, getStats]);
 
   const handleSearch = (query) => {
-    if (!query) {
-      setFilteredPatients(patients);
-    } else {
-      setFilteredPatients(
-        patients.filter((p) =>
-          p.name.toLowerCase().includes(query.toLowerCase())
-        )
-      );
-    }
+    const results = searchPatients(query);
+    setFilteredPatients(results);
+  };
+
+  const handleAddPatient = () => {
+    setIsModalOpen(true);
   };
 
   return (
     <div className="w-full space-y-8">
-
       {/* Header with Waves */}
       <div className="relative overflow-hidden rounded-2xl bg-white">
         <Wavify
@@ -53,20 +56,30 @@ const Patients = () => {
       </div>
 
       {/* Stats */}
-      <PatientStats patients={patients} />
+      <PatientStats stats={stats} />
 
       {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Patient Directory</h2>
-            <PatientSearch onSearch={handleSearch} />
+            <div className="flex gap-3 items-center">
+              <PatientSearch onSearch={handleSearch} />
+              <Button 
+                onClick={handleAddPatient}
+                className="bg-[#2ec4b6] hover:bg-[#26a699] text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Patient
+              </Button>
+            </div>
           </div>
-
           <PatientTable patients={filteredPatients} />
         </CardContent>
       </Card>
 
+      {/* Add Patient Modal */}
+      <AddPatientModal open={isModalOpen} onOpenChange={setIsModalOpen} />
     </div>
   );
 };
