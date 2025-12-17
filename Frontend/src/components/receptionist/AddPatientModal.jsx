@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePatientStore } from "@/store/patientStore";
 import Wavify from "react-wavify";
-import { User, Phone, MapPin, Calendar, Mail, CheckCircle2, XCircle } from "lucide-react";
+import { User, Phone, MapPin, Calendar, Mail, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 const AddPatientModal = ({ open, onOpenChange }) => {
   const { addPatient } = usePatientStore();
@@ -36,6 +36,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
 
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: '' }
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -93,9 +94,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     if (!validateForm()) {
       setNotification({
         type: 'error',
@@ -104,7 +103,12 @@ const AddPatientModal = ({ open, onOpenChange }) => {
       return;
     }
 
+    setIsLoading(true);
+
     try {
+      // Simulate API call delay for realistic loading experience
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       addPatient({
         ...formData,
         age: parseInt(formData.age),
@@ -128,10 +132,12 @@ const AddPatientModal = ({ open, onOpenChange }) => {
         });
         setErrors({});
         setNotification(null);
+        setIsLoading(false);
         onOpenChange(false);
       }, 2000);
 
     } catch (error) {
+      setIsLoading(false);
       setNotification({
         type: 'error',
         message: 'Failed to register patient. Please try again.'
@@ -150,12 +156,20 @@ const AddPatientModal = ({ open, onOpenChange }) => {
     });
     setErrors({});
     setNotification(null);
+    setIsLoading(false);
     onOpenChange(false);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
+      if (!isOpen && !isLoading) {
         handleCancel();
       } else {
         onOpenChange(isOpen);
@@ -185,7 +199,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
           </DialogHeader>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 pb-6">
+        <div className="space-y-5 px-6 pb-6">
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium">
@@ -198,7 +212,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 placeholder="Enter patient's full name"
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
+                onKeyPress={handleKeyPress}
                 className={`pl-10 ${errors.name ? "border-red-500" : ""}`}
+                disabled={isLoading}
               />
             </div>
             {errors.name && (
@@ -220,9 +236,11 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   placeholder="Age"
                   value={formData.age}
                   onChange={(e) => handleChange("age", e.target.value)}
+                  onKeyPress={handleKeyPress}
                   className={`pl-10 ${errors.age ? "border-red-500" : ""}`}
                   min="1"
                   max="120"
+                  disabled={isLoading}
                 />
               </div>
               {errors.age && (
@@ -237,6 +255,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
               <Select
                 value={formData.gender}
                 onValueChange={(value) => handleChange("gender", value)}
+                disabled={isLoading}
               >
                 <SelectTrigger
                   className={errors.gender ? "border-red-500" : ""}
@@ -267,7 +286,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 placeholder="03XX XXXXXXX or +92 3XX XXXXXXX"
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
+                onKeyPress={handleKeyPress}
                 className={`pl-10 ${errors.phone ? "border-red-500" : ""}`}
+                disabled={isLoading}
               />
             </div>
             {errors.phone && (
@@ -288,7 +309,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 placeholder="patient@example.com"
                 value={formData.email}
                 onChange={(e) => handleChange("email", e.target.value)}
+                onKeyPress={handleKeyPress}
                 className={`pl-10 ${errors.email ? "border-red-500" : ""}`}
+                disabled={isLoading}
               />
             </div>
             {errors.email && (
@@ -311,6 +334,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 className={`pl-10 min-h-[80px] ${
                   errors.address ? "border-red-500" : ""
                 }`}
+                disabled={isLoading}
               />
             </div>
             {errors.address && (
@@ -345,17 +369,26 @@ const AddPatientModal = ({ open, onOpenChange }) => {
               variant="outline"
               onClick={handleCancel}
               className="flex-1"
+              disabled={isLoading}
             >
               Cancel
             </Button>
             <Button
-              type="submit"
+              onClick={handleSubmit}
               className="flex-1 bg-[#2ec4b6] hover:bg-[#26a699] text-white"
+              disabled={isLoading}
             >
-              Register Patient
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                'Register Patient'
+              )}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
