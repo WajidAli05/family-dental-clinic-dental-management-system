@@ -26,6 +26,20 @@ export const useAppointmentStore = create((set, get) => ({
       ],
     })),
 
+  updateAppointmentStatus: (id, status) =>
+    set((state) => ({
+      appointments: state.appointments.map((a) =>
+        a.id === id ? { ...a, status } : a
+      ),
+    })),
+
+  rescheduleAppointment: (id, updates) =>
+    set((state) => ({
+      appointments: state.appointments.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    })),
+
   getTodayAppointments: () => {
     const today = new Date().toISOString().split("T")[0];
     return get().appointments.filter((a) => a.date === today);
