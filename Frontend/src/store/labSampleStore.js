@@ -64,4 +64,16 @@ addSample: (sample) =>
       ready: samples.filter((s) => s.status === "Ready").length,
     };
   },
+
+  updateSample: (id, updates) =>
+  set((state) => ({
+    samples: state.samples.map((s) =>
+      s.id === id ? { ...s, ...updates } : s
+    ),
+  })),
+
+deleteSample: (id) =>
+  set((state) => ({
+    samples: state.samples.filter((s) => s.id !== id),
+  })),
 }));

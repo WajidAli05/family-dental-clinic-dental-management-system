@@ -82,42 +82,65 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
     }, 1000);
   };
 
-  const handleAddSample = () => {
-    if (!sample.lab || !sample.teeth) {
-      setNotification({
-        type: "error",
-        message: "Please fill all required fields.",
-      });
-      return;
-    }
+const handleAddSample = () => {
+  if (!patient) {
+    setNotification({
+      type: "error",
+      message: "Please search and select a patient first.",
+    });
+    return;
+  }
 
-    setIsSubmitting(true);
+  if (!sample.lab.trim() || !sample.teeth.trim()) {
+    setNotification({
+      type: "error",
+      message: "Lab name and teeth are required.",
+    });
+    return;
+  }
 
-    const teethArray = sample.teeth
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
+  setIsSubmitting(true);
+  setNotification(null);
+
+  const teethArray = sample.teeth
+    .split(",")
+    .map((t) => t.replace("#", "").trim())
+    .filter(Boolean);
+
+  if (teethArray.length === 0) {
+    setNotification({
+      type: "error",
+      message: "Please enter valid tooth numbers.",
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  setTimeout(() => {
+    addSample({
+      id: `LS-${Date.now()}`,
+      patientName: patient.name,
+      mr: patient.mr,
+      lab: sample.lab,
+      teeth: teethArray, // ✅ always array
+      status: "Sent",
+      paymentStatus: "Pending",
+      comments: "",
+      sentDate: new Date().toISOString().split("T")[0],
+      receivedDate: null,
+    });
+
+    setNotification({
+      type: "success",
+      message: "Lab sample added successfully.",
+    });
 
     setTimeout(() => {
-      addSample({
-        patientName: patient.name,
-        mr: patient.mr,
-        lab: sample.lab,
-        teeth: teethArray, // ✅ ALWAYS ARRAY
-        status: sample.status,
-      });
-
-      setNotification({
-        type: "success",
-        message: "Lab sample added successfully.",
-      });
-
-      setTimeout(() => {
-        resetState();
-        onOpenChange(false);
-      }, 1200);
+      resetState();
+      onOpenChange(false);
     }, 1200);
-  };
+  }, 1200);
+};
 
   return (
     <Dialog

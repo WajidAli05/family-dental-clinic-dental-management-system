@@ -18,7 +18,7 @@ const statusStyles = {
 };
 
 export default function LabSampleManagementTable({
-  data,
+  data = [],
   onStatusChange,
   onDeliver,
   onEdit,
@@ -38,76 +38,96 @@ export default function LabSampleManagementTable({
       </TableHeader>
 
       <TableBody>
-        {data.map((sample) => (
-          <TableRow key={sample.id}>
-            <TableCell className="font-medium">{sample.id}</TableCell>
-            <TableCell>{sample.patientName}</TableCell>
-            <TableCell>{sample.lab}</TableCell>
-
-            {/* ✅ SAFE RENDER */}
-            <TableCell>
-              {Array.isArray(sample.teeth)
-                ? sample.teeth.join(", ")
-                : "—"}
-            </TableCell>
-
-            <TableCell>
-              <Badge className={statusStyles[sample.status]}>
-                {sample.status}
-              </Badge>
-            </TableCell>
-
-            <TableCell className="text-right space-x-2">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => onEdit(sample)}
-              >
-                <Pencil size={16} />
-              </Button>
-
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => onDelete(sample.id)}
-              >
-                <Trash2 size={16} />
-              </Button>
-
-              {sample.status !== "Delivered" && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      onStatusChange(sample.id, "In Process")
-                    }
-                  >
-                    In Process
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      onStatusChange(sample.id, "Ready")
-                    }
-                  >
-                    Ready
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    className="bg-[#2ec4b6] hover:bg-[#26a699]"
-                    onClick={() => onDeliver(sample.id)}
-                  >
-                    Deliver
-                  </Button>
-                </>
-              )}
+        {data.length === 0 && (
+          <TableRow>
+            <TableCell
+              colSpan={6}
+              className="text-center text-gray-500 py-6"
+            >
+              No lab samples found
             </TableCell>
           </TableRow>
-        ))}
+        )}
+
+        {data.map((sample) => {
+          const teethDisplay = Array.isArray(sample.teeth)
+            ? sample.teeth.filter(Boolean).join(", ")
+            : "—";
+
+          return (
+            <TableRow key={sample.id}>
+              <TableCell className="font-medium">
+                {sample.id}
+              </TableCell>
+
+              <TableCell>{sample.patientName}</TableCell>
+
+              <TableCell>{sample.lab}</TableCell>
+
+              {/* 🛡️ CRASH-PROOF */}
+              <TableCell>{teethDisplay || "—"}</TableCell>
+
+              <TableCell>
+                <Badge className={statusStyles[sample.status]}>
+                  {sample.status}
+                </Badge>
+              </TableCell>
+
+              <TableCell className="text-right space-x-2">
+                {/* ✏️ EDIT */}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => onEdit(sample)}
+                >
+                  <Pencil size={16} />
+                </Button>
+
+                {/* 🗑️ DELETE */}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => onDelete(sample)}
+                >
+                  <Trash2 size={16} />
+                </Button>
+
+                {/* STATUS ACTIONS */}
+                {sample.status !== "Delivered" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        onStatusChange(sample.id, "In Process")
+                      }
+                    >
+                      In Process
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        onStatusChange(sample.id, "Ready")
+                      }
+                    >
+                      Ready
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      className="bg-[#2ec4b6] hover:bg-[#26a699]"
+                      onClick={() => onDeliver(sample.id)}
+                    >
+                      Deliver
+                    </Button>
+                  </>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
