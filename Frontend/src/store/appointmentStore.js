@@ -26,6 +26,13 @@ export const useAppointmentStore = create((set, get) => ({
       ],
     })),
 
+  updateAppointment: (id, updates) =>
+    set((state) => ({
+      appointments: state.appointments.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    })),
+
   updateAppointmentStatus: (id, status) =>
     set((state) => ({
       appointments: state.appointments.map((a) =>
@@ -33,15 +40,23 @@ export const useAppointmentStore = create((set, get) => ({
       ),
     })),
 
-  rescheduleAppointment: (id, updates) =>
-    set((state) => ({
-      appointments: state.appointments.map((a) =>
-        a.id === id ? { ...a, ...updates } : a
-      ),
-    })),
-
-  getTodayAppointments: () => {
+  /* 📊 DASHBOARD DERIVED STATS */
+  getStats: () => {
     const today = new Date().toISOString().split("T")[0];
-    return get().appointments.filter((a) => a.date === today);
+    const appointments = get().appointments;
+
+    return {
+      appointmentsToday: appointments.filter(a => a.date === today).length,
+      completedToday: appointments.filter(
+        a => a.date === today && a.status === "Completed"
+      ).length,
+      cancelledToday: appointments.filter(
+        a => a.date === today && a.status === "Cancelled"
+      ).length,
+    };
   },
+
+  /* 👨‍⚕️ DENTIST-WISE */
+  getByDentist: (dentist) =>
+    get().appointments.filter((a) => a.dentist === dentist),
 }));

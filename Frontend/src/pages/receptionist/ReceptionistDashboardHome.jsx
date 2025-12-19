@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { useReceptionistStore } from "@/store/receptionistStore";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 // Patient modal
 import AddPatientModal from "@/components/receptionist/AddPatientModal";
@@ -28,6 +29,7 @@ import Wave from "react-wavify";
 
 const ReceptionistDashboardHome = () => {
   const { stats, appointments, labSamples } = useReceptionistStore();
+  const { getStats } = useAppointmentStore();
 
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
 

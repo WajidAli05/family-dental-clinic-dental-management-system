@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, LayoutGrid, List } from "lucide-react";
 
+import Wavify from "react-wavify";
+
+// Store
 import { useAppointmentStore } from "@/store/appointmentStore";
+
+// Modals
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
 
+// Components
 import AppointmentStats from "@/components/receptionist/AppointmentStats";
 import AppointmentFilters from "@/components/receptionist/AppointmentFilters";
 import AppointmentManagementTable from "@/components/receptionist/AppointmentsTable";
-
-import Wavify from "react-wavify";
+import AppointmentCalendar from "@/components/receptionist/AppointmentCalendar";
+import DentistSchedule from "@/components/receptionist/DentistSchedule";
 
 const Appointments = () => {
   const {
@@ -19,24 +25,44 @@ const Appointments = () => {
   } = useAppointmentStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("All");
+  const [view, setView] = useState("list"); // list | calendar
 
-  const filteredAppointments = appointments.filter((a) => {
-    const matchesQuery =
-      a.patientName.toLowerCase().includes(query.toLowerCase()) ||
-      a.mr?.toString().includes(query);
-
-    const matchesStatus =
-      status === "All" || a.status === status;
-
-    return matchesQuery && matchesStatus;
+  const [filters, setFilters] = useState({
+    date: "",
+    dentist: "All",
+    status: "All",
   });
+
+  /* -------------------- FILTER LOGIC -------------------- */
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((a) => {
+      const matchDate =
+        !filters.date || a.date === filters.date;
+
+      const matchDentist =
+        filters.dentist === "All" ||
+        a.dentist === filters.dentist;
+
+      const matchStatus =
+        filters.status === "All" ||
+        a.status === filters.status;
+
+      return matchDate && matchDentist && matchStatus;
+    });
+  }, [appointments, filters]);
+
+  /* Dentist-wise appointments */
+  const dentistAppointments = useMemo(() => {
+    if (filters.dentist === "All") return [];
+    return filteredAppointments.filter(
+      (a) => a.dentist === filters.dentist
+    );
+  }, [filteredAppointments, filters.dentist]);
 
   return (
     <div className="space-y-8">
 
-      {/* Header */}
+      {/* ================= HEADER ================= */}
       <div className="relative overflow-hidden rounded-2xl bg-white">
         <Wavify
           fill="#2ec4b6"
@@ -46,50 +72,85 @@ const Appointments = () => {
         />
         <div className="relative z-10 p-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            Appointments
+            Appointment Management
           </h1>
           <p className="text-gray-500">
-            Book, manage and track patient appointments
+            Book, reschedule and manage appointments efficiently
           </p>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* ================= STATS ================= */}
       <AppointmentStats appointments={appointments} />
 
-      {/* Table */}
-      <Card className="rounded-2xl">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <AppointmentFilters
-              query={query}
-              setQuery={setQuery}
-              status={status}
-              setStatus={setStatus}
+      {/* ================= FILTERS + ACTIONS ================= */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+        <AppointmentFilters
+          filters={filters}
+          onChange={setFilters}
+        />
+
+        <div className="flex gap-2">
+          {/* View Toggle */}
+          <Button
+            variant={view === "list" ? "default" : "outline"}
+            onClick={() => setView("list")}
+          >
+            <List className="w-4 h-4 mr-1" />
+            List
+          </Button>
+
+          <Button
+            variant={view === "calendar" ? "default" : "outline"}
+            onClick={() => setView("calendar")}
+          >
+            <LayoutGrid className="w-4 h-4 mr-1" />
+            Calendar
+          </Button>
+
+          {/* Book Appointment */}
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-[#2ec4b6] hover:bg-[#26a699]"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Book Appointment
+          </Button>
+        </div>
+      </div>
+
+      {/* ================= CONTENT ================= */}
+      {view === "list" ? (
+        <Card className="rounded-2xl">
+          <CardContent className="p-6 space-y-6">
+
+            {/* Dentist-wise Schedule */}
+            {filters.dentist !== "All" && (
+              <DentistSchedule
+                dentist={filters.dentist}
+                appointments={dentistAppointments}
+              />
+            )}
+
+            {/* Appointment Table */}
+            <AppointmentManagementTable
+              data={filteredAppointments}
+              onComplete={(id) =>
+                updateAppointmentStatus(id, "Completed")
+              }
+              onCancel={(id) =>
+                updateAppointmentStatus(id, "Cancelled")
+              }
             />
+          </CardContent>
+        </Card>
+      ) : (
+        <AppointmentCalendar
+          appointments={filteredAppointments}
+        />
+      )}
 
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#2ec4b6] hover:bg-[#26a699]"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Book Appointment
-            </Button>
-          </div>
-
-          <AppointmentManagementTable
-            data={filteredAppointments}
-            onComplete={(id) =>
-              updateAppointmentStatus(id, "Completed")
-            }
-            onCancel={(id) =>
-              updateAppointmentStatus(id, "Cancelled")
-            }
-          />
-        </CardContent>
-      </Card>
-
-      {/* Modal */}
+      {/* ================= MODAL ================= */}
       <AddAppointmentModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
