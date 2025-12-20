@@ -17,10 +17,12 @@ import LabSamples from "./pages/receptionist/LabSamples";
 import LabDashboard from "./pages/LabDashboard";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Toaster } from "sonner";
 
 function App() {
   return (
     <Router>
+      <Toaster richColors position="top-right" />
       <Routes>
 
         {/* AUTH */}
