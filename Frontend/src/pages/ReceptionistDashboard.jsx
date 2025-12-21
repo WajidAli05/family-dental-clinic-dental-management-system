@@ -17,6 +17,7 @@ import {
   CreditCard,
   Package,
   User,
+  LogOut
 } from "lucide-react";
 
 const ReceptionistDashboard = () => {
@@ -28,6 +29,7 @@ const ReceptionistDashboard = () => {
     { title: "Billing & Payments", url: "/receptionist-dashboard/billing", icon: CreditCard },
     { title: "Inventory", url: "/receptionist-dashboard/inventory", icon: Package },
     { title: "Profile", url: "/receptionist-dashboard/profile", icon: User },
+    { title: "Logout", url: "/login", icon: LogOut },
   ];
 
   return (
