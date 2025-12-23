@@ -56,6 +56,13 @@ export const useAppointmentStore = create((set, get) => ({
     };
   },
 
+  getTodayAppointmentsByDentist: () => {
+  const today = new Date().toISOString().split("T")[0];
+  return get().appointments.filter(
+    (a) => a.date === today && a.status === "Scheduled"
+  );
+},
+
   /* 👨‍⚕️ DENTIST-WISE */
   getByDentist: (dentist) =>
     get().appointments.filter((a) => a.dentist === dentist),

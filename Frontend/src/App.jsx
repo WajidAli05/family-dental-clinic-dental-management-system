@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import LoginPage from "./pages/LoginPage";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import DentistDashboard from "./pages/DentistDashboard";
+import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
 
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 import ReceptionistDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
@@ -35,7 +36,18 @@ function App() {
 
         {/* DENTIST */}
         <Route element={<ProtectedRoute role="dentist" />}>
-          <Route path="/dentist-dashboard/*" element={<DentistDashboard />} />
+          <Route path="/dentist-dashboard" element={<DentistDashboard />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DentistDashboardHome />} />
+
+            {/* placeholders for later */}
+            <Route path="appointments" element={<div>Appointments</div>} />
+            <Route path="patients" element={<div>Patients</div>} />
+            <Route path="dental-chart" element={<div>Dental Chart</div>} />
+            <Route path="prescriptions" element={<div>Prescriptions</div>} />
+            <Route path="lab-samples" element={<div>Lab Samples</div>} />
+            <Route path="profile" element={<div>Profile</div>} />
+          </Route>
         </Route>
 
         {/* RECEPTIONIST */}
