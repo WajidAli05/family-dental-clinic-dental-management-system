@@ -6,6 +6,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
 import DentistAppointments from "./pages/dentist/DentistAppointments";
+import DentistLabSamples from "./pages/dentist/DentistLabSamples";
 
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 import ReceptionistDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
@@ -41,6 +42,7 @@ function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DentistDashboardHome />} />
             <Route path="appointments" element={<DentistAppointments />} />
+            <Route path="lab-samples" element={<DentistLabSamples />} />
 
             {/* placeholders for later */}
             <Route path="appointments" element={<div>Appointments</div>} />

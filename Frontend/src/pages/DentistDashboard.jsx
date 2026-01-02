@@ -31,21 +31,21 @@ const DentistDashboard = () => {
       url: "/dentist-dashboard/appointments",
       icon: Calendar,
     },
-    {
-      title: "Patients",
-      url: "/dentist-dashboard/patients",
-      icon: Users,
-    },
-    {
-      title: "Dental Chart",
-      url: "/dentist-dashboard/dental-chart",
-      icon: Smile,
-    },
-    {
-      title: "Prescriptions",
-      url: "/dentist-dashboard/prescriptions",
-      icon: FileText,
-    },
+    // {
+    //   title: "Patients",
+    //   url: "/dentist-dashboard/patients",
+    //   icon: Users,
+    // },
+    // {
+    //   title: "Dental Chart",
+    //   url: "/dentist-dashboard/dental-chart",
+    //   icon: Smile,
+    // },
+    // {
+    //   title: "Prescriptions",
+    //   url: "/dentist-dashboard/prescriptions",
+    //   icon: FileText,
+    // },
     {
       title: "Lab Samples",
       url: "/dentist-dashboard/lab-samples",

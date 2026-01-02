@@ -11,7 +11,7 @@ export const useLabSampleStore = create((set, get) => ({
       teeth: ["14", "15"],
       sentDate: "2024-12-15",
       receivedDate: null,
-      status: "Sent",
+      status: "delivered",
       paymentStatus: "Pending",
       comments: "Shade A2",
     },
@@ -75,5 +75,14 @@ addSample: (sample) =>
 deleteSample: (id) =>
   set((state) => ({
     samples: state.samples.filter((s) => s.id !== id),
+  })),
+
+  approveSample: (id) =>
+  set((state) => ({
+    samples: state.samples.map((s) =>
+      s.id === id
+        ? { ...s, status: "Approved" }
+        : s
+    ),
   })),
 }));
