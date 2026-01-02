@@ -1,33 +1,40 @@
 import { create } from "zustand";
 
 export const usePrescriptionStore = create((set) => ({
-  prescription: {
-    teeth: [],
-    procedure: "",
-    notes: "",
-  },
+  patientType: null,
 
-  setTeeth: (teeth) =>
+  selectedTeeth: [],
+
+  diagnosis: "",
+  treatment: "",
+  clinicalFinding: "",
+  visualStatus: "none", // none | planned | progress | completed | urgent
+
+  notes: "",
+
+  setPatientType: (type) => set({ patientType: type }),
+
+  toggleTooth: (tooth) =>
     set((state) => ({
-      prescription: { ...state.prescription, teeth },
+      selectedTeeth: state.selectedTeeth.includes(tooth)
+        ? state.selectedTeeth.filter((t) => t !== tooth)
+        : [...state.selectedTeeth, tooth],
     })),
 
-  setProcedure: (procedure) =>
-    set((state) => ({
-      prescription: { ...state.prescription, procedure },
-    })),
+  setDiagnosis: (val) => set({ diagnosis: val }),
+  setTreatment: (val) => set({ treatment: val }),
+  setClinicalFinding: (val) => set({ clinicalFinding: val }),
+  setVisualStatus: (val) => set({ visualStatus: val }),
+  setNotes: (val) => set({ notes: val }),
 
-  setNotes: (notes) =>
-    set((state) => ({
-      prescription: { ...state.prescription, notes },
-    })),
-
-  resetPrescription: () =>
+  reset: () =>
     set({
-      prescription: {
-        teeth: [],
-        procedure: "",
-        notes: "",
-      },
+      patientType: null,
+      selectedTeeth: [],
+      diagnosis: "",
+      treatment: "",
+      clinicalFinding: "",
+      visualStatus: "none",
+      notes: "",
     }),
 }));

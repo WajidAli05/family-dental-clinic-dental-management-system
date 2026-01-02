@@ -47,7 +47,7 @@ const DentistDashboardHome = () => {
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions
       <Card className="rounded-2xl">
         <CardContent className="p-6">
           <h2 className="text-lg font-semibold mb-4">
@@ -74,7 +74,7 @@ const DentistDashboardHome = () => {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

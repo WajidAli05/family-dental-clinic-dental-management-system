@@ -6,22 +6,54 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { printPrescription } from "@/utils/printPrescription";
+
+import PatientTypeSelector from "./PatientTypeSelector";
+import DentalChart2D from "./DentalChart2D";
+import PrescriptionForm from "./PrescriptionForm";
+import PrescriptionPreview from "./PrescriptionPreview";
+
 const StartPrescriptionModal = ({ open, onOpenChange }) => {
+  const store = usePrescriptionStore();
+
+  const handleSave = () => {
+    // later → API call
+    alert("Prescription saved successfully");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Select Patient Type</DialogTitle>
+          <DialogTitle>
+            {store.patientType ? "Create Prescription" : "Select Patient Type"}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <Button className="w-full bg-[#2ec4b6]">
-            Normal Patient
-          </Button>
-          <Button variant="outline" className="w-full">
-            Ortho Patient
-          </Button>
-        </div>
+        {!store.patientType ? (
+          <PatientTypeSelector onSelect={store.setPatientType} />
+        ) : (
+          <div className="space-y-6">
+            <DentalChart2D />
+            <PrescriptionForm />
+            <PrescriptionPreview />
+
+            <div className="flex gap-3">
+              <Button className="flex-1 bg-[#2ec4b6]" onClick={handleSave}>
+                Save Prescription
+              </Button>
+
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => printPrescription(store)}
+              >
+                Print
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
