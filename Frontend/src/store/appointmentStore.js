@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+const today = new Date().toISOString().split("T")[0];
+
 export const useAppointmentStore = create((set, get) => ({
   appointments: [
     {
@@ -7,9 +9,39 @@ export const useAppointmentStore = create((set, get) => ({
       mr: 1,
       patientName: "Ali Raza",
       dentist: "Dr. Ahmed",
-      date: "2024-12-18",
+      date: today,
       time: "10:30",
       reason: "Follow-up",
+      status: "Scheduled",
+    },
+    {
+      id: 2,
+      mr: 2,
+      patientName: "Sara Khan",
+      dentist: "Dr. Ahmed",
+      date: today,
+      time: "11:15",
+      reason: "Tooth Pain",
+      status: "Scheduled",
+    },
+    {
+      id: 3,
+      mr: 3,
+      patientName: "Usman Tariq",
+      dentist: "Dr. Ahmed",
+      date: today,
+      time: "12:00",
+      reason: "Scaling",
+      status: "Scheduled",
+    },
+    {
+      id: 4,
+      mr: 4,
+      patientName: "Ayesha Malik",
+      dentist: "Dr. Ahmed",
+      date: today,
+      time: "12:45",
+      reason: "Consultation",
       status: "Scheduled",
     },
   ],
@@ -40,7 +72,6 @@ export const useAppointmentStore = create((set, get) => ({
       ),
     })),
 
-  /* 📊 DASHBOARD DERIVED STATS */
   getStats: () => {
     const today = new Date().toISOString().split("T")[0];
     const appointments = get().appointments;
@@ -56,14 +87,16 @@ export const useAppointmentStore = create((set, get) => ({
     };
   },
 
-  getTodayAppointmentsByDentist: () => {
-  const today = new Date().toISOString().split("T")[0];
-  return get().appointments.filter(
-    (a) => a.date === today && a.status === "Scheduled"
-  );
-},
+  getTodayAppointmentsByDentist: (dentist) => {
+    const today = new Date().toISOString().split("T")[0];
+    return get().appointments.filter(
+      (a) =>
+        a.date === today &&
+        a.status === "Scheduled" &&
+        a.dentist === dentist
+    );
+  },
 
-  /* 👨‍⚕️ DENTIST-WISE */
   getByDentist: (dentist) =>
     get().appointments.filter((a) => a.dentist === dentist),
 }));

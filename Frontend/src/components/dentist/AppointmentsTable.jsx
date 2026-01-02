@@ -29,7 +29,7 @@ const AppointmentsTable = ({ data, onStartPrescription }) => {
             <TableCell>
               <Button
                 size="sm"
-                onClick={onStartPrescription}
+                onClick={() => onStartPrescription(apt)}
                 className="bg-[#2ec4b6] hover:bg-[#26a699]"
               >
                 Prescribe
