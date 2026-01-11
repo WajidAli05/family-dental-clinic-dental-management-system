@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Home, User } from "lucide-react";
+import { Home, User , LogOut } from "lucide-react";
 import LabStats from "@/components/lab/LabStats";
 import LabSamplesTable from "@/components/lab/LabSamplesTable";
 import LabProfile from "@/pages/lab/LabProfile";
@@ -10,6 +10,7 @@ export default function LabDashboard() {
   const labMenu = [
     { title: "Dashboard", url: "/lab-dashboard/dashboard", icon: Home },
     { title: "Profile", url: "/lab-dashboard/profile", icon: User },
+    { title: "Logout", url: "/login", icon: LogOut },
   ];
 
   return (

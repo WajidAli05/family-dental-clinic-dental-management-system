@@ -7,6 +7,7 @@ import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
 import DentistAppointments from "./pages/dentist/DentistAppointments";
 import DentistLabSamples from "./pages/dentist/DentistLabSamples";
+import DentistProfile from "./pages/dentist/DentistProfile";
 
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 import ReceptionistDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
@@ -43,6 +44,7 @@ function App() {
             <Route path="dashboard" element={<DentistDashboardHome />} />
             <Route path="appointments" element={<DentistAppointments />} />
             <Route path="lab-samples" element={<DentistLabSamples />} />
+            <Route path="profile" element={<DentistProfile />} />
 
             {/* placeholders for later */}
             <Route path="appointments" element={<div>Appointments</div>} />
