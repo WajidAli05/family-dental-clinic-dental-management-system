@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 import LoginPage from "./pages/LoginPage";
 import OwnerDashboard from "./pages/OwnerDashboard";
+import OwnerDashboardHome from "./pages/owner/OwnerDashboardHome";
+import OwnerAppointments from "./pages/owner/OwnerAppointments";
+
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
 import DentistAppointments from "./pages/dentist/DentistAppointments";
@@ -34,7 +37,11 @@ function App() {
 
         {/* OWNER */}
         <Route element={<ProtectedRoute role="owner" />}>
-          <Route path="/owner-dashboard/*" element={<OwnerDashboard />} />
+          <Route path="/owner-dashboard" element={<OwnerDashboard />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<OwnerDashboardHome />} />
+            <Route path="appointments" element={<OwnerAppointments />} />
+          </Route>
         </Route>
 
         {/* DENTIST */}
