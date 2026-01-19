@@ -6,6 +6,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import OwnerDashboardHome from "./pages/owner/OwnerDashboardHome";
 import OwnerAppointments from "./pages/owner/OwnerAppointments";
 import OwnerPatients from "./pages/owner/OwnerPatients";
+import OwnerClinicalMaster from "./pages/owner/OwnerClinicalMaster";
 
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
@@ -43,6 +44,7 @@ function App() {
             <Route path="dashboard" element={<OwnerDashboardHome />} />
             <Route path="appointments" element={<OwnerAppointments />} />
             <Route path="patients" element={<OwnerPatients />} />
+            <Route path="clinical-master" element={<OwnerClinicalMaster />} />
           </Route>
         </Route>
 

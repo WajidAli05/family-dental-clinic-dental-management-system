@@ -1,13 +1,14 @@
 import { Outlet } from "react-router-dom";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Home, CalendarDays, Users, LogOut } from "lucide-react";
+import { Home, CalendarDays, Users, ClipboardList, LogOut } from "lucide-react";
 
 const OwnerDashboard = () => {
   const ownerMenu = [
     { title: "Dashboard", url: "/owner-dashboard/dashboard", icon: Home },
     { title: "Appointments", url: "/owner-dashboard/appointments", icon: CalendarDays },
     { title: "Patients", url: "/owner-dashboard/patients", icon: Users },
+    { title: "Clinical Master", url: "/owner-dashboard/clinical-master", icon: ClipboardList},
     { title: "Logout", url: "/login", icon: LogOut },
   ];
 
