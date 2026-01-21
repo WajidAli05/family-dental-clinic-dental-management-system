@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Home, CalendarDays, Users, ClipboardList, FlaskConical, LogOut } from "lucide-react";
+import { Home, CalendarDays, Users, ClipboardList, FlaskConical, CreditCard, Shield, Settings, LogOut } from "lucide-react";
 
 const OwnerDashboard = () => {
   const ownerMenu = [
@@ -10,6 +10,9 @@ const OwnerDashboard = () => {
     { title: "Patients", url: "/owner-dashboard/patients", icon: Users },
     { title: "Clinical Master", url: "/owner-dashboard/clinical-master", icon: ClipboardList},
     { title: "Lab Management", url: "/owner-dashboard/lab-management", icon: FlaskConical },
+    {title: "Billing & Financials", url: "/owner-dashboard/billing", icon: CreditCard,},
+    { title: "Staff & Permissions", url: "/owner-dashboard/staff", icon: Shield },
+    { title: "Settings", url: "/owner-dashboard/settings", icon: Settings },
     { title: "Logout", url: "/login", icon: LogOut },
   ];
 

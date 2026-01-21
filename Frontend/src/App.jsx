@@ -8,6 +8,9 @@ import OwnerAppointments from "./pages/owner/OwnerAppointments";
 import OwnerPatients from "./pages/owner/OwnerPatients";
 import OwnerClinicalMaster from "./pages/owner/OwnerClinicalMaster";
 import OwnerLabManagement from "./pages/owner/OwnerLabManagement";
+import OwnerBilling from "./pages/owner/OwnerBilling";
+import OwnerStaffManagement from "./pages/owner/OwnerStaffManagement";
+import OwnerSettings from "./pages/owner/OwnerSettings";
 
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
@@ -47,6 +50,9 @@ function App() {
             <Route path="patients" element={<OwnerPatients />} />
             <Route path="clinical-master" element={<OwnerClinicalMaster />} />
             <Route path="lab-management" element={<OwnerLabManagement />} />
+            <Route path="billing" element={<OwnerBilling />} />
+            <Route path="staff" element={<OwnerStaffManagement />} />
+            <Route path="settings" element={<OwnerSettings />} />
           </Route>
         </Route>
 
