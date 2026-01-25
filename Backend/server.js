@@ -1,11 +1,43 @@
-const express = require('express');
+import express, { json } from "express";
+import { config } from "dotenv";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
+
+// Load environment variables
+config();
+
+// DB connection
+import dbConnection from "./config/dbConnection.js";
+
 const app = express();
-const PORT = 3000;
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
+/* Global middlewares */
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    frameguard: { action: "deny" },
+    hidePoweredBy: true,
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    noSniff: true,
+    xssFilter: true,
+  })
+);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+/* Normal parsers (AFTER webhook!) */
+app.use(cookieParser());
+app.use(json());
+
+/* DB connection */
+dbConnection();
+
+/* Start server */
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
