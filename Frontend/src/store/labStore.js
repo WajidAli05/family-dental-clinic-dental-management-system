@@ -1,58 +1,108 @@
 import { create } from "zustand";
+import { labApi } from "@/lib/labApi";
 
-export const useLabStore = create((set) => ({
-  stats: {
-    total: 124,
-    inProcess: 45,
-    ready: 72,
-    recent: 7,
+const mapBackendStatusToUi = (s) => {
+  const v = String(s || "").toLowerCase();
+
+  if (v === "received" || v === "sent") return "sent";
+  if (v === "in_progress" || v === "in-process") return "in-process";
+  if (v === "ready") return "ready";
+  if (v === "delivered") return "delivered";
+  if (v === "approved") return "approved";
+  if (v === "rejected") return "rejected";
+
+  return v || "sent";
+};
+
+export const useLabStore = create((set, get) => ({
+  loadingStats: false,
+  loadingSamples: false,
+  error: null,
+
+  stats: { total: 0, inProcess: 0, ready: 0, recent: 0 },
+  samples: [],
+
+  // ---------- FETCH STATS ----------
+  fetchStats: async () => {
+    try {
+      set({ loadingStats: true, error: null });
+      const res = await labApi.getStats();
+      set({ stats: res.data, loadingStats: false });
+    } catch (e) {
+      set({ error: e.message, loadingStats: false });
+    }
   },
 
-  samples: [
-    {
-      id: "SMP-882-ZC",
-      type: "Zirconia Crown",
-      tooth: "#14, #15",
-      date: "Oct 24, 2023",
-      status: "in-process",
-      note: "",
-    },
-    {
-      id: "SMP-883-EM",
-      type: "E-Max Veneer",
-      tooth: "#8, #9",
-      date: "Oct 25, 2023",
-      status: "ready",
-      note: "",
-    },
-    {
-      id: "SMP-889-IMP",
-      type: "Implant Abutment",
-      tooth: "#30",
-      date: "Oct 27, 2023",
-      status: "queued",
-      note: "",
-    },
-  ],
+  // ---------- FETCH SAMPLES ----------
+  fetchSamples: async (params = {}) => {
+    try {
+      set({ loadingSamples: true, error: null });
+      const res = await labApi.getCases(params);
 
-  addNote: (id, note) =>
-    set((state) => ({
-      samples: state.samples.map((s) =>
-        s.id === id ? { ...s, note } : s
-      ),
-    })),
+      const normalized = (res.data || []).map((x) => ({
+        ...x,
+        status: mapBackendStatusToUi(x.status),
+      }));
 
-  markReady: (id) =>
-    set((state) => ({
-      samples: state.samples.map((s) =>
-        s.id === id ? { ...s, status: "ready" } : s
-      ),
-    })),
+      set({ samples: normalized, loadingSamples: false });
+    } catch (e) {
+      set({ error: e.message, loadingSamples: false });
+    }
+  },
 
-  startWork: (id) =>
-    set((state) => ({
-      samples: state.samples.map((s) =>
-        s.id === id ? { ...s, status: "in-process" } : s
-      ),
-    })),
+  // ---------- NOTE ----------
+  addNote: async (sampleId, note) => {
+    try {
+      set({ error: null });
+
+      // backend patch: /lab/cases/:id/note  body: { note }
+      await labApi.updateCaseNote(sampleId, { note });
+
+      // Optimistic local update (fast UI) + then re-fetch for truth
+      set((state) => ({
+        samples: state.samples.map((s) =>
+          s.id === sampleId ? { ...s, note } : s
+        ),
+      }));
+
+      await get().fetchStats();
+      await get().fetchSamples();
+    } catch (e) {
+      set({ error: e.message });
+    }
+  },
+
+  // ---------- STATUS ACTIONS ----------
+  startWork: async (sampleId) => {
+    try {
+      set({ error: null });
+      await labApi.updateCaseStatus(sampleId, { status: "in-process" });
+      await get().fetchStats();
+      await get().fetchSamples();
+    } catch (e) {
+      set({ error: e.message });
+    }
+  },
+
+  markReady: async (sampleId) => {
+    try {
+      set({ error: null });
+      await labApi.updateCaseStatus(sampleId, { status: "ready" });
+      await get().fetchStats();
+      await get().fetchSamples();
+    } catch (e) {
+      set({ error: e.message });
+    }
+  },
+
+  markDelivered: async (sampleId) => {
+    try {
+      set({ error: null });
+      await labApi.updateCaseStatus(sampleId, { status: "delivered" });
+      await get().fetchStats();
+      await get().fetchSamples();
+    } catch (e) {
+      set({ error: e.message });
+    }
+  },
 }));

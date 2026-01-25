@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Play, CheckCircle, Truck } from "lucide-react";
+import { Play, CheckCircle, Truck } from "lucide-react";
 import { useLabStore } from "@/store/labStore";
 import AddNoteDialog from "@/components/lab/AddNoteDialog";
 
 export default function LabSampleRow({ sample }) {
-  const { markReady, startWork, markDelivered } = useLabStore();
+  const { startWork, markReady, markDelivered } = useLabStore();
 
   const statusBadge = {
     sent: (
@@ -46,7 +46,7 @@ export default function LabSampleRow({ sample }) {
       <td className="text-gray-700">{sample.type}</td>
       <td className="font-mono text-gray-700">{sample.tooth}</td>
       <td className="text-gray-600">{sample.date}</td>
-      <td>{statusBadge[sample.status]}</td>
+      <td>{statusBadge[sample.status] || <Badge>{sample.status}</Badge>}</td>
 
       <td className="text-right space-x-2">
         <AddNoteDialog sample={sample} />
@@ -89,8 +89,8 @@ export default function LabSampleRow({ sample }) {
         )}
 
         {/* Delivered/Approved/Rejected - No actions */}
-        {(sample.status === "delivered" || 
-          sample.status === "approved" || 
+        {(sample.status === "delivered" ||
+          sample.status === "approved" ||
           sample.status === "rejected") && (
           <span className="text-sm text-gray-500 italic">
             {sample.status === "delivered" ? "Awaiting approval" : "Final status"}

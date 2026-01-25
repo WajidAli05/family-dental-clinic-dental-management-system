@@ -1,22 +1,26 @@
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLabStore } from "@/store/labStore";
 import CountUp from "react-countup";
-import {
-  ClipboardList,
-  RefreshCcw,
-  CheckCircle,
-  Clock,
-} from "lucide-react";
+import { ClipboardList, RefreshCcw, CheckCircle, Clock } from "lucide-react";
 
 export default function LabStats() {
-  const { stats } = useLabStore();
+  const { stats, fetchStats, loadingStats, error } = useLabStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <StatCard title="Total Assigned" value={stats.total} icon={ClipboardList} />
-      <StatCard title="In Process" value={stats.inProcess} icon={RefreshCcw} />
-      <StatCard title="Ready" value={stats.ready} icon={CheckCircle} />
-      <StatCard title="Recently Updated" value={stats.recent} icon={Clock} />
+    <div className="space-y-3">
+      {error ? <p className="text-red-200 text-sm text-center">{error}</p> : null}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Assigned" value={loadingStats ? 0 : stats.total} icon={ClipboardList} />
+        <StatCard title="In Process" value={loadingStats ? 0 : stats.inProcess} icon={RefreshCcw} />
+        <StatCard title="Ready" value={loadingStats ? 0 : stats.ready} icon={CheckCircle} />
+        <StatCard title="Recently Updated" value={loadingStats ? 0 : stats.recent} icon={Clock} />
+      </div>
     </div>
   );
 }
@@ -24,8 +28,6 @@ export default function LabStats() {
 const StatCard = ({ title, value, icon: Icon }) => (
   <Card className="rounded-2xl shadow-sm group">
     <CardContent className="p-6 flex items-center justify-between">
-      
-      {/* Left content */}
       <div className="text-left">
         <p className="text-sm text-gray-500">{title}</p>
         <p className="text-3xl font-bold text-gray-900 mt-2">
@@ -33,7 +35,6 @@ const StatCard = ({ title, value, icon: Icon }) => (
         </p>
       </div>
 
-      {/* Animated icon */}
       <Icon
         size={48}
         className="

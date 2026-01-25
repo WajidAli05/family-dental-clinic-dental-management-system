@@ -1,0 +1,93 @@
+export const cities = [
+  "Rawalpindi",
+  "Islamabad",
+  "Taxila",
+  "Wah Cantt",
+  "Gujar Khan",
+];
+
+export const firstNames = [
+  "Ali",
+  "Sara",
+  "Hina",
+  "Ayesha",
+  "Hamza",
+  "Bilal",
+  "Zainab",
+  "Farhan",
+  "Maryam",
+  "Usman",
+  "Saad",
+  "Noor",
+  "Ibrahim",
+  "Komal",
+  "Nida",
+];
+
+export const lastNames = [
+  "Khan",
+  "Raza",
+  "Malik",
+  "Ahmed",
+  "Qureshi",
+  "Tariq",
+  "Sheikh",
+  "Iqbal",
+  "Hassan",
+  "Noor",
+];
+
+export const sampleTypeNames = [
+  { name: "Crown", desc: "Single crown case" },
+  { name: "Bridge", desc: "Bridge prosthesis" },
+  { name: "Impression", desc: "Alginate/silicone impression" },
+  { name: "Denture", desc: "Complete/partial denture" },
+  { name: "Zirconia Crown", desc: "Zirconia crown fabrication" },
+  { name: "E-Max Veneer", desc: "E-Max veneer case" },
+  { name: "Implant Abutment", desc: "Implant abutment work" },
+  { name: "Night Guard", desc: "Occlusal guard appliance" },
+  { name: "Retainer", desc: "Ortho retainer" },
+  { name: "Wax Try-In", desc: "Wax try-in stage work" },
+];
+
+export const labProfiles = [
+  {
+    publicId: "LAB-USER-1",
+    name: "Dental Lab Rawalpindi",
+    email: "lab.rwp@example.com",
+    phone: "051-5551234",
+    address: "Saddar, Rawalpindi",
+    specialization: "Prosthetics",
+    experience: "8 years",
+    bio: "High quality lab work with CAD/CAM support.",
+    certifications: ["Certified Dental Technician", "CAD/CAM Specialist"],
+    workingHours: "9:00 AM - 6:00 PM",
+    joinDate: "January 2017",
+  },
+  {
+    publicId: "LAB-USER-2",
+    name: "Smile Craft Lab",
+    email: "smilecraft@example.com",
+    phone: "051-7778899",
+    address: "6th Road, Rawalpindi",
+    specialization: "Ceramics",
+    experience: "6 years",
+    bio: "Specialist in zirconia and E-max.",
+    certifications: ["Quality Assurance Certified"],
+    workingHours: "10:00 AM - 7:00 PM",
+    joinDate: "March 2019",
+  },
+  {
+    publicId: "LAB-USER-3",
+    name: "Ortho Lab PK",
+    email: "ortholab@example.com",
+    phone: "051-4447766",
+    address: "Blue Area, Islamabad",
+    specialization: "Orthodontics",
+    experience: "10 years",
+    bio: "Ortho appliances and retainers.",
+    certifications: ["Certified Dental Technician"],
+    workingHours: "9:00 AM - 5:00 PM",
+    joinDate: "July 2015",
+  },
+];

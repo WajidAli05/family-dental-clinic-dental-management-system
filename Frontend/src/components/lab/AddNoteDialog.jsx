@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -13,14 +13,28 @@ import { useLabStore } from "@/store/labStore";
 
 export default function AddNoteDialog({ sample }) {
   const { addNote } = useLabStore();
-  const [note, setNote] = useState(sample.note || "");
 
-  const handleSave = () => {
-    addNote(sample.id, note);
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState(sample.note || "");
+  const [saving, setSaving] = useState(false);
+
+  // Keep note synced when dialog opens (important after list refresh)
+  useEffect(() => {
+    if (open) setNote(sample.note || "");
+  }, [open, sample.note]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await addNote(sample.id, note);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost">
           <MessageSquare
@@ -43,8 +57,12 @@ export default function AddNoteDialog({ sample }) {
         />
 
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline">Cancel</Button>
-          <Button onClick={handleSave}>Save</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
