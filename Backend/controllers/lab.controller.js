@@ -7,11 +7,9 @@ import {
   labUpdateCaseNote,
 } from "../services/lab.service.js";
 
-const getLabId = (req) => req.headers["x-lab-id"] || "LAB-USER-1";
-
 export const getLabMe = async (req, res) => {
   try {
-    const me = await labGetMe(getLabId(req));
+    const me = await labGetMe(req.user.publicId);
     return res.json({ success: true, data: me });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -20,7 +18,7 @@ export const getLabMe = async (req, res) => {
 
 export const updateLabMe = async (req, res) => {
   try {
-    const updated = await labUpdateMe(getLabId(req), req.body);
+    const updated = await labUpdateMe(req.user.publicId, req.body);
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -29,7 +27,7 @@ export const updateLabMe = async (req, res) => {
 
 export const getLabStats = async (req, res) => {
   try {
-    const stats = await labGetStats(getLabId(req));
+    const stats = await labGetStats(req.user.publicId);
     return res.json({ success: true, data: stats });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -39,7 +37,7 @@ export const getLabStats = async (req, res) => {
 export const getLabCases = async (req, res) => {
   try {
     const { status, q, dateFrom, dateTo } = req.query;
-    const cases = await labGetCases(getLabId(req), { status, q, dateFrom, dateTo });
+    const cases = await labGetCases(req.user.publicId, { status, q, dateFrom, dateTo });
     return res.json({ success: true, data: cases });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -51,7 +49,7 @@ export const updateLabCaseStatus = async (req, res) => {
     const { id } = req.params;
     const { status, note } = req.body;
 
-    const updated = await labUpdateCaseStatus(getLabId(req), id, { status, note });
+    const updated = await labUpdateCaseStatus(req.user.publicId, id, { status, note });
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -63,7 +61,7 @@ export const updateLabCaseNote = async (req, res) => {
     const { id } = req.params;
     const { note } = req.body;
 
-    const updated = await labUpdateCaseNote(getLabId(req), id, note);
+    const updated = await labUpdateCaseNote(req.user.publicId, id, note);
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

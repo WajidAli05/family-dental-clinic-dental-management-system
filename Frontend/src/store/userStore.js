@@ -1,53 +1,41 @@
 import { create } from "zustand";
 
 export const useUserStore = create((set) => ({
-  // Dummy users
-  users: [
-    { email: "owner@fdc.com", password: "owner123", role: "owner" },
-    { email: "dentist@fdc.com", password: "dentist123", role: "dentist" },
-    { email: "receptionist@fdc.com", password: "reception123", role: "receptionist" },
-    { email: "lab@fdc.com", password: "lab123", role: "lab" },
-  ],
-
-  // Logged-in user state
-  currentUser: null,
-  token: null,
+  currentUser: JSON.parse(localStorage.getItem("user")) || null,
+  token: localStorage.getItem("token") || null,
   error: null,
 
-  // Login function
-  login: (email, password) =>
-    set((state) => {
-      const user = state.users.find(
-        (u) => u.email === email && u.password === password
-      );
+  login: async (email, password) => {
+    try {
+      const res = await fetch("http://localhost:3000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (!user) {
-        return { error: "Invalid email or password", currentUser: null, token: null };
+      const json = await res.json();
+
+      if (!json.success) {
+        set({ error: json.message || "Login failed" });
+        return false;
       }
 
-      const token = "dummy-token-123";
+      const { token, user } = json.data;
 
-      // Save to localStorage
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify({ role: user.role }));
+      localStorage.setItem("user", JSON.stringify(user));
 
-      return {
-        currentUser: { email: user.email, role: user.role },
-        token,
-        error: null,
-      };
-    }),
+      set({ token, currentUser: user, error: null });
+      return true;
+    } catch {
+      set({ error: "Server unreachable" });
+      return false;
+    }
+  },
 
-  // Logout
-  logout: () =>
-    set(() => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      return {
-        currentUser: null,
-        token: null,
-        error: null,
-      };
-    }),
+  logout: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    set({ token: null, currentUser: null, error: null });
+  },
 }));

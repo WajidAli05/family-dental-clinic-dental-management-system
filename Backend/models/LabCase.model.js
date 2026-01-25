@@ -9,7 +9,7 @@ const timelineSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: ["sent", "in-process", "ready", "delivered", "approved", "rejected"],
+      enum: ["sent", "in-process", "ready", "delivered", "approved", "rejected", "received"],
     },
     note: { type: String, default: "" },
   },
@@ -30,7 +30,7 @@ const labCaseSchema = new Schema(
       type: String,
       default: "sent",
       index: true,
-      enum: ["sent", "in-process", "ready", "delivered", "approved", "rejected"],
+      enum: ["sent", "in-process", "ready", "delivered", "approved", "rejected", "received"],
     },
 
     note: { type: String, default: "" }, // ✅ was notes

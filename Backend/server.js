@@ -11,7 +11,7 @@ import "./models/index.js";
 
 // DB connection
 import dbConnection from "./config/dbConnection.js";
-import routesV1 from "./routes/index.js";
+import routesV1 from "./routes/v1/index.js";
 
 
 const app = express();

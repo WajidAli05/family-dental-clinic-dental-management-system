@@ -32,21 +32,13 @@ const must = (val, msg) => {
   return val;
 };
 
-const makeName = () =>
-  `${pick(firstNames)} ${pick(lastNames)}`;
+const makeName = () => `${pick(firstNames)} ${pick(lastNames)}`;
+
+const nowAtString = () =>
+  new Date().toISOString().slice(0, 16).replace("T", " "); // "YYYY-MM-DD HH:mm"
 
 async function seedUsers() {
-  const dentists = Array.from({ length: 5 }).map((_, i) => ({
-    publicId: `DENT-${i + 1}`,
-    name: `Dr. ${makeName()}`,
-    email: `dentist${i + 1}@fdc.com`,
-    phone: `03${randInt(0, 9)}${randInt(10000000, 99999999)}`,
-    role: "dentist",
-    enabled: true,
-    specialization: pick(["Orthodontics", "Endodontics", "Prosthodontics"]),
-    commissionPercent: randInt(10, 40),
-  }));
-
+  // ---- staff (with passwords) ----
   const staff = [
     {
       publicId: "OWNER-1",
@@ -55,6 +47,7 @@ async function seedUsers() {
       phone: "0300-0000000",
       role: "owner",
       enabled: true,
+      password: "owner123",
     },
     {
       publicId: "REC-1",
@@ -63,9 +56,24 @@ async function seedUsers() {
       phone: "0301-1111111",
       role: "receptionist",
       enabled: true,
+      password: "reception123",
     },
   ];
 
+  // ---- dentists (with passwords) ----
+  const dentists = Array.from({ length: 10 }).map((_, i) => ({
+    publicId: `DENT-${i + 1}`,
+    name: `Dr. ${makeName()}`,
+    email: `dentist${i + 1}@fdc.com`,
+    phone: `03${randInt(0, 9)}${randInt(10000000, 99999999)}`,
+    role: "dentist",
+    enabled: true,
+    specialization: pick(["Orthodontics", "Endodontics", "Prosthodontics"]),
+    commissionPercent: randInt(10, 40),
+    password: "dentist123",
+  }));
+
+  // ---- labs (with passwords from data.js) ----
   const labs = labProfiles.map((l) => ({
     publicId: l.publicId,
     name: l.name,
@@ -81,11 +89,21 @@ async function seedUsers() {
     role: "lab",
     enabled: true,
     forcePasswordChange: true,
+    password: l.password || "lab123",
   }));
 
   const all = [...staff, ...dentists, ...labs];
 
-  const created = await User.insertMany(all);
+  // ✅ IMPORTANT: must hash passwords (insertMany alone won't call setPassword)
+  const docs = [];
+  for (const u of all) {
+    const { password, ...rest } = u;
+    const doc = new User(rest);
+    await doc.setPassword(password);
+    docs.push(doc);
+  }
+
+  const created = await User.insertMany(docs);
   return created;
 }
 
@@ -97,6 +115,17 @@ async function seedSampleTypes() {
     active: true,
   }));
 
+  // ensure at least 10
+  while (docs.length < 10) {
+    const i = docs.length + 1;
+    docs.push({
+      publicId: `ST-${i}`,
+      name: `Sample Type ${i}`,
+      description: "Auto generated",
+      active: true,
+    });
+  }
+
   return SampleType.insertMany(docs);
 }
 
@@ -107,27 +136,23 @@ async function seedPatients(dentists) {
     name: makeName(),
     phone: `03${randInt(0, 9)}${randInt(10000000, 99999999)}`,
     age: randInt(15, 70),
-    gender: pick(["Male", "Female"]),
+    gender: pick(["Male", "Female", "Other"]),
     city: pick(cities),
     address: `${randInt(1, 200)} Street ${randInt(1, 20)}, ${pick(cities)}`,
     status: pick(["active", "active", "inactive"]),
     registrationDate: randDateISO(180),
     lastVisit: randDateISO(30),
     primaryDentist: pick(dentists)?._id,
-    tags: pick([
-      ["diabetic"],
-      ["ortho"],
-      ["prosthetic"],
-      [],
-    ]),
+    tags: pick([["diabetic"], ["ortho"], ["prosthetic"], []]),
   }));
 
   return Patient.insertMany(patients);
 }
 
 async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
+  // ✅ Match backend schema + service expectations
   const statuses = [
-    "sent",
+    "received",
     "in-process",
     "ready",
     "delivered",
@@ -147,7 +172,7 @@ async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
     );
 
     const status = pick(statuses);
-    const note = pick([
+    const notes = pick([
       "",
       "Shade A2",
       "Urgent case",
@@ -156,19 +181,22 @@ async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
       "Add glaze",
     ]);
 
+    const createdAtISO = randDateISO(30);
+
     return {
       publicId: `CASE-${2000 + i + 1}`,
+      createdAtISO, // ✅ required in schema
       patient: patient._id,
       dentist: dentist._id,
       lab: lab._id,
       sampleType: st._id,
       status,
-      note,
+      notes, // ✅ correct field name
       teeth,
       timeline: [
         {
-          at: new Date(),
-          status: "sent",
+          at: nowAtString(), // ✅ schema expects String
+          status: "received",
           note: "Case assigned",
         },
       ],

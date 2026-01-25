@@ -21,35 +21,61 @@ export default function LoginPage() {
   // Zustand actions + state
   const { login, error } = useUserStore();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
+  // const handleLogin = (e) => {
+  //   e.preventDefault();
 
-    // Attempt login through zustand store
-    login(email, password);
+  //   // Attempt login through zustand store
+  //   login(email, password);
 
-    const storedUser = JSON.parse(localStorage.getItem("user"));
+  //   const storedUser = JSON.parse(localStorage.getItem("user"));
 
-    // If login fails → error is already handled by store
-    if (!storedUser) return;
+  //   // If login fails → error is already handled by store
+  //   if (!storedUser) return;
 
-    // Redirect based on role
-    switch (storedUser.role) {
-      case "owner":
-        navigate("/owner-dashboard");
-        break;
-      case "dentist":
-        navigate("/dentist-dashboard");
-        break;
-      case "receptionist":
-        navigate("/receptionist-dashboard");
-        break;
-      case "lab":
-        navigate("/lab-dashboard");
-        break;
-      default:
-        navigate("/login");
-    }
-  };
+  //   // Redirect based on role
+  //   switch (storedUser.role) {
+  //     case "owner":
+  //       navigate("/owner-dashboard");
+  //       break;
+  //     case "dentist":
+  //       navigate("/dentist-dashboard");
+  //       break;
+  //     case "receptionist":
+  //       navigate("/receptionist-dashboard");
+  //       break;
+  //     case "lab":
+  //       navigate("/lab-dashboard");
+  //       break;
+  //     default:
+  //       navigate("/login");
+  //   }
+  // };
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+
+  const ok = await login(email, password);
+  if (!ok) return;
+
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+
+  switch (storedUser.role) {
+    case "owner":
+      navigate("/owner-dashboard");
+      break;
+    case "dentist":
+      navigate("/dentist-dashboard");
+      break;
+    case "receptionist":
+      navigate("/receptionist-dashboard");
+      break;
+    case "lab":
+      navigate("/lab-dashboard");
+      break;
+    default:
+      navigate("/login");
+  }
+};
 
   return (
     <div className="login-container">

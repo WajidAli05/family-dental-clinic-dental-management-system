@@ -6,7 +6,7 @@ import {
   getLabCases,
   updateLabCaseStatus,
   updateLabCaseNote,
-} from "../controllers/lab.controller.js";
+} from "../../controllers/lab.controller.js";
 
 const router = express.Router();
 

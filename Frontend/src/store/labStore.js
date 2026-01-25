@@ -1,5 +1,19 @@
 import { create } from "zustand";
-import { labApi } from "@/lib/labApi";
+
+const API = "http://localhost:3000/api/v1/lab";
+
+const authFetch = (url, options = {}) => {
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+};
 
 const mapBackendStatusToUi = (s) => {
   const v = String(s || "").toLowerCase();
@@ -22,24 +36,26 @@ export const useLabStore = create((set, get) => ({
   stats: { total: 0, inProcess: 0, ready: 0, recent: 0 },
   samples: [],
 
-  // ---------- FETCH STATS ----------
   fetchStats: async () => {
     try {
       set({ loadingStats: true, error: null });
-      const res = await labApi.getStats();
-      set({ stats: res.data, loadingStats: false });
+      const res = await authFetch(`${API}/stats`);
+      const json = await res.json();
+      set({ stats: json.data, loadingStats: false });
     } catch (e) {
       set({ error: e.message, loadingStats: false });
     }
   },
 
-  // ---------- FETCH SAMPLES ----------
   fetchSamples: async (params = {}) => {
     try {
       set({ loadingSamples: true, error: null });
-      const res = await labApi.getCases(params);
 
-      const normalized = (res.data || []).map((x) => ({
+      const qs = new URLSearchParams(params).toString();
+      const res = await authFetch(`${API}/cases?${qs}`);
+      const json = await res.json();
+
+      const normalized = (json.data || []).map((x) => ({
         ...x,
         status: mapBackendStatusToUi(x.status),
       }));
@@ -50,15 +66,15 @@ export const useLabStore = create((set, get) => ({
     }
   },
 
-  // ---------- NOTE ----------
   addNote: async (sampleId, note) => {
     try {
       set({ error: null });
 
-      // backend patch: /lab/cases/:id/note  body: { note }
-      await labApi.updateCaseNote(sampleId, { note });
+      await authFetch(`${API}/cases/${sampleId}/note`, {
+        method: "PATCH",
+        body: JSON.stringify({ note }),
+      });
 
-      // Optimistic local update (fast UI) + then re-fetch for truth
       set((state) => ({
         samples: state.samples.map((s) =>
           s.id === sampleId ? { ...s, note } : s
@@ -72,11 +88,13 @@ export const useLabStore = create((set, get) => ({
     }
   },
 
-  // ---------- STATUS ACTIONS ----------
   startWork: async (sampleId) => {
     try {
       set({ error: null });
-      await labApi.updateCaseStatus(sampleId, { status: "in-process" });
+      await authFetch(`${API}/cases/${sampleId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "in_progress" }),
+      });
       await get().fetchStats();
       await get().fetchSamples();
     } catch (e) {
@@ -87,7 +105,10 @@ export const useLabStore = create((set, get) => ({
   markReady: async (sampleId) => {
     try {
       set({ error: null });
-      await labApi.updateCaseStatus(sampleId, { status: "ready" });
+      await authFetch(`${API}/cases/${sampleId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "ready" }),
+      });
       await get().fetchStats();
       await get().fetchSamples();
     } catch (e) {
@@ -98,7 +119,10 @@ export const useLabStore = create((set, get) => ({
   markDelivered: async (sampleId) => {
     try {
       set({ error: null });
-      await labApi.updateCaseStatus(sampleId, { status: "delivered" });
+      await authFetch(`${API}/cases/${sampleId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "delivered" }),
+      });
       await get().fetchStats();
       await get().fetchSamples();
     } catch (e) {

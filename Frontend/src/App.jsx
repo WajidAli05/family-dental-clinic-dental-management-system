@@ -20,7 +20,7 @@ import DentistLabSamples from "./pages/dentist/DentistLabSamples";
 import DentistProfile from "./pages/dentist/DentistProfile";
 
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
-import ReceptionistDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
+import ReceptionististDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
 import Patients from "./pages/receptionist/Patients";
 import Appointments from "./pages/receptionist/Appointments";
 import Billing from "./pages/receptionist/Billing";
@@ -66,14 +66,6 @@ function App() {
             <Route path="appointments" element={<DentistAppointments />} />
             <Route path="lab-samples" element={<DentistLabSamples />} />
             <Route path="profile" element={<DentistProfile />} />
-
-            {/* placeholders for later */}
-            <Route path="appointments" element={<div>Appointments</div>} />
-            <Route path="patients" element={<div>Patients</div>} />
-            <Route path="dental-chart" element={<div>Dental Chart</div>} />
-            <Route path="prescriptions" element={<div>Prescriptions</div>} />
-            <Route path="lab-samples" element={<div>Lab Samples</div>} />
-            <Route path="profile" element={<div>Profile</div>} />
           </Route>
         </Route>
 
@@ -81,7 +73,7 @@ function App() {
         <Route element={<ProtectedRoute role="receptionist" />}>
           <Route path="/receptionist-dashboard" element={<ReceptionistDashboard />}>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<ReceptionistDashboardHome />} />
+            <Route path="dashboard" element={<ReceptionististDashboardHome />} />
             <Route path="patients" element={<Patients />} />
             <Route path="appointments" element={<Appointments />} />
             <Route path="billing" element={<Billing />} />
