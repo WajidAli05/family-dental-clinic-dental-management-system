@@ -156,28 +156,23 @@ async function seedPatients(dentists) {
 }
 
 async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
-  // ✅ Match backend schema + service expectations
-  const statuses = [
-    "received",
-    "in-process",
-    "ready",
-    "delivered",
-    "approved",
-    "rejected",
-  ];
+  // ✅ These must match your LabCase schema enum EXACTLY
+  const statuses = ["received", "in-process", "ready", "delivered", "approved", "rejected"];
 
-  const cases = Array.from({ length: 10 }).map((_, i) => {
+  // ✅ dentist1@fdc.com is DENT-1 -> dentists[0] in your seedUsers()
+  const dentist1 = dentists[0];
+
+  // ✅ Create cases for dentist1 with ALL statuses (repeat them)
+  const totalForDentist1 = 18; // adjust if you want more
+  const dentist1Cases = Array.from({ length: totalForDentist1 }).map((_, i) => {
     const lab = pick(labs);
-    const dentist = pick(dentists);
     const patient = pick(patients);
     const st = pick(sampleTypes);
 
     const teethCount = randInt(1, 3);
-    const teeth = Array.from({ length: teethCount }).map(() =>
-      String(randInt(11, 48))
-    );
+    const teeth = Array.from({ length: teethCount }).map(() => String(randInt(11, 48)));
 
-    const status = pick(statuses);
+    const status = statuses[i % statuses.length]; // ✅ cycles through all statuses
     const notes = pick([
       "",
       "Shade A2",
@@ -187,21 +182,62 @@ async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
       "Add glaze",
     ]);
 
-    const createdAtISO = randDateISO(30);
+    return {
+      publicId: `CASE-${3000 + i + 1}`,
+      createdAtISO: randDateISO(30),
+      patient: patient._id,
+      dentist: dentist1._id, // ✅ FORCE dentist1
+      lab: lab._id,
+      sampleType: st._id,
+      status,
+      notes,
+      teeth,
+      timeline: [
+        {
+          at: nowAtString(),
+          status: "received",
+          note: "Case assigned",
+        },
+        // optional: add another timeline entry matching current status
+        ...(status !== "received"
+          ? [
+              {
+                at: nowAtString(),
+                status,
+                note: `Moved to ${status}`,
+              },
+            ]
+          : []),
+      ],
+    };
+  });
+
+  // ✅ Also keep some random cases for realism (optional)
+  const otherCases = Array.from({ length: 12 }).map((_, i) => {
+    const lab = pick(labs);
+    const dentist = pick(dentists);
+    const patient = pick(patients);
+    const st = pick(sampleTypes);
+
+    const teethCount = randInt(1, 3);
+    const teeth = Array.from({ length: teethCount }).map(() => String(randInt(11, 48)));
+
+    const status = pick(statuses);
+    const notes = pick(["", "Shade B1", "Retry impression", "QC passed"]);
 
     return {
-      publicId: `CASE-${2000 + i + 1}`,
-      createdAtISO, // ✅ required in schema
+      publicId: `CASE-${4000 + i + 1}`,
+      createdAtISO: randDateISO(30),
       patient: patient._id,
       dentist: dentist._id,
       lab: lab._id,
       sampleType: st._id,
       status,
-      notes, // ✅ correct field name
+      notes,
       teeth,
       timeline: [
         {
-          at: nowAtString(), // ✅ schema expects String
+          at: nowAtString(),
           status: "received",
           note: "Case assigned",
         },
@@ -209,7 +245,7 @@ async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
     };
   });
 
-  return LabCase.insertMany(cases);
+  return LabCase.insertMany([...dentist1Cases, ...otherCases]);
 }
 
 async function seedLabBills({ labs }) {
