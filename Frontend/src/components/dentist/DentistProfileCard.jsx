@@ -5,6 +5,8 @@ import { User } from "lucide-react";
 const DentistProfileCard = ({ dentist }) => {
   if (!dentist) return null;
 
+  const isAvailable = dentist.available !== false; // default true if missing
+
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6 space-y-4">
@@ -15,10 +17,10 @@ const DentistProfileCard = ({ dentist }) => {
 
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              {dentist.name}
+              {dentist.name || "Dentist"}
             </h2>
             <p className="text-gray-500 text-sm">
-              {dentist.specialization}
+              {dentist.specialization || "—"}
             </p>
           </div>
         </div>
@@ -27,12 +29,12 @@ const DentistProfileCard = ({ dentist }) => {
           <span className="text-sm text-gray-500">Status:</span>
           <Badge
             className={
-              dentist.available
+              isAvailable
                 ? "bg-green-100 text-green-700"
                 : "bg-gray-100 text-gray-600"
             }
           >
-            {dentist.available ? "Available" : "Unavailable"}
+            {isAvailable ? "Available" : "Unavailable"}
           </Badge>
         </div>
       </CardContent>

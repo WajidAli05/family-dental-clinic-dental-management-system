@@ -1,0 +1,27 @@
+import express from "express";
+import {
+  getDentistMe,
+  updateDentistMe,
+  changeDentistPassword,
+  getDentistStats,
+  getDentistAppointments,
+  getDentistCases,
+  approveDentistCase,
+} from "../../controllers/dentist.controller.js";
+
+const router = express.Router();
+
+// profile
+router.get("/me", getDentistMe);
+router.patch("/me", updateDentistMe);
+router.patch("/me/password", changeDentistPassword);
+
+// dashboard
+router.get("/stats", getDentistStats);
+router.get("/appointments", getDentistAppointments);
+
+// lab cases for dentist
+router.get("/cases", getDentistCases);
+router.patch("/cases/:id/approve", approveDentistCase);
+
+export default router;

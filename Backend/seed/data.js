@@ -50,6 +50,10 @@ export const sampleTypeNames = [
   { name: "Wax Try-In", desc: "Wax try-in stage work" },
 ];
 
+/**
+ * ✅ Labs (10)
+ * - Keep password here so seed.js can hash & setPassword()
+ */
 export const labProfiles = [
   {
     publicId: "LAB-USER-1",
@@ -83,7 +87,7 @@ export const labProfiles = [
     publicId: "LAB-USER-3",
     name: "Ortho Lab PK",
     email: "ortholab@example.com",
-    password: "lab123", // ✅ this is your login credential
+    password: "lab123", // ✅ your lab login credential
     phone: "051-4447766",
     address: "Blue Area, Islamabad",
     specialization: "Orthodontics",
@@ -93,8 +97,6 @@ export const labProfiles = [
     workingHours: "9:00 AM - 5:00 PM",
     joinDate: "July 2015",
   },
-
-  // add more labs to reach 10 total
   {
     publicId: "LAB-USER-4",
     name: "Crown Studio Lab",
@@ -193,4 +195,110 @@ export const labProfiles = [
     workingHours: "9:00 AM - 6:00 PM",
     joinDate: "September 2013",
   },
+];
+
+/**
+ * ✅ Dentists (10) - needed for dentist login + dentist dashboard data
+ * Use these credentials for testing:
+ *   dentist1@fdc.com / dentist123
+ *   dentist2@fdc.com / dentist123
+ *   ...
+ */
+export const dentistProfiles = Array.from({ length: 10 }).map((_, i) => {
+  const n = i + 1;
+  const specializations = [
+    "General Dentistry",
+    "Orthodontics",
+    "Endodontics",
+    "Prosthodontics",
+    "Periodontics",
+  ];
+
+  return {
+    publicId: `DENT-${n}`,
+    name: `Dr. ${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`,
+    email: `dentist${n}@fdc.com`,
+    password: "dentist123",
+    phone: `03${(i % 9) + 1}${String(10000000 + i * 12345).slice(0, 8)}`,
+    role: "dentist",
+    enabled: true,
+    specialization: specializations[i % specializations.length],
+    available: true,
+    commissionPercent: 10 + (i % 4) * 5, // 10/15/20/25
+  };
+});
+
+/**
+ * ✅ Owner + Receptionist (optional but useful for complete auth demo)
+ */
+export const ownerProfiles = [
+  {
+    publicId: "OWNER-1",
+    name: "Clinic Owner",
+    email: "owner@fdc.com",
+    password: "owner123",
+    phone: "0300-0000000",
+    role: "owner",
+    enabled: true,
+  },
+];
+
+export const receptionistProfiles = [
+  {
+    publicId: "REC-1",
+    name: "Reception User",
+    email: "receptionist@fdc.com",
+    password: "reception123",
+    phone: "0301-1111111",
+    role: "receptionist",
+    enabled: true,
+  },
+];
+
+/**
+ * ✅ Realistic dentist/lab case notes + timeline notes
+ * (seed.js can pick these)
+ */
+export const caseNotes = [
+  "",
+  "Shade A2",
+  "Shade B1",
+  "Urgent case - patient traveling",
+  "Need better impression, please re-take",
+  "Check occlusion before final glazing",
+  "Add glaze and polish",
+  "Pontic design discussed with dentist",
+  "Margin refinement requested",
+  "Please match adjacent tooth shade",
+];
+
+export const labStatusFlowNotes = {
+  sent: ["Case created and sent to lab", "Assigned to technician", "Received impressions"],
+  in_progress: ["Wax-up started", "CAD/CAM design in progress", "Ceramic layering started"],
+  ready: ["Ready for delivery", "QC passed", "Final polish done"],
+  delivered: ["Delivered to clinic", "Awaiting dentist approval"],
+  approved: ["Approved by dentist", "Case completed successfully"],
+  rejected: ["Rejected: margin issue", "Rejected: shade mismatch", "Rejected: occlusion high"],
+};
+
+export const appointmentReasons = [
+  "Consultation",
+  "Scaling",
+  "Follow-up",
+  "Tooth Pain",
+  "Root Canal Review",
+  "Braces Adjustment",
+  "Crown Fitting",
+  "Extraction Review",
+];
+
+export const appointmentTimes = [
+  "10:00 AM",
+  "10:30 AM",
+  "11:00 AM",
+  "11:30 AM",
+  "12:00 PM",
+  "12:30 PM",
+  "01:00 PM",
+  "01:30 PM",
 ];

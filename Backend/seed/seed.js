@@ -7,6 +7,7 @@ import Patient from "../models/Patient.model.js";
 import SampleType from "../models/SampleType.model.js";
 import LabCase from "../models/LabCase.model.js";
 import LabBill from "../models/LabBill.model.js";
+import Appointment from "../models/Appointment.model.js";
 
 import {
   uid,
@@ -23,6 +24,11 @@ import {
   lastNames,
   sampleTypeNames,
   labProfiles,
+  appointmentReasons,
+  appointmentTimes,
+  dentistProfiles,
+  ownerProfiles,
+  receptionistProfiles,
 } from "./data.js";
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -221,6 +227,56 @@ async function seedLabBills({ labs }) {
   return LabBill.insertMany(bills);
 }
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+async function seedAppointments({ dentists, patients }) {
+  const today = todayISO();
+
+  // pick first dentist to guarantee TODAY has appointments (for dashboard)
+  const dentist1 = dentists[0];
+
+  // make sure we have enough unique patients for today
+  const todaysPatients = patients.slice(0, 6);
+
+  const todays = todaysPatients.map((p, idx) => ({
+    publicId: `APT-${1001 + idx}`,
+    patient: p._id,
+    dentist: dentist1._id,
+    date: today,
+    time: appointmentTimes[idx % appointmentTimes.length],
+    reason: pick(appointmentReasons),
+    notes: pick(["", "Patient requested early slot", "Sensitive tooth noted"]),
+    status: "scheduled",
+  }));
+
+  // add extra mixed appointments (past/future) for realism
+  const more = Array.from({ length: 14 }).map((_, i) => {
+    const dentist = pick(dentists);
+    const patient = pick(patients);
+
+    // spread around last 7 days and next 7 days
+    const offsetDays = randInt(-7, 7);
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    const date = d.toISOString().slice(0, 10);
+
+    const status = pick(["scheduled", "scheduled", "completed", "cancelled"]);
+
+    return {
+      publicId: `APT-${2001 + i}`,
+      patient: patient._id,
+      dentist: dentist._id,
+      date,
+      time: pick(appointmentTimes),
+      reason: pick(appointmentReasons),
+      notes: pick(["", "Follow-up needed", "X-ray requested", "Pain complaint"]),
+      status,
+    };
+  });
+
+  return Appointment.insertMany([...todays, ...more]);
+}
+
 async function main() {
   must(MONGO_URI, "❌ MONGO_URI missing in .env");
 
@@ -233,6 +289,7 @@ async function main() {
     SampleType.deleteMany({}),
     LabCase.deleteMany({}),
     LabBill.deleteMany({}),
+    Appointment.deleteMany({}),
   ]);
   console.log("🧹 Cleared collections");
 
@@ -243,6 +300,7 @@ async function main() {
   const dentists = users.filter((u) => u.role === "dentist");
 
   const patients = await seedPatients(dentists);
+  await seedAppointments({ dentists, patients });
 
   await seedLabCases({ labs, dentists, patients, sampleTypes });
   await seedLabBills({ labs });

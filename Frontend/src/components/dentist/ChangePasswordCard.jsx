@@ -4,29 +4,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Lock } from "lucide-react";
+import { dentistApi } from "@/lib/dentistApi";
 
 const ChangePasswordCard = () => {
-  const [current, setCurrent] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleChangePassword = () => {
-    if (!current || !newPassword || !confirm) {
-      alert("Please fill all fields");
+  const handleChangePassword = async () => {
+    setError(null);
+
+    if (!currentPassword || !newPassword || !confirm) {
+      setError("Please fill all fields");
       return;
     }
-
     if (newPassword !== confirm) {
-      alert("Passwords do not match");
+      setError("Passwords do not match");
       return;
     }
 
-    // 🔐 Backend integration later
-    alert("Password changed successfully");
+    try {
+      setSaving(true);
+      await dentistApi.changePassword({ currentPassword, newPassword });
 
-    setCurrent("");
-    setNewPassword("");
-    setConfirm("");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirm("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -36,45 +46,28 @@ const ChangePasswordCard = () => {
           <div className="p-2 rounded-lg bg-[#2ec4b61a]">
             <Lock className="w-5 h-5 text-[#2ec4b6]" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            Change Password
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
         </div>
 
         <div className="space-y-3">
           <div>
             <Label>Current Password</Label>
-            <Input
-              type="password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
+            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
           </div>
-
           <div>
             <Label>New Password</Label>
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
-
           <div>
             <Label>Confirm New Password</Label>
-            <Input
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
+            <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           </div>
         </div>
 
-        <Button
-          onClick={handleChangePassword}
-          className="bg-[#2ec4b6] hover:bg-[#26a699]"
-        >
-          Update Password
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <Button onClick={handleChangePassword} disabled={saving} className="bg-[#2ec4b6] hover:bg-[#26a699]">
+          {saving ? "Updating..." : "Update Password"}
         </Button>
       </CardContent>
     </Card>

@@ -1,59 +1,65 @@
 import { create } from "zustand";
+import { dentistApi } from "@/lib/dentistApi";
+
+const toUiSampleStatus = (s) => {
+  const v = String(s || "").toLowerCase();
+  if (v === "sent" || v === "received") return "Sent";
+  if (v === "in-process" || v === "in_progress") return "In Process";
+  if (v === "ready") return "Ready";
+  if (v === "delivered") return "Delivered";
+  if (v === "approved") return "Approved";
+  if (v === "rejected") return "Rejected";
+  return s || "Sent";
+};
 
 export const useLabSampleStore = create((set, get) => ({
-  samples: [
-    {
-      id: "LS-1001",
-      mr: 1,
-      patientName: "Ali Raza",
-      dentist: "Dr. Ahmed",
-      lab: "Smile Lab",
-      teeth: ["14", "15"],
-      sentDate: "2024-12-15",
-      receivedDate: null,
-      status: "delivered",
-      paymentStatus: "Pending",
-      comments: "Shade A2",
-    },
-    {
-      id: "LS-1002",
-      mr: 3,
-      patientName: "Hina Malik",
-      dentist: "Dr. Saif",
-      lab: "Dental Tech",
-      teeth: ["26"],
-      sentDate: "2024-12-12",
-      receivedDate: null,
-      status: "In Process",
-      paymentStatus: "Paid",
-      comments: "",
-    },
-  ],
+  loading: false,
+  error: null,
+  samples: [],
 
-addSample: (sample) =>
-  set((state) => ({
-    samples: [...state.samples, sample],
-  })),
+  fetchSamples: async (params = {}) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await dentistApi.getLabSamples(params);
 
-  updateStatus: (id, status) =>
+      set({
+        samples: (res.data || []).map((x) => ({
+          id: x.id,
+          patientName: x.patientName,
+          dentist: x.dentistName,
+          lab: x.labName,
+          teeth: String(x.tooth || "").replaceAll("#", "").split(",").map((t) => t.trim()).filter(Boolean),
+          sentDate: x.date,      // UI field
+          receivedDate: null,
+          status: toUiSampleStatus(x.status),
+          paymentStatus: "Pending",
+          comments: x.note || "",
+        })),
+        loading: false,
+      });
+    } catch (e) {
+      set({ error: e.message, loading: false });
+    }
+  },
+
+  updateSample: async (id, updates) => {
+    // Dentist approves
+    if (String(updates?.status || "").toLowerCase() === "approved") {
+      try {
+        set({ error: null });
+        await dentistApi.approveLabSample(id);
+        await get().fetchSamples();
+      } catch (e) {
+        set({ error: e.message });
+      }
+      return;
+    }
+
+    // fallback local update if UI uses it
     set((state) => ({
-      samples: state.samples.map((s) =>
-        s.id === id ? { ...s, status } : s
-      ),
-    })),
-
-  markDelivered: (id) =>
-    set((state) => ({
-      samples: state.samples.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              status: "Delivered",
-              receivedDate: new Date().toISOString().split("T")[0],
-            }
-          : s
-      ),
-    })),
+      samples: state.samples.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+    }));
+  },
 
   getStats: () => {
     const samples = get().samples;
@@ -64,25 +70,4 @@ addSample: (sample) =>
       ready: samples.filter((s) => s.status === "Ready").length,
     };
   },
-
-  updateSample: (id, updates) =>
-  set((state) => ({
-    samples: state.samples.map((s) =>
-      s.id === id ? { ...s, ...updates } : s
-    ),
-  })),
-
-deleteSample: (id) =>
-  set((state) => ({
-    samples: state.samples.filter((s) => s.id !== id),
-  })),
-
-  approveSample: (id) =>
-  set((state) => ({
-    samples: state.samples.map((s) =>
-      s.id === id
-        ? { ...s, status: "Approved" }
-        : s
-    ),
-  })),
 }));
