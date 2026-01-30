@@ -7,6 +7,10 @@ import {
   getDentistAppointments,
   getDentistCases,
   approveDentistCase,
+  createDentistPrescription,
+  updateDentistPrescription,
+  getDentistPrescriptions,
+  getDentistPrescriptionById,
 } from "../../controllers/dentist.controller.js";
 
 const router = express.Router();
@@ -23,5 +27,10 @@ router.get("/appointments", getDentistAppointments);
 // lab cases for dentist
 router.get("/cases", getDentistCases);
 router.patch("/cases/:id/approve", approveDentistCase);
+
+router.post("/prescriptions", createDentistPrescription);
+router.get("/prescriptions", getDentistPrescriptions);
+router.get("/prescriptions/:id", getDentistPrescriptionById);
+router.patch("/prescriptions/:id", updateDentistPrescription);
 
 export default router;

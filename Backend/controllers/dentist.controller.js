@@ -6,6 +6,10 @@ import {
   dentistGetAppointments,
   dentistGetCases,
   dentistApproveCase,
+  dentistCreatePrescription,
+  dentistUpdatePrescription,
+  dentistGetPrescriptions,
+  dentistGetPrescriptionById,
 } from "../services/dentist.service.js";
 
 export const getDentistMe = async (req, res) => {
@@ -72,5 +76,42 @@ export const approveDentistCase = async (req, res) => {
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// ✅ PRESCRIPTIONS
+export const createDentistPrescription = async (req, res) => {
+  try {
+    const created = await dentistCreatePrescription(req.user, req.body);
+    res.json({ success: true, data: created });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateDentistPrescription = async (req, res) => {
+  try {
+    const updated = await dentistUpdatePrescription(req.user, req.params.id, req.body);
+    res.json({ success: true, data: updated });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistPrescriptions = async (req, res) => {
+  try {
+    const rows = await dentistGetPrescriptions(req.user, req.query);
+    res.json({ success: true, data: rows });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistPrescriptionById = async (req, res) => {
+  try {
+    const row = await dentistGetPrescriptionById(req.user, req.params.id);
+    res.json({ success: true, data: row });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
   }
 };
