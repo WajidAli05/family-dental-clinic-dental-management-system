@@ -54,4 +54,8 @@ export const receptionistApi = {
 lookupPatient: (params) => request("/receptionist/patients/lookup", { params }),
 createAppointment: (body) =>
   request("/receptionist/appointments", { method: "POST", body }),
+
+getAppointments: (params) => request("/receptionist/appointments", { params }),
+updateAppointmentStatus: (id, body) =>
+  request(`/receptionist/appointments/${id}/status`, { method: "PATCH", body }),
 };

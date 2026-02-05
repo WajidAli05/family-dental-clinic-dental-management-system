@@ -19,6 +19,24 @@ const normalizeStatus = (s) => String(s || "").trim().toLowerCase();
 const pad = (n, width = 4) => String(n).padStart(width, "0");
 const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, ""); // digits only
 
+const toUiStatus = (s) => {
+  const x = String(s || "").toLowerCase();
+  if (x === "completed") return "Completed";
+  if (x === "cancelled" || x === "canceled") return "Cancelled";
+  if (x === "scheduled") return "Scheduled";
+  if (x === "in_progress") return "In Progress";
+  return s || "Scheduled";
+};
+
+const toDbStatus = (ui) => {
+  const x = String(ui || "").toLowerCase();
+  if (x === "completed") return "completed";
+  if (x === "cancelled" || x === "canceled") return "cancelled";
+  if (x === "scheduled") return "scheduled";
+  if (x === "in progress" || x === "in_progress") return "in_progress";
+  return "scheduled";
+};
+
 async function generateAppointmentPublicId() {
   let n = (await Appointment.countDocuments({})) + 1;
 
@@ -546,5 +564,94 @@ export async function receptionistGetPatientStats(_receptionistId) {
     pendingLabSamples,
     pendingInvoices,
     totalRevenue,
+  };
+}
+
+
+// ✅ List appointments for receptionist UI
+export async function receptionistListAppointments(_receptionistId, { date, dentist, status, q } = {}) {
+  const filter = {};
+
+  // If no date filter provided, you can default to today+future; keeping it flexible:
+  // filter.date = { $gte: todayISO() };
+  if (date) filter.date = String(date);
+
+  // Status filtering (UI uses "Completed"/"Cancelled"/"Scheduled")
+  if (status && status !== "All") {
+    filter.status = toDbStatus(status);
+  }
+
+  // We'll filter by dentist NAME at the mapping stage (safer if dentist is populated)
+  const rows = await Appointment.find(filter)
+    .populate("patient", "name publicId mr phone age gender")
+    .populate("dentist", "name publicId specialization")
+    .sort({ date: 1, time: 1 })
+    .lean();
+
+  let mapped = rows.map((a) => ({
+    id: a.publicId, // ✅ your UI passes this into updateAppointmentStatus
+    mr: a.patient?.mr ?? null,
+    patientId: a.patient?.publicId || "",
+    patientName: a.patient?.name || "",
+    dentistId: a.dentist?.publicId || "",
+    dentist: a.dentist?.name || "",
+    specialization: a.dentist?.specialization || "",
+    date: a.date,
+    time: a.time,
+    reason: a.reason || "",
+    status: toUiStatus(a.status),
+    original: a,
+  }));
+
+  // Dentist name filter (UI uses dentist string)
+  if (dentist && dentist !== "All") {
+    const dn = String(dentist).toLowerCase();
+    mapped = mapped.filter((x) => String(x.dentist).toLowerCase() === dn);
+  }
+
+  // Optional search
+  const needle = String(q || "").trim().toLowerCase();
+  if (needle) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.patientName} ${x.dentist} ${x.reason} ${x.status} ${x.date} ${x.time}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }
+
+  return mapped;
+}
+
+// ✅ Update status by publicId
+export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
+  const uiStatus = String(status || "").trim();
+  if (!uiStatus) throw new Error("status is required");
+
+  const dbStatus = toDbStatus(uiStatus);
+
+  const appt = await Appointment.findOne({ publicId: apptPublicId });
+  if (!appt) throw new Error("Appointment not found");
+
+  appt.status = dbStatus;
+  await appt.save();
+
+  const populated = await Appointment.findById(appt._id)
+    .populate("patient", "name publicId mr phone age gender")
+    .populate("dentist", "name publicId specialization")
+    .lean();
+
+  return {
+    id: populated.publicId,
+    mr: populated.patient?.mr ?? null,
+    patientId: populated.patient?.publicId || "",
+    patientName: populated.patient?.name || "",
+    dentistId: populated.dentist?.publicId || "",
+    dentist: populated.dentist?.name || "",
+    specialization: populated.dentist?.specialization || "",
+    date: populated.date,
+    time: populated.time,
+    reason: populated.reason || "",
+    status: toUiStatus(populated.status),
+    original: populated,
   };
 }

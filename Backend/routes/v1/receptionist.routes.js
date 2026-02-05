@@ -12,6 +12,7 @@ import {
   getReceptionistPatientStats,
   getReceptionistDentists,
   lookupReceptionistPatient,
+  updateReceptionistAppointmentStatus
 } from "../../controllers/receptionist.controller.js";
 
 const router = express.Router();
@@ -36,5 +37,7 @@ router.get("/patients/stats", getReceptionistPatientStats);
 
 router.get("/dentists", getReceptionistDentists);
 router.get("/patients/lookup", lookupReceptionistPatient);
+
+router.patch("/appointments/:id/status", updateReceptionistAppointmentStatus);
 
 export default router;

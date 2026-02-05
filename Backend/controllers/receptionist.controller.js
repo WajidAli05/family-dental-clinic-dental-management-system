@@ -11,6 +11,8 @@ import {
   receptionistGetPatientStats,
     receptionistGetDentists,
   receptionistLookupPatient,
+    receptionistListAppointments,
+  receptionistUpdateAppointmentStatus,
 } from "../services/receptionist.service.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -55,15 +57,15 @@ export const getReceptionistStats = async (req, res) => {
   }
 };
 
-export const getReceptionistAppointments = async (req, res) => {
-  try {
-    const { date } = req.query;
-    const rows = await receptionistGetAppointments(req.user._id, { date });
-    return res.json({ success: true, data: rows });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: e.message });
-  }
-};
+// export const getReceptionistAppointments = async (req, res) => {
+//   try {
+//     const { date } = req.query;
+//     const rows = await receptionistGetAppointments(req.user._id, { date });
+//     return res.json({ success: true, data: rows });
+//   } catch (e) {
+//     return res.status(500).json({ success: false, message: e.message });
+//   }
+// };
 
 export const getReceptionistLabSamples = async (req, res) => {
   try {
@@ -129,5 +131,32 @@ export const getReceptionistPatientStats = async (req, res) => {
     return res.json({ success: true, data: stats });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+
+export const getReceptionistAppointments = async (req, res) => {
+  try {
+    const { date, dentist, status, q } = req.query;
+    const rows = await receptionistListAppointments(req.user._id, {
+      date,
+      dentist,
+      status,
+      q,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const updateReceptionistAppointmentStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // publicId e.g. AP-0001
+    const { status } = req.body; // "Completed" | "Cancelled" | "Scheduled"
+    const updated = await receptionistUpdateAppointmentStatus(req.user._id, id, { status });
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 };

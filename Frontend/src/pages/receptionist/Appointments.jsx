@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
@@ -21,7 +21,10 @@ import DentistSchedule from "@/components/receptionist/DentistSchedule";
 const Appointments = () => {
   const {
     appointments,
+    fetchAppointments,
     updateAppointmentStatus,
+    loading,
+    error,
   } = useAppointmentStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,19 +36,29 @@ const Appointments = () => {
     status: "All",
   });
 
-  /* -------------------- FILTER LOGIC -------------------- */
+  // ✅ Load appointments from backend
+  useEffect(() => {
+    if (typeof fetchAppointments !== "function") return;
+
+    // Only send meaningful filters to backend
+    const params = {};
+    if (filters.date) params.date = filters.date;
+    if (filters.dentist && filters.dentist !== "All") params.dentist = filters.dentist;
+    if (filters.status && filters.status !== "All") params.status = filters.status;
+
+    fetchAppointments(params);
+  }, [fetchAppointments, filters.date, filters.dentist, filters.status]);
+
+  /* -------------------- FILTER LOGIC (keep) -------------------- */
   const filteredAppointments = useMemo(() => {
-    return appointments.filter((a) => {
-      const matchDate =
-        !filters.date || a.date === filters.date;
+    return (appointments || []).filter((a) => {
+      const matchDate = !filters.date || a.date === filters.date;
 
       const matchDentist =
-        filters.dentist === "All" ||
-        a.dentist === filters.dentist;
+        filters.dentist === "All" || a.dentist === filters.dentist;
 
       const matchStatus =
-        filters.status === "All" ||
-        a.status === filters.status;
+        filters.status === "All" || a.status === filters.status;
 
       return matchDate && matchDentist && matchStatus;
     });
@@ -54,15 +67,12 @@ const Appointments = () => {
   /* Dentist-wise appointments */
   const dentistAppointments = useMemo(() => {
     if (filters.dentist === "All") return [];
-    return filteredAppointments.filter(
-      (a) => a.dentist === filters.dentist
-    );
+    return filteredAppointments.filter((a) => a.dentist === filters.dentist);
   }, [filteredAppointments, filters.dentist]);
 
   return (
     <div className="space-y-8">
-
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <div className="relative overflow-hidden rounded-2xl bg-white">
         <Wavify
           fill="#2ec4b6"
@@ -80,18 +90,26 @@ const Appointments = () => {
         </div>
       </div>
 
-      {/* ================= STATS ================= */}
-      <AppointmentStats appointments={appointments} />
+      {/* Error/Loading (safe, won’t break UI) */}
+      {error ? (
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
+          {error}
+        </div>
+      ) : null}
+      {loading ? (
+        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
+          Loading appointments...
+        </div>
+      ) : null}
 
-      {/* ================= FILTERS + ACTIONS ================= */}
+      {/* STATS */}
+      <AppointmentStats appointments={appointments || []} />
+
+      {/* FILTERS + ACTIONS */}
       <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-        <AppointmentFilters
-          filters={filters}
-          onChange={setFilters}
-        />
+        <AppointmentFilters filters={filters} onChange={setFilters} />
 
         <div className="flex gap-2">
-          {/* View Toggle */}
           <Button
             variant={view === "list" ? "default" : "outline"}
             onClick={() => setView("list")}
@@ -108,7 +126,6 @@ const Appointments = () => {
             Calendar
           </Button>
 
-          {/* Book Appointment */}
           <Button
             onClick={() => setIsModalOpen(true)}
             className="bg-[#2ec4b6] hover:bg-[#26a699]"
@@ -119,12 +136,10 @@ const Appointments = () => {
         </div>
       </div>
 
-      {/* ================= CONTENT ================= */}
+      {/* CONTENT */}
       {view === "list" ? (
         <Card className="rounded-2xl">
           <CardContent className="p-6 space-y-6">
-
-            {/* Dentist-wise Schedule */}
             {filters.dentist !== "All" && (
               <DentistSchedule
                 dentist={filters.dentist}
@@ -132,29 +147,19 @@ const Appointments = () => {
               />
             )}
 
-            {/* Appointment Table */}
             <AppointmentManagementTable
               data={filteredAppointments}
-              onComplete={(id) =>
-                updateAppointmentStatus(id, "Completed")
-              }
-              onCancel={(id) =>
-                updateAppointmentStatus(id, "Cancelled")
-              }
+              onComplete={(id) => updateAppointmentStatus(id, "Completed")}
+              onCancel={(id) => updateAppointmentStatus(id, "Cancelled")}
             />
           </CardContent>
         </Card>
       ) : (
-        <AppointmentCalendar
-          appointments={filteredAppointments}
-        />
+        <AppointmentCalendar appointments={filteredAppointments} />
       )}
 
-      {/* ================= MODAL ================= */}
-      <AddAppointmentModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      />
+      {/* MODAL */}
+      <AddAppointmentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
     </div>
   );
 };
