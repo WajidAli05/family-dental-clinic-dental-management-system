@@ -87,7 +87,7 @@ export default function LabSampleManagementTable({
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => onDelete(sample)}
+                  onClick={() => onDelete(sample.id)}
                 >
                   <Trash2 size={16} />
                 </Button>
