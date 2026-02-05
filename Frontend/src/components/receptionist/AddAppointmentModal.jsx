@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // UI
 import {
@@ -37,20 +37,20 @@ import {
 } from "lucide-react";
 
 const AddAppointmentModal = ({ open, onOpenChange }) => {
-  const { patients } = usePatientStore();
-  const { addAppointment } = useAppointmentStore();
-  const { dentists } = useDentistStore();
+  const { lookupPatient } = usePatientStore();
+  const { createAppointment, addAppointment } = useAppointmentStore();
+  const { dentists, fetchAllDentists, loading: dentistLoading } = useDentistStore();
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false); // patient search
-  const [isSubmitting, setIsSubmitting] = useState(false); // ⬅️ NEW
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [patient, setPatient] = useState(null);
   const [error, setError] = useState("");
 
   const [appointment, setAppointment] = useState({
     date: "",
     time: "",
-    dentist: "",
+    dentist: "", // dentistId OR dentistName (we will store dentistId)
     reason: "",
   });
 
@@ -60,40 +60,44 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     setQuery("");
     setPatient(null);
     setError("");
-    setAppointment({
-      date: "",
-      time: "",
-      dentist: "",
-      reason: "",
-    });
+    setAppointment({ date: "", time: "", dentist: "", reason: "" });
     setNotification(null);
     setIsSubmitting(false);
+    setLoading(false);
   };
 
-  const handleSearch = () => {
+  // ✅ Load dentists when modal opens
+  useEffect(() => {
+    if (!open) return;
+    if (typeof fetchAllDentists === "function") fetchAllDentists();
+  }, [open, fetchAllDentists]);
+
+  const handleSearch = async () => {
     setError("");
     setPatient(null);
     setNotification(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const found = patients.find(
-        (p) =>
-          p.mr.toString() === query ||
-          p.phone.replace(/\s/g, "") === query.replace(/\s/g, "")
-      );
-
-      if (!found) {
-        setError("Patient not found. Please register patient first.");
-      } else {
-        setPatient(found);
+    try {
+      if (typeof lookupPatient !== "function") {
+        throw new Error("Patient lookup is not configured");
       }
 
+      const found = await lookupPatient(query);
+      setPatient(found);
+    } catch (e) {
+      setError(e.message || "Patient not found. Please register patient first.");
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
-  const handleCreateAppointment = () => {
+  const handleCreateAppointment = async () => {
+    if (!patient) {
+      setNotification({ type: "error", message: "Please search and select a patient first." });
+      return;
+    }
+
     if (!appointment.date || !appointment.time || !appointment.dentist) {
       setNotification({
         type: "error",
@@ -105,9 +109,18 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     setIsSubmitting(true);
     setNotification(null);
 
-    // ⏳ Fake API delay
-    setTimeout(() => {
-      try {
+    try {
+      // ✅ Prefer DB create
+      if (typeof createAppointment === "function") {
+        await createAppointment({
+          patientId: patient.id,         // PT-0001
+          dentistId: appointment.dentist, // dentist publicId
+          date: appointment.date,
+          time: appointment.time,
+          reason: appointment.reason,
+        });
+      } else {
+        // fallback to local add if DB method not present
         addAppointment({
           mr: patient.mr,
           patientName: patient.name,
@@ -116,24 +129,24 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
           time: appointment.time,
           reason: appointment.reason,
         });
-
-        setNotification({
-          type: "success",
-          message: `Appointment booked successfully for ${patient.name}.`,
-        });
-
-        setTimeout(() => {
-          resetState();
-          onOpenChange(false);
-        }, 1500);
-      } catch {
-        setNotification({
-          type: "error",
-          message: "Failed to create appointment. Please try again.",
-        });
-        setIsSubmitting(false);
       }
-    }, 1500);
+
+      setNotification({
+        type: "success",
+        message: `Appointment booked successfully for ${patient.name}.`,
+      });
+
+      setTimeout(() => {
+        resetState();
+        onOpenChange(false);
+      }, 900);
+    } catch (e) {
+      setNotification({
+        type: "error",
+        message: e.message || "Failed to create appointment. Please try again.",
+      });
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -151,16 +164,17 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
 
         {/* Search Patient */}
         <div className="space-y-2">
-          <Label>Search Patient (MR or Phone)</Label>
+          <Label>Search Patient (MR / PT-0001 / Phone)</Label>
           <div className="flex gap-2">
             <Input
-              placeholder="e.g. 1 or +923001234567"
+              placeholder="e.g. 1 or PT-0001 or 03001234567"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              disabled={loading || isSubmitting}
             />
             <Button
               onClick={handleSearch}
-              disabled={!query || loading}
+              disabled={!query || loading || isSubmitting}
               className="bg-[#2ec4b6] hover:bg-[#26a699]"
             >
               {loading ? (
@@ -170,7 +184,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
               )}
             </Button>
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error ? <p className="text-sm text-red-500">{error}</p> : null}
         </div>
 
         {/* Patient Found */}
@@ -182,7 +196,9 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                 <div className="text-sm">
                   <p className="font-semibold">{patient.name}</p>
                   <p className="text-gray-500">
-                    MR: {patient.mr} • {patient.gender}, {patient.age}
+                    ID: {patient.id}
+                    {patient.mr ? ` • MR: ${patient.mr}` : ""} • {patient.gender},{" "}
+                    {patient.age}
                   </p>
                   <p className="text-gray-500 flex items-center gap-1">
                     <Phone size={14} />
@@ -202,6 +218,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                   onChange={(e) =>
                     setAppointment({ ...appointment, date: e.target.value })
                   }
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -213,6 +230,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                   onChange={(e) =>
                     setAppointment({ ...appointment, time: e.target.value })
                   }
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -223,13 +241,18 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                   onValueChange={(value) =>
                     setAppointment({ ...appointment, dentist: value })
                   }
+                  disabled={isSubmitting || dentistLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select dentist" />
+                    <SelectValue
+                      placeholder={
+                        dentistLoading ? "Loading dentists..." : "Select dentist"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {dentists.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.name}>
+                    {(dentists || []).map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id}>
                         {doc.name} — {doc.specialization}
                       </SelectItem>
                     ))}
@@ -243,11 +266,9 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                   placeholder="Consultation, pain, follow-up..."
                   value={appointment.reason}
                   onChange={(e) =>
-                    setAppointment({
-                      ...appointment,
-                      reason: e.target.value,
-                    })
+                    setAppointment({ ...appointment, reason: e.target.value })
                   }
+                  disabled={isSubmitting}
                 />
               </div>
             </div>

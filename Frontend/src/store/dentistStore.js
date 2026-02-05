@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { dentistApi } from "@/lib/dentistApi";
+import { receptionistApi } from "@/lib/receptionistApi";
 
 export const useDentistStore = create((set) => ({
   loading: false,
@@ -28,5 +29,18 @@ export const useDentistStore = create((set) => ({
 
   changePassword: async ({ currentPassword, newPassword }) => {
     await dentistApi.changePassword({ currentPassword, newPassword });
+  },
+
+    // ✅ ADD (used by receptionist modal)
+  fetchAllDentists: async () => {
+    try {
+      set({ loading: true, error: null });
+      const res = await receptionistApi.getDentists();
+      set({ dentists: res.data || [], loading: false });
+      return res.data || [];
+    } catch (e) {
+      set({ error: e.message, loading: false });
+      return [];
+    }
   },
 }));

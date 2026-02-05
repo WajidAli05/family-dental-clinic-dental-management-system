@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/User.model.js";
 import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
@@ -10,11 +11,24 @@ const pick = (obj, keys) =>
     return acc;
   }, {});
 
+  const isObjectId = (v) => mongoose.Types.ObjectId.isValid(String(v));
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const normalizeStatus = (s) => String(s || "").trim().toLowerCase();
 const pad = (n, width = 4) => String(n).padStart(width, "0");
+const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, ""); // digits only
 
+async function generateAppointmentPublicId() {
+  let n = (await Appointment.countDocuments({})) + 1;
+
+  while (true) {
+    const publicId = `AP-${pad(n)}`;
+    const exists = await Appointment.exists({ publicId });
+    if (!exists) return publicId;
+    n += 1;
+  }
+}
 // -------------------- ME --------------------
 export async function receptionistGetMe(receptionistId) {
   const user = await User.findById(receptionistId).lean();
@@ -244,56 +258,154 @@ export async function receptionistCreatePatient(_user, body) {
   };
 }
 
-// Minimal appointment creation: expects patientId + dentistId + date + time (+reason)
+// ---------- DENTISTS LIST ----------
+export async function receptionistGetDentists(_receptionistId) {
+  const rows = await User.find({ role: "dentist" })
+    .select("name publicId specialization available")
+    .sort({ name: 1 })
+    .lean();
+
+  return rows.map((d) => ({
+    id: d.publicId || String(d._id),
+    name: d.name || "",
+    specialization: d.specialization || "",
+    available: d.available ?? true,
+  }));
+}
+
+// ---------- PATIENT LOOKUP (MR/publicId/phone) ----------
+export async function receptionistLookupPatient(_receptionistId, { q } = {}) {
+  const needle = String(q || "").trim();
+  if (!needle) throw new Error("q is required");
+
+  // match MR (number), publicId (PT-0001), or phone
+  const phoneDigits = cleanPhone(needle);
+
+  const or = [];
+
+  // publicId exact
+  if (/^PT-\d+$/i.test(needle)) {
+    or.push({ publicId: needle.toUpperCase() });
+  }
+
+  // MR as number (if schema has mr)
+  if (/^\d+$/.test(needle)) {
+    or.push({ mr: Number(needle) });
+    // also try publicId from MR (PT-0001 style) as fallback:
+    or.push({ publicId: `PT-${String(needle).padStart(4, "0")}` });
+  }
+
+  // phone search: try full digits match
+  if (phoneDigits.length >= 10) {
+    // store might include +92/0 — we search by regex on digits
+    // If phone stored with formatting, prefer exact raw match too
+    or.push({ phone: { $regex: phoneDigits.slice(-10) } });
+    or.push({ phone: { $regex: phoneDigits } });
+  }
+
+  // fallback name search (optional)
+  or.push({ name: { $regex: needle, $options: "i" } });
+
+  const patient = await Patient.findOne({ $or: or }).lean();
+  if (!patient) throw new Error("Patient not found. Please register patient first.");
+
+  return {
+    id: patient.publicId || String(patient.mr || patient._id),
+    mr: patient.mr ?? null,
+    name: patient.name || "",
+    gender: patient.gender || "",
+    age: patient.age ?? "",
+    phone: patient.phone || "",
+    address: patient.address || "",
+    lastVisit: patient.lastVisit || "",
+    original: patient,
+  };
+}
+
+// ---------- CREATE APPOINTMENT ----------
 export async function receptionistCreateAppointment(_user, body) {
-  const payload = pick(body || {}, ["patientId", "dentistId", "date", "time", "reason"]);
+  const date = String(body?.date || "").trim();
+  const time = String(body?.time || "").trim();
+  const reason = String(body?.reason || "").trim();
 
-  if (!payload.patientId) throw new Error("patientId is required");
-  if (!payload.dentistId) throw new Error("dentistId is required");
-  if (!payload.date) payload.date = todayISO();
-  if (!payload.time) throw new Error("time is required");
+  const patientKey = body?.patientId || body?.mr || body?.phone;
+  const dentistKey = body?.dentistId || body?.dentist || body?.dentistName;
 
-  // NOTE: your Appointment schema likely uses ObjectId refs; if you use publicId in FE,
-  // we should resolve publicId -> _id here. If your FE sends _id already, this works as-is.
-  // We'll handle both defensively:
-  const patient = await Patient.findOne({
-    $or: [{ _id: payload.patientId }, { publicId: payload.patientId }],
-  });
+  if (!patientKey) throw new Error("patientId (or mr/phone) is required");
+  if (!dentistKey) throw new Error("dentistId (or dentist) is required");
+  if (!date) throw new Error("date is required");
+  if (!time) throw new Error("time is required");
+
+  // ✅ PATIENT: support ObjectId OR publicId OR mr OR phone
+  const patientOr = [];
+
+  if (isObjectId(patientKey)) patientOr.push({ _id: patientKey });
+
+  // if frontend sends PT-0012
+  patientOr.push({ publicId: String(patientKey).toUpperCase() });
+
+  // MR numeric
+  if (/^\d+$/.test(String(patientKey))) {
+    patientOr.push({ mr: Number(patientKey) });
+    patientOr.push({ publicId: `PT-${String(patientKey).padStart(4, "0")}` });
+  }
+
+  // phone
+  patientOr.push({ phone: String(patientKey) });
+
+  const patient = await Patient.findOne({ $or: patientOr });
   if (!patient) throw new Error("Patient not found");
 
-  const dentist = await User.findOne({
-    $or: [{ _id: payload.dentistId }, { publicId: payload.dentistId }],
-    role: "dentist",
-  });
+  // ✅ DENTIST: support ObjectId OR publicId OR name
+  const dentistOr = [];
+  if (isObjectId(dentistKey)) dentistOr.push({ _id: dentistKey });
+  dentistOr.push({ publicId: String(dentistKey) });
+  dentistOr.push({ name: String(dentistKey) });
+
+  const dentist = await User.findOne({ role: "dentist", $or: dentistOr });
   if (!dentist) throw new Error("Dentist not found");
 
-  const appt = await Appointment.create({
-    patient: patient._id,
+  // ✅ prevent double booking
+  const conflict = await Appointment.findOne({
     dentist: dentist._id,
-    date: payload.date,
-    time: payload.time,
-    reason: payload.reason || "",
-    status: "scheduled",
+    date,
+    time,
+    status: { $ne: "cancelled" },
   });
+  if (conflict) throw new Error("Dentist already has an appointment at this time");
 
-  const populated = await Appointment.findById(appt._id)
-    .populate("patient", "name publicId mr")
-    .populate("dentist", "name publicId")
+  const publicId = await generateAppointmentPublicId();
+
+const created = await Appointment.create({
+  publicId,               // ✅ FIX: required by schema
+  patient: patient._id,
+  dentist: dentist._id,
+  date,
+  time,
+  reason,
+  status: "scheduled",
+});
+
+  const populated = await Appointment.findById(created._id)
+    .populate("patient", "name publicId mr phone gender age")
+    .populate("dentist", "name publicId specialization")
     .lean();
 
   return {
     id: populated.publicId,
-    patient: populated.patient?.name || "",
-    dentist: populated.dentist?.name || "",
-    time: populated.time || "",
-    status: "Scheduled",
-    date: populated.date,
+    mr: populated.patient?.mr ?? null,
     patientId: populated.patient?.publicId || "",
+    patientName: populated.patient?.name || "",
     dentistId: populated.dentist?.publicId || "",
+    dentist: populated.dentist?.name || "",
+    specialization: populated.dentist?.specialization || "",
+    date: populated.date,
+    time: populated.time,
     reason: populated.reason || "",
+    status: populated.status,
+    original: populated,
   };
 }
-
 
 function calcAge(dob) {
   if (!dob) return null;

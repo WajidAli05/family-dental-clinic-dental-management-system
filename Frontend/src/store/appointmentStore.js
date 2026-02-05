@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { dentistApi } from "@/lib/dentistApi";
+import { receptionistApi } from "@/lib/receptionistApi";
 
 export const useAppointmentStore = create((set, get) => ({
   loading: false,
@@ -30,6 +31,28 @@ export const useAppointmentStore = create((set, get) => ({
       set({ appointments: rows, loading: false });
     } catch (e) {
       set({ error: e.message, loading: false });
+    }
+  },
+
+    // ✅ ADD: keep existing UI expectations
+  addAppointment: (row) =>
+    set((state) => ({
+      appointments: [row, ...state.appointments],
+    })),
+
+  // ✅ ADD: create in DB (used by receptionist)
+  createAppointment: async (payload) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await receptionistApi.createAppointment(payload); // { success, data }
+      set((state) => ({
+        appointments: [res.data, ...state.appointments],
+        loading: false,
+      }));
+      return res.data;
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
     }
   },
 }));

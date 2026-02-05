@@ -9,6 +9,8 @@ import {
   receptionistCreateAppointment,
     receptionistGetPatients,
   receptionistGetPatientStats,
+    receptionistGetDentists,
+  receptionistLookupPatient,
 } from "../services/receptionist.service.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -78,6 +80,25 @@ export const createReceptionistPatient = async (req, res) => {
   try {
     const created = await receptionistCreatePatient(req.user, req.body);
     return res.json({ success: true, data: created });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getReceptionistDentists = async (req, res) => {
+  try {
+    const rows = await receptionistGetDentists(req.user._id);
+    return res.json({ success: true, data: rows });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const lookupReceptionistPatient = async (req, res) => {
+  try {
+    const { q } = req.query;
+    const row = await receptionistLookupPatient(req.user._id, { q });
+    return res.json({ success: true, data: row });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }

@@ -362,4 +362,9 @@ fetchPatientStats: async () => {
     return null;
   }
 },
+
+lookupPatient: async (q) => {
+  const res = await receptionistApi.lookupPatient({ q });
+  return res.data; // patient object
+},
 }));

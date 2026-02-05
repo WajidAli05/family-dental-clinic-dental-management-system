@@ -10,6 +10,8 @@ import {
   createReceptionistAppointment,
     getReceptionistPatients,
   getReceptionistPatientStats,
+  getReceptionistDentists,
+  lookupReceptionistPatient,
 } from "../../controllers/receptionist.controller.js";
 
 const router = express.Router();
@@ -31,5 +33,8 @@ router.post("/appointments", createReceptionistAppointment);
 // Patients
 router.get("/patients", getReceptionistPatients);
 router.get("/patients/stats", getReceptionistPatientStats);
+
+router.get("/dentists", getReceptionistDentists);
+router.get("/patients/lookup", lookupReceptionistPatient);
 
 export default router;

@@ -50,4 +50,8 @@ export const receptionistApi = {
     getPatients: (params) => request("/receptionist/patients", { params }),
     getPatientStats: () => request("/receptionist/patients/stats"),
     createPatient: (body) => request("/receptionist/patients", { method: "POST", body }),
+    getDentists: () => request("/receptionist/dentists"),
+lookupPatient: (params) => request("/receptionist/patients/lookup", { params }),
+createAppointment: (body) =>
+  request("/receptionist/appointments", { method: "POST", body }),
 };
