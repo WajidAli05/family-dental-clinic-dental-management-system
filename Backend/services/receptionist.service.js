@@ -5,6 +5,7 @@ import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
 import LabBill from "../models/LabBill.model.js";
 import SampleType from "../models/SampleType.model.js";
+import Invoice from "../models/Invoice.model.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -19,25 +20,6 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const normalizeStatus = (s) => String(s || "").trim().toLowerCase();
 const pad = (n, width = 4) => String(n).padStart(width, "0");
 const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, ""); // digits only
-
-// const toUiStatus = (s) => {
-//   const x = String(s || "").toLowerCase();
-//   if (x === "completed") return "Completed";
-//   if (x === "cancelled" || x === "canceled") return "Cancelled";
-//   if (x === "scheduled") return "Scheduled";
-//   if (x === "in_progress") return "In Progress";
-//   return s || "Scheduled";
-// };
-
-// const toDbStatus = (ui) => {
-//   const x = String(ui || "").toLowerCase();
-//   if (x === "completed") return "completed";
-//   if (x === "cancelled" || x === "canceled") return "cancelled";
-//   if (x === "scheduled") return "scheduled";
-//   if (x === "in progress" || x === "in_progress") return "in_progress";
-//   return "scheduled";
-// };
-
 
 // -------------------- STATUS MAPPERS --------------------
 
@@ -960,4 +942,264 @@ export async function receptionistGetSampleTypes(_receptionistId) {
     id: x.publicId || String(x._id),
     name: x.name || "",
   }));
+}
+
+//-------------------Billing and Payment----------------------//
+
+// -------------------- BILLING / INVOICES --------------------
+const monthISO = (d = new Date()) => {
+  const iso = new Date(d).toISOString().slice(0, 10); // YYYY-MM-DD
+  return iso.slice(0, 7); // YYYY-MM
+};
+
+const toUiInvoice = (inv) => {
+  const totalAmount = Number(inv.totalAmount || 0);
+  const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const paidAmount = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const status = paidAmount >= totalAmount ? "Paid" : paidAmount > 0 ? "Partial" : "Pending";
+
+  return {
+    id: inv.publicId,
+    mr: inv.patient?.mr ?? null,
+    patientName: inv.patient?.name || "",
+    date: inv.date,
+    totalAmount,
+    paidAmount,
+    status,
+    payments: payments.map((p) => ({
+      id: p.publicId,          // ✅ frontend expects id
+      amount: Number(p.amount || 0),
+      mode: p.mode,
+      date: p.date,
+    })),
+    original: inv,
+  };
+};
+
+async function generateInvoicePublicId() {
+  let n = (await Invoice.countDocuments({})) + 1001;
+  while (true) {
+    const publicId = `INV-${n}`;
+    const exists = await Invoice.exists({ publicId });
+    if (!exists) return publicId;
+    n += 1;
+  }
+}
+
+async function generatePaymentPublicId(invoice) {
+  const payments = Array.isArray(invoice?.payments) ? invoice.payments : [];
+  return `PAY-${payments.length + 1}`;
+}
+
+// ✅ CREATE INVOICE
+export async function receptionistCreateInvoice(_user, body) {
+  const date = String(body?.date || "").trim();
+  const totalAmount = Number(body?.totalAmount);
+
+  const patientKey = body?.patientId || body?.mr || body?.phone;
+  const dentistKey = body?.dentistId || body?.dentist || body?.dentistName; // optional
+
+  if (!patientKey) throw new Error("patientId (or mr/phone) is required");
+  if (!date) throw new Error("date is required");
+  if (!totalAmount || totalAmount <= 0) throw new Error("totalAmount must be > 0");
+
+  // find patient (supports publicId / mr / phone / objectId)
+  const patientOr = [];
+
+  if (isObjectId(patientKey)) patientOr.push({ _id: patientKey });
+  patientOr.push({ publicId: String(patientKey).toUpperCase() });
+
+  if (/^\d+$/.test(String(patientKey))) {
+    patientOr.push({ mr: Number(patientKey) });
+    patientOr.push({ publicId: `PT-${String(patientKey).padStart(4, "0")}` });
+  }
+
+  // phone
+  patientOr.push({ phone: String(patientKey) });
+
+  const patient = await Patient.findOne({ $or: patientOr });
+  if (!patient) throw new Error("Patient not found");
+
+  // dentist is optional, but if provided validate
+  let dentist = null;
+  if (dentistKey) {
+    const dentistOr = [];
+    if (isObjectId(dentistKey)) dentistOr.push({ _id: dentistKey });
+    dentistOr.push({ publicId: String(dentistKey) });
+    dentistOr.push({ name: String(dentistKey) });
+
+    dentist = await User.findOne({ role: "dentist", $or: dentistOr }).select("_id");
+    if (!dentist) throw new Error("Dentist not found");
+  }
+
+  const publicId = await generateInvoicePublicId();
+
+  const created = await Invoice.create({
+    publicId,
+    patient: patient._id,
+    dentist: dentist?._id,
+    date,
+    totalAmount,
+    payments: [],
+  });
+
+  const populated = await Invoice.findById(created._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
+    .lean();
+
+  return toUiInvoice(populated);
+}
+
+// ✅ LIST INVOICES
+export async function receptionistListInvoices(_receptionistId, { q, status } = {}) {
+  const filter = {};
+  // We filter status on the mapped UI side (because status is virtual)
+  // Search will also be applied after mapping.
+
+  const rows = await Invoice.find(filter)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
+    .sort({ date: -1, createdAt: -1 })
+    .lean({ virtuals: true });
+
+  let mapped = rows.map(toUiInvoice);
+
+  // status filter
+  if (status && status !== "All") {
+    const st = String(status).trim();
+    mapped = mapped.filter((x) => x.status === st);
+  }
+
+  // q filter
+  const needle = String(q || "").trim().toLowerCase();
+  if (needle) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.patientName} ${x.mr ?? ""} ${x.status} ${x.date}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }
+
+  return mapped;
+}
+
+// ✅ BILLING STATS (Invoices + LabBills merged)
+export async function receptionistBillingStats(_receptionistId, { month } = {}) {
+  const m = String(month || monthISO()).trim(); // "YYYY-MM"
+
+  // invoice stats for month
+  const invRows = await Invoice.find({ date: { $regex: `^${m}` } })
+    .lean({ virtuals: true });
+
+  const invMapped = invRows.map((inv) => {
+    const total = Number(inv.totalAmount || 0);
+    const payments = Array.isArray(inv.payments) ? inv.payments : [];
+    const paid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const status = paid >= total ? "Paid" : paid > 0 ? "Partial" : "Pending";
+    const outstanding = Math.max(0, total - paid);
+    return { status, outstanding };
+  });
+
+  const pending = invMapped.filter((x) => x.status === "Pending").length;
+  const partial = invMapped.filter((x) => x.status === "Partial").length;
+  const paid = invMapped.filter((x) => x.status === "Paid").length;
+  const outstanding = invMapped.reduce((s, x) => s + x.outstanding, 0);
+
+  // lab bills for month
+  const labRows = await LabBill.find({ month: m }).lean();
+  const labTotal = labRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  return {
+    month: m,
+    pending,
+    partial,
+    paid,
+    outstanding,
+    labTotal,
+    grandOutstanding: outstanding + labTotal,
+  };
+}
+
+// ✅ LIST LAB BILLS (month)
+export async function receptionistListLabBills(_receptionistId, { month } = {}) {
+  const m = String(month || monthISO()).trim();
+  const rows = await LabBill.find({ month: m }).sort({ createdAt: -1 }).lean();
+  const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  return { month: m, rows, total };
+}
+
+// ✅ ADD PAYMENT
+export async function receptionistAddInvoicePayment(_receptionistId, invoicePublicId, body) {
+  const amount = Number(body?.amount);
+  const mode = String(body?.mode || "").trim();
+  const date = String(body?.date || "").trim();
+
+  if (!amount || amount <= 0) throw new Error("amount must be > 0");
+  if (!mode) throw new Error("mode is required");
+  if (!date) throw new Error("date is required");
+
+  const inv = await Invoice.findOne({ publicId: invoicePublicId });
+  if (!inv) throw new Error("Invoice not found");
+
+  inv.payments = inv.payments || [];
+  inv.payments.push({
+    publicId: await generatePaymentPublicId(inv),
+    amount,
+    mode,
+    date,
+  });
+
+  await inv.save();
+
+  const populated = await Invoice.findById(inv._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
+    .lean({ virtuals: true });
+
+  return toUiInvoice(populated);
+}
+
+// ✅ UPDATE PAYMENT
+export async function receptionistUpdateInvoicePayment(_receptionistId, invoicePublicId, paymentPublicId, body) {
+  const amount = Number(body?.amount);
+  if (!amount || amount <= 0) throw new Error("amount must be > 0");
+
+  const inv = await Invoice.findOne({ publicId: invoicePublicId });
+  if (!inv) throw new Error("Invoice not found");
+
+  const p = (inv.payments || []).find((x) => x.publicId === paymentPublicId);
+  if (!p) throw new Error("Payment not found");
+
+  p.amount = amount;
+
+  await inv.save();
+
+  const populated = await Invoice.findById(inv._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
+    .lean({ virtuals: true });
+
+  return toUiInvoice(populated);
+}
+
+// ✅ DELETE PAYMENT
+export async function receptionistDeleteInvoicePayment(_receptionistId, invoicePublicId, paymentPublicId) {
+  const inv = await Invoice.findOne({ publicId: invoicePublicId });
+  if (!inv) throw new Error("Invoice not found");
+
+  const before = (inv.payments || []).length;
+  inv.payments = (inv.payments || []).filter((x) => x.publicId !== paymentPublicId);
+
+  if (inv.payments.length === before) throw new Error("Payment not found");
+
+  await inv.save();
+
+  const populated = await Invoice.findById(inv._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
+    .lean({ virtuals: true });
+
+  return toUiInvoice(populated);
 }

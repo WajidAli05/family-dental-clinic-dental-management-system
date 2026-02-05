@@ -23,6 +23,14 @@ import {
 
     receptionistGetLabs,
   receptionistGetSampleTypes,
+
+    receptionistListInvoices,
+  receptionistBillingStats,
+  receptionistListLabBills,
+  receptionistAddInvoicePayment,
+  receptionistUpdateInvoicePayment,
+  receptionistDeleteInvoicePayment,
+  receptionistCreateInvoice,
 } from "../services/receptionist.service.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -241,5 +249,75 @@ export const getReceptionistSampleTypes = async (req, res) => {
     return res.json({ success: true, data: rows });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const listInvoices = async (req, res) => {
+  try {
+    const data = await receptionistListInvoices(req.user._id, req.query);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const billingStats = async (req, res) => {
+  try {
+    const data = await receptionistBillingStats(req.user._id, req.query);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const listLabBills = async (req, res) => {
+  try {
+    const data = await receptionistListLabBills(req.user._id, req.query);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const addInvoicePayment = async (req, res) => {
+  try {
+    const data = await receptionistAddInvoicePayment(req.user._id, req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateInvoicePayment = async (req, res) => {
+  try {
+    const data = await receptionistUpdateInvoicePayment(
+      req.user._id,
+      req.params.id,
+      req.params.paymentId,
+      req.body
+    );
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const deleteInvoicePayment = async (req, res) => {
+  try {
+    const data = await receptionistDeleteInvoicePayment(req.user._id, req.params.id, req.params.paymentId);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+
+// ✅ optional: create invoice endpoint (for "add via UI")
+export const createInvoice = async (req, res) => {
+  try {
+    const data = await receptionistCreateInvoice(req.user._id, req.body);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
   }
 };

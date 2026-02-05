@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { receptionistBillingApi } from "@/lib/receptionistBillingApi";
 
 export const useBillingStore = create((set, get) => ({
   invoices: [
@@ -125,5 +126,91 @@ export const useBillingStore = create((set, get) => ({
     (inv) => inv.id === invoiceId
   );
   return invoice ? invoice.payments : [];
+},
+
+  /* ✅ NEW backend state */
+  loading: false,
+  error: null,
+  stats: null,          // merged stats (invoice + lab)
+  labBills: null,       // { month, rows, total }
+
+  fetchInvoices: async ({ q, status } = {}) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await receptionistBillingApi.listInvoices({
+        q,
+        status: status && status !== "All" ? status : undefined,
+      });
+      set({ invoices: res.data || [], loading: false });
+      return res.data || [];
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      return [];
+    }
+  },
+
+  fetchBillingStats: async ({ month } = {}) => {
+    try {
+      const res = await receptionistBillingApi.getStats(month ? { month } : undefined);
+      set({ stats: res.data });
+      return res.data;
+    } catch (e) {
+      set({ error: e.message });
+      return null;
+    }
+  },
+
+  fetchLabBills: async ({ month } = {}) => {
+    try {
+      const res = await receptionistBillingApi.listLabBills(month ? { month } : undefined);
+      set({ labBills: res.data });
+      return res.data;
+    } catch (e) {
+      set({ error: e.message });
+      return null;
+    }
+  },
+
+  // backend payment ops update the invoice in place
+  createPayment: async (invoiceId, payment) => {
+    const res = await receptionistBillingApi.addPayment(invoiceId, payment);
+    set((state) => ({
+      invoices: state.invoices.map((inv) => (inv.id === invoiceId ? res.data : inv)),
+    }));
+    return res.data;
+  },
+
+  editPayment: async (invoiceId, paymentId, amount) => {
+    const res = await receptionistBillingApi.updatePayment(invoiceId, paymentId, { amount });
+    set((state) => ({
+      invoices: state.invoices.map((inv) => (inv.id === invoiceId ? res.data : inv)),
+    }));
+    return res.data;
+  },
+
+  removePayment: async (invoiceId, paymentId) => {
+    const res = await receptionistBillingApi.deletePayment(invoiceId, paymentId);
+    set((state) => ({
+      invoices: state.invoices.map((inv) => (inv.id === invoiceId ? res.data : inv)),
+    }));
+    return res.data;
+  },
+
+  createInvoice: async (payload) => {
+  try {
+    set({ loading: true, error: null });
+    const res = await receptionistBillingApi.createInvoice(payload); // { success, data }
+
+    // insert new invoice at top
+    set((state) => ({
+      invoices: [res.data, ...(state.invoices || [])],
+      loading: false,
+    }));
+
+    return res.data;
+  } catch (e) {
+    set({ loading: false, error: e.message });
+    throw e;
+  }
 },
 }));

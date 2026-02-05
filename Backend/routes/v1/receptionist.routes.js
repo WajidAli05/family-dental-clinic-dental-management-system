@@ -21,7 +21,15 @@ import {
   deleteReceptionistLabSample,
 
   getReceptionistLabs,
-  getReceptionistSampleTypes
+  getReceptionistSampleTypes,
+
+  listInvoices,
+  billingStats,
+  listLabBills,
+  addInvoicePayment,
+  updateInvoicePayment,
+  deleteInvoicePayment,
+  createInvoice
 } from "../../controllers/receptionist.controller.js";
 
 const router = express.Router();
@@ -57,5 +65,14 @@ router.delete("/lab-samples/:id", deleteReceptionistLabSample);
 
 router.get("/labs", getReceptionistLabs);
 router.get("/sample-types", getReceptionistSampleTypes);
+
+router.get("/invoices", listInvoices);
+router.get("/billing/stats", billingStats);
+router.get("/lab-bills", listLabBills);
+
+router.post("/invoices/:id/payments", addInvoicePayment);
+router.patch("/invoices/:id/payments/:paymentId", updateInvoicePayment);
+router.delete("/invoices/:id/payments/:paymentId", deleteInvoicePayment);
+router.post("/invoices", createInvoice);
 
 export default router;
