@@ -7,6 +7,7 @@ import Wavify from "react-wavify";
 
 // Store
 import { useAppointmentStore } from "@/store/appointmentStore";
+import { useDentistStore } from "@/store/dentistStore";
 
 // Modals
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
@@ -26,6 +27,8 @@ const Appointments = () => {
     loading,
     error,
   } = useAppointmentStore();
+
+  const { fetchAllDentists } = useDentistStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [view, setView] = useState("list"); // list | calendar
@@ -48,6 +51,12 @@ const Appointments = () => {
 
     fetchAppointments(params);
   }, [fetchAppointments, filters.date, filters.dentist, filters.status]);
+
+  useEffect(() => {
+  if (typeof fetchAllDentists === "function") {
+    fetchAllDentists();
+  }
+}, [fetchAllDentists]);
 
   /* -------------------- FILTER LOGIC (keep) -------------------- */
   const filteredAppointments = useMemo(() => {
