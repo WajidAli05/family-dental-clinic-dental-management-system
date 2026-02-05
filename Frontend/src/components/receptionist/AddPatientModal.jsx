@@ -20,11 +20,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePatientStore } from "@/store/patientStore";
 import Wavify from "react-wavify";
-import { User, Phone, MapPin, Calendar, Mail, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import {
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  Mail,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from "lucide-react";
 
 const AddPatientModal = ({ open, onOpenChange }) => {
-  const { addPatient } = usePatientStore();
-  
+  // ✅ DO NOT remove addPatient (other dashboards may rely on it)
+  const { addPatient, createPatient, fetchPatients, fetchPatientStats } =
+    usePatientStore();
+
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -35,50 +46,39 @@ const AddPatientModal = ({ open, onOpenChange }) => {
   });
 
   const [errors, setErrors] = useState({});
-  const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: '' }
+  const [notification, setNotification] = useState(null); // { type, message }
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-    // Clear notification when user starts typing
-    if (notification) {
-      setNotification(null);
-    }
+
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+    if (notification) setNotification(null);
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
+    if (!formData.name.trim()) newErrors.name = "Name is required";
 
-    if (!formData.age || formData.age < 1 || formData.age > 120) {
+    const ageNum = Number(formData.age);
+    if (!formData.age || Number.isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
       newErrors.age = "Valid age is required (1-120)";
     }
 
-    if (!formData.gender) {
-      newErrors.gender = "Gender is required";
-    }
+    if (!formData.gender) newErrors.gender = "Gender is required";
 
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
     } else {
-      // Pakistani phone number validation
-      // Formats: +92 3XX XXXXXXX, 03XX XXXXXXX, 923XXXXXXXXX, 03XXXXXXXXX
       const pakistaniPhoneRegex = /^(\+92|0)?3[0-9]{2}[\s-]?[0-9]{7}$/;
-      const cleanPhone = formData.phone.replace(/[\s()-]/g, '');
-      
+      const cleanPhone = formData.phone.replace(/[\s()-]/g, "");
       if (!pakistaniPhoneRegex.test(cleanPhone)) {
-        newErrors.phone = "Invalid Pakistani phone number (e.g., 03XX XXXXXXX or +92 3XX XXXXXXX)";
+        newErrors.phone =
+          "Invalid Pakistani phone number (e.g., 03XX XXXXXXX or +92 3XX XXXXXXX)";
       }
     }
 
-    // Email validation (optional field)
     if (formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
@@ -86,66 +86,13 @@ const AddPatientModal = ({ open, onOpenChange }) => {
       }
     }
 
-    if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
-    }
+    if (!formData.address.trim()) newErrors.address = "Address is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      setNotification({
-        type: 'error',
-        message: 'Please fill in all required fields correctly.'
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Simulate API call delay for realistic loading experience
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      addPatient({
-        ...formData,
-        age: parseInt(formData.age),
-        lastVisit: new Date().toISOString().split('T')[0],
-      });
-
-      setNotification({
-        type: 'success',
-        message: `Patient ${formData.name} has been registered successfully!`
-      });
-
-      // Reset form after a delay
-      setTimeout(() => {
-        setFormData({
-          name: "",
-          age: "",
-          gender: "",
-          phone: "",
-          email: "",
-          address: "",
-        });
-        setErrors({});
-        setNotification(null);
-        setIsLoading(false);
-        onOpenChange(false);
-      }, 2000);
-
-    } catch (error) {
-      setIsLoading(false);
-      setNotification({
-        type: 'error',
-        message: 'Failed to register patient. Please try again.'
-      });
-    }
-  };
-
-  const handleCancel = () => {
+  const resetAndClose = () => {
     setFormData({
       name: "",
       age: "",
@@ -160,33 +107,81 @@ const AddPatientModal = ({ open, onOpenChange }) => {
     onOpenChange(false);
   };
 
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      setNotification({
+        type: "error",
+        message: "Please fill in all required fields correctly.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        ...formData,
+        age: parseInt(formData.age, 10),
+        lastVisit: new Date().toISOString().split("T")[0],
+      };
+
+      // ✅ Prefer DB create if available (new flow)
+      if (typeof createPatient === "function") {
+        await createPatient(payload);
+      } else {
+        // fallback to old local store behavior (won’t break other dashboards)
+        addPatient(payload);
+      }
+
+      setNotification({
+        type: "success",
+        message: `Patient ${formData.name} has been registered successfully!`,
+      });
+
+      // ✅ refresh list & stats if available
+      if (typeof fetchPatients === "function") await fetchPatients();
+      if (typeof fetchPatientStats === "function") await fetchPatientStats();
+
+      // close after a short delay so user sees success
+      setTimeout(() => {
+        resetAndClose();
+      }, 900);
+    } catch (error) {
+      setIsLoading(false);
+      setNotification({
+        type: "error",
+        message: error?.message || "Failed to register patient. Please try again.",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    if (isLoading) return;
+    resetAndClose();
+  };
+
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isLoading) {
+    if (e.key === "Enter" && !isLoading) {
       e.preventDefault();
       handleSubmit();
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen && !isLoading) {
-        handleCancel();
-      } else {
-        onOpenChange(isOpen);
-      }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen && !isLoading) handleCancel();
+        else onOpenChange(isOpen);
+      }}
+    >
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         {/* Header with Wave */}
         <div className="relative overflow-hidden rounded-t-lg -mx-6 -mt-6 mb-4">
           <Wavify
             fill="#2ec4b6"
             paused={false}
-            options={{
-              height: 15,
-              amplitude: 20,
-              speed: 0.2,
-              points: 3,
-            }}
+            options={{ height: 15, amplitude: 20, speed: 0.2, points: 3 }}
             className="absolute bottom-0 left-0 w-full opacity-20"
           />
           <DialogHeader className="relative z-10 p-6 pb-8">
@@ -217,9 +212,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.name && (
+            {errors.name ? (
               <p className="text-sm text-red-500">{errors.name}</p>
-            )}
+            ) : null}
           </div>
 
           {/* Age and Gender */}
@@ -243,9 +238,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   disabled={isLoading}
                 />
               </div>
-              {errors.age && (
+              {errors.age ? (
                 <p className="text-sm text-red-500">{errors.age}</p>
-              )}
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -257,9 +252,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 onValueChange={(value) => handleChange("gender", value)}
                 disabled={isLoading}
               >
-                <SelectTrigger
-                  className={errors.gender ? "border-red-500" : ""}
-                >
+                <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -268,9 +261,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.gender && (
+              {errors.gender ? (
                 <p className="text-sm text-red-500">{errors.gender}</p>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -291,9 +284,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.phone && (
+            {errors.phone ? (
               <p className="text-sm text-red-500">{errors.phone}</p>
-            )}
+            ) : null}
           </div>
 
           {/* Email */}
@@ -314,9 +307,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.email && (
+            {errors.email ? (
               <p className="text-sm text-red-500">{errors.email}</p>
-            )}
+            ) : null}
           </div>
 
           {/* Address */}
@@ -337,21 +330,21 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.address && (
+            {errors.address ? (
               <p className="text-sm text-red-500">{errors.address}</p>
-            )}
+            ) : null}
           </div>
 
-          {/* Notification Alert */}
-          {notification && (
-            <Alert 
+          {/* Notification */}
+          {notification ? (
+            <Alert
               className={`${
-                notification.type === 'success' 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
+                notification.type === "success"
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-red-50 border-red-200 text-red-800"
               }`}
             >
-              {notification.type === 'success' ? (
+              {notification.type === "success" ? (
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
               ) : (
                 <XCircle className="h-4 w-4 text-red-600" />
@@ -360,9 +353,9 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 {notification.message}
               </AlertDescription>
             </Alert>
-          )}
+          ) : null}
 
-          {/* Action Buttons */}
+          {/* Buttons */}
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
@@ -384,7 +377,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   Registering...
                 </>
               ) : (
-                'Register Patient'
+                "Register Patient"
               )}
             </Button>
           </div>

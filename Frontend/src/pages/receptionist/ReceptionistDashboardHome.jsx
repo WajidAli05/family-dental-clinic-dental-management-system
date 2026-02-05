@@ -1,21 +1,14 @@
-import { useState } from "react";
+// pages/receptionist/ReceptionistDashboardHome.jsx
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Calendar,
-  Users,
-  FlaskConical,
-  CreditCard,
-  User,
-  Plus,
-} from "lucide-react";
+import { Calendar, Users, FlaskConical, CreditCard, Plus } from "lucide-react";
 
 import { useReceptionistStore } from "@/store/receptionistStore";
-import { useAppointmentStore } from "@/store/appointmentStore";
 
 // Patient modal
 import AddPatientModal from "@/components/receptionist/AddPatientModal";
 
-// ✅ ADD THIS IMPORT
+// Appointment modal
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
 
 // Components
@@ -28,25 +21,35 @@ import { Button } from "@/components/ui/button";
 import Wave from "react-wavify";
 
 const ReceptionistDashboardHome = () => {
-  const { stats, appointments, labSamples } = useReceptionistStore();
-  const { getStats } = useAppointmentStore();
+  // ✅ Keep existing store state shape; only using/reading extra fields if present
+  const {
+    stats,
+    appointments,
+    labSamples,
+    fetchDashboard,
+    loading,
+    error,
+  } = useReceptionistStore();
 
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
-
-  // ✅ ADD THIS STATE
   const [isAddAppointmentOpen, setIsAddAppointmentOpen] = useState(false);
+
+  useEffect(() => {
+    // ✅ If fetchDashboard exists (after you add it), load real data.
+    // Otherwise the page will still render using seeded/dummy store values.
+    if (typeof fetchDashboard === "function") {
+      fetchDashboard();
+    }
+  }, [fetchDashboard]);
 
   return (
     <div className="space-y-8">
-
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6">
         <h1 className="text-2xl font-bold text-gray-900">
           Receptionist Dashboard
         </h1>
-        <p className="text-gray-500">
-          Daily clinic operations overview
-        </p>
+        <p className="text-gray-500">Daily clinic operations overview</p>
 
         <Wave
           fill="#2ec4b6"
@@ -61,12 +64,23 @@ const ReceptionistDashboardHome = () => {
         />
       </div>
 
+      {/* Error / Loading */}
+      {error ? (
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
+          Loading dashboard...
+        </div>
+      ) : null}
+
       {/* Quick Actions */}
       <Card className="rounded-2xl">
         <CardContent className="p-6">
-          <h2 className="text-lg font-semibold mb-4">
-            Quick Actions
-          </h2>
+          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
 
           <div className="flex flex-wrap gap-3">
             <Button
@@ -77,18 +91,12 @@ const ReceptionistDashboardHome = () => {
               Add Patient
             </Button>
 
-            {/* ✅ UPDATED: now opens modal */}
             <Button
               onClick={() => setIsAddAppointmentOpen(true)}
               className="bg-[#2ec4b6] hover:bg-[#26a699] text-white"
             >
               <Calendar className="w-4 h-4 mr-2" />
               Book Appointment
-            </Button>
-
-            <Button className="bg-[#2ec4b6] hover:bg-[#26a699] text-white">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Create Invoice
             </Button>
           </div>
         </CardContent>
@@ -98,22 +106,23 @@ const ReceptionistDashboardHome = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Appointments Today"
-          value={stats.appointmentsToday}
+          value={stats?.appointmentsToday ?? 0}
           icon={Calendar}
         />
+        {console.log(stats)}
         <StatCard
           title="Active Patients"
-          value={stats.activePatients}
+          value={stats?.activePatients ?? 0}
           icon={Users}
         />
         <StatCard
           title="Pending Lab Samples"
-          value={stats.pendingLabSamples}
+          value={stats?.pendingLabSamples ?? 0}
           icon={FlaskConical}
         />
         <StatCard
           title="Revenue Today (PKR)"
-          value={stats.todayRevenue}
+          value={stats?.todayRevenue ?? 0}
           icon={CreditCard}
         />
       </div>
@@ -122,35 +131,30 @@ const ReceptionistDashboardHome = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              Today’s Appointments
-            </h2>
-            <AppointmentsTable data={appointments} />
+            <h2 className="text-lg font-semibold mb-4">Today’s Appointments</h2>
+            <AppointmentsTable data={appointments || []} />
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              Lab Samples Status
-            </h2>
-            <LabSamplesTable data={labSamples} />
+            <h2 className="text-lg font-semibold mb-4">Lab Samples Status</h2>
+            <LabSamplesTable data={labSamples || []} />
           </CardContent>
         </Card>
       </div>
 
-      {/* Add Patient Modal (EXISTING) */}
+      {/* Add Patient Modal */}
       <AddPatientModal
         open={isAddPatientOpen}
         onOpenChange={setIsAddPatientOpen}
       />
 
-      {/* ✅ ADD Appointment Modal */}
+      {/* Add Appointment Modal */}
       <AddAppointmentModal
         open={isAddAppointmentOpen}
         onOpenChange={setIsAddAppointmentOpen}
       />
-
     </div>
   );
 };

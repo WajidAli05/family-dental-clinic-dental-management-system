@@ -2,6 +2,7 @@ import express from "express";
 import labRoutes from "./lab.routes.js";
 import dentistRoutes from "./dentist.routes.js";
 import authRoutes from "./auth.routes.js";
+import receptionistRoutes from "./receptionist.routes.js";
 import { auth } from "../../middlewares/auth.middleware.js";
 
 // ✅ Register all mongoose models once at startup
@@ -24,5 +25,7 @@ router.use("/lab", auth(["lab"]), labRoutes);
 
 // ✅ Enable dentist auth (same as lab)
 router.use("/dentist", auth(["dentist"]), dentistRoutes);
+
+router.use("/receptionist", auth(["receptionist"]), receptionistRoutes);
 
 export default router;

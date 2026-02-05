@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { receptionistApi } from "@/lib/receptionistApi";
 
 export const usePatientStore = create((set, get) => ({
   // Patient data
@@ -314,5 +315,51 @@ export const usePatientStore = create((set, get) => ({
       pendingLabSamples,
       totalRevenue
     };
+  },
+
+  loading: false,
+error: null,
+
+createPatient: async (payload) => {
+  try {
+    set({ loading: true, error: null });
+    const res = await receptionistApi.createPatient(payload); // { success, data }
+
+    // We can either refetch or optimistically add.
+    // Optimistic add keeps UI snappy and works even if list isn’t refetched yet:
+    set((state) => ({
+      patients: [res.data, ...state.patients],
+      loading: false,
+    }));
+
+    return res.data;
+  } catch (e) {
+    set({ loading: false, error: e.message });
+    throw e;
   }
+},
+
+fetchPatients: async ({ q } = {}) => {
+  try {
+    set({ loading: true, error: null });
+    const res = await receptionistApi.getPatients(q ? { q } : undefined);
+    set({ patients: res.data || [], loading: false });
+    return res.data || [];
+  } catch (e) {
+    set({ loading: false, error: e.message });
+    return [];
+  }
+},
+
+fetchPatientStats: async () => {
+  try {
+    const res = await receptionistApi.getPatientStats();
+    // store stats if you added stats previously
+    set({ stats: res.data });
+    return res.data;
+  } catch (e) {
+    set({ error: e.message });
+    return null;
+  }
+},
 }));
