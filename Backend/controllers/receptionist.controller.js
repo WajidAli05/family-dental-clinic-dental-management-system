@@ -13,6 +13,16 @@ import {
   receptionistLookupPatient,
     receptionistListAppointments,
   receptionistUpdateAppointmentStatus,
+
+    receptionistListLabSamples,
+  receptionistCreateLabSample,
+  receptionistUpdateLabSample,
+  receptionistUpdateLabSampleStatus,
+  receptionistDeliverLabSample,
+  receptionistDeleteLabSample,
+
+    receptionistGetLabs,
+  receptionistGetSampleTypes,
 } from "../services/receptionist.service.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -158,5 +168,78 @@ export const updateReceptionistAppointmentStatus = async (req, res) => {
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// export const getReceptionistLabSamples = async (req, res) => {
+//   try {
+//     const { status, q, date } = req.query;
+//     const rows = await receptionistListLabSamples(req.user._id, { status, q, date });
+//     return res.json({ success: true, data: rows });
+//   } catch (e) {
+//     return res.status(500).json({ success: false, message: e.message });
+//   }
+// };
+
+export const createReceptionistLabSample = async (req, res) => {
+  try {
+    const created = await receptionistCreateLabSample(req.user, req.body);
+    return res.json({ success: true, data: created });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateReceptionistLabSample = async (req, res) => {
+  try {
+    const updated = await receptionistUpdateLabSample(req.user, req.params.id, req.body);
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateReceptionistLabSampleStatus = async (req, res) => {
+  try {
+    const updated = await receptionistUpdateLabSampleStatus(req.user, req.params.id, req.body);
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const deliverReceptionistLabSample = async (req, res) => {
+  try {
+    const updated = await receptionistDeliverLabSample(req.user, req.params.id);
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const deleteReceptionistLabSample = async (req, res) => {
+  try {
+    const out = await receptionistDeleteLabSample(req.user, req.params.id);
+    return res.json({ success: true, data: out });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getReceptionistLabs = async (req, res) => {
+  try {
+    const rows = await receptionistGetLabs(req.user._id);
+    return res.json({ success: true, data: rows });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const getReceptionistSampleTypes = async (req, res) => {
+  try {
+    const rows = await receptionistGetSampleTypes(req.user._id);
+    return res.json({ success: true, data: rows });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 };

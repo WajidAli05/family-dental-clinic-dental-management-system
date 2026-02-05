@@ -58,4 +58,15 @@ createAppointment: (body) =>
 getAppointments: (params) => request("/receptionist/appointments", { params }),
 updateAppointmentStatus: (id, body) =>
   request(`/receptionist/appointments/${id}/status`, { method: "PATCH", body }),
+
+
+getLabSamples: (params) => request("/receptionist/lab-samples", { params }),
+createLabSample: (body) => request("/receptionist/lab-samples", { method: "POST", body }),
+updateLabSample: (id, body) => request(`/receptionist/lab-samples/${id}`, { method: "PATCH", body }),
+updateLabSampleStatus: (id, body) => request(`/receptionist/lab-samples/${id}/status`, { method: "PATCH", body }),
+deliverLabSample: (id) => request(`/receptionist/lab-samples/${id}/deliver`, { method: "PATCH" }),
+deleteLabSample: (id) => request(`/receptionist/lab-samples/${id}`, { method: "DELETE" }),
+
+getLabs: () => request("/receptionist/labs"),
+getSampleTypes: () => request("/receptionist/sample-types"),
 };

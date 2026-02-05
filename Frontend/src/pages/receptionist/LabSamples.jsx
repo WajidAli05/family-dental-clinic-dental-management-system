@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -16,6 +16,9 @@ import DeleteConfirmModal from "@/components/receptionist/DeleteConfirmModal";
 const LabSamples = () => {
   const {
     samples,
+    fetchSamples,
+    loading,
+    error,
     updateStatus,
     markDelivered,
     deleteSample,
@@ -31,10 +34,22 @@ const LabSamples = () => {
   const [editingSample, setEditingSample] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  const filteredSamples = samples.filter((s) => {
+  // ✅ fetch from backend
+  useEffect(() => {
+    if (typeof fetchSamples !== "function") return;
+
+    const params = {};
+    if (query) params.q = query;
+    if (status && status !== "All") params.status = status;
+
+    fetchSamples(params);
+  }, [fetchSamples, query, status]);
+
+  // local fallback filter (still ok even with server filtering)
+  const filteredSamples = (samples || []).filter((s) => {
     const matchesQuery =
-      s.patientName.toLowerCase().includes(query.toLowerCase()) ||
-      s.mr?.toString().includes(query);
+      String(s.patientName || "").toLowerCase().includes(query.toLowerCase()) ||
+      String(s.mr || "").includes(query);
 
     const matchesStatus = status === "All" || s.status === status;
 
@@ -56,6 +71,18 @@ const LabSamples = () => {
           <p className="text-gray-500">Track and manage lab work</p>
         </div>
       </div>
+
+      {error ? (
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
+          Loading lab samples...
+        </div>
+      ) : null}
 
       {/* Stats */}
       <LabSampleStats stats={stats} />
@@ -106,8 +133,8 @@ const LabSamples = () => {
       <DeleteConfirmModal
         open={!!deletingId}
         onClose={() => setDeletingId(null)}
-        onConfirm={() => {
-          deleteSample(deletingId);
+        onConfirm={async () => {
+          await deleteSample(deletingId);
           setDeletingId(null);
         }}
       />

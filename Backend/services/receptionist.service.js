@@ -4,6 +4,7 @@ import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
 import LabBill from "../models/LabBill.model.js";
+import SampleType from "../models/SampleType.model.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -19,23 +20,103 @@ const normalizeStatus = (s) => String(s || "").trim().toLowerCase();
 const pad = (n, width = 4) => String(n).padStart(width, "0");
 const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, ""); // digits only
 
-const toUiStatus = (s) => {
-  const x = String(s || "").toLowerCase();
-  if (x === "completed") return "Completed";
-  if (x === "cancelled" || x === "canceled") return "Cancelled";
-  if (x === "scheduled") return "Scheduled";
-  if (x === "in_progress") return "In Progress";
-  return s || "Scheduled";
-};
+// const toUiStatus = (s) => {
+//   const x = String(s || "").toLowerCase();
+//   if (x === "completed") return "Completed";
+//   if (x === "cancelled" || x === "canceled") return "Cancelled";
+//   if (x === "scheduled") return "Scheduled";
+//   if (x === "in_progress") return "In Progress";
+//   return s || "Scheduled";
+// };
 
-const toDbStatus = (ui) => {
-  const x = String(ui || "").toLowerCase();
-  if (x === "completed") return "completed";
-  if (x === "cancelled" || x === "canceled") return "cancelled";
-  if (x === "scheduled") return "scheduled";
-  if (x === "in progress" || x === "in_progress") return "in_progress";
+// const toDbStatus = (ui) => {
+//   const x = String(ui || "").toLowerCase();
+//   if (x === "completed") return "completed";
+//   if (x === "cancelled" || x === "canceled") return "cancelled";
+//   if (x === "scheduled") return "scheduled";
+//   if (x === "in progress" || x === "in_progress") return "in_progress";
+//   return "scheduled";
+// };
+
+
+// -------------------- STATUS MAPPERS --------------------
+
+// APPOINTMENTS
+function toDbAppointmentStatus(ui) {
+  const v = String(ui || "").trim().toLowerCase();
+
+  if (v === "scheduled") return "scheduled";
+  if (v === "checked in" || v === "checked_in") return "checked_in";
+  if (v === "completed") return "completed";
+  if (v === "cancelled" || v === "canceled") return "cancelled";
+  if (v === "no show" || v === "no_show") return "no_show";
+
+  // default safe:
   return "scheduled";
-};
+}
+
+function toUiAppointmentStatus(db) {
+  const v = String(db || "").trim().toLowerCase();
+
+  if (v === "scheduled") return "Scheduled";
+  if (v === "checked_in") return "Checked In";
+  if (v === "completed") return "Completed";
+  if (v === "cancelled" || v === "canceled") return "Cancelled";
+  if (v === "no_show") return "No Show";
+
+  return "Scheduled";
+}
+
+// LAB SAMPLES
+function toDbLabStatus(ui) {
+  const v = String(ui || "").trim().toLowerCase();
+  if (v === "sent") return "sent";
+  if (v === "in process" || v === "in_process" || v === "in-progress" || v === "in_progress")
+    return "in_progress";
+  if (v === "ready") return "ready";
+  if (v === "delivered") return "delivered";
+  if (v === "approved") return "approved";
+  if (v === "rejected") return "rejected";
+  if (v === "received") return "received";
+  return "sent";
+}
+
+function toUiLabStatus(db) {
+  const v = String(db || "").trim().toLowerCase();
+  if (v === "sent" || v === "received") return "Sent";
+  if (v === "in_progress" || v === "in-process") return "In Process";
+  if (v === "ready") return "Ready";
+  if (v === "delivered") return "Delivered";
+  if (v === "approved") return "Approved";
+  if (v === "rejected") return "Rejected";
+  return "Sent";
+}
+
+function mapCase(c) {
+  const teethArr = Array.isArray(c?.teeth)
+    ? c.teeth.map((t) => String(t).replace("#", "").trim()).filter(Boolean)
+    : [];
+
+  return {
+    id: c.publicId,
+
+    patientName: c.patient?.name || "",
+    dentistName: c.dentist?.name || "",
+    labName: c.lab?.name || "",
+
+    // ✅ THIS is what your store uses first
+    teeth: teethArr,
+
+    // ✅ store fallback uses x.tooth (string)
+    tooth: teethArr.map((t) => `#${t}`).join(", "),
+
+    status: c.status,
+    note: c.note || "",
+
+    // ✅ store uses x.date for sentDate
+    date: new Date(c.createdAt).toISOString().slice(0, 10),
+  };
+}
 
 async function generateAppointmentPublicId() {
   let n = (await Appointment.countDocuments({})) + 1;
@@ -171,31 +252,22 @@ function humanizeAppointmentStatus(status) {
 
 // -------------------- LAB SAMPLES (for home table) --------------------
 export async function receptionistGetLabSamples(_receptionistId, { date } = {}) {
-  // Home table doesn't show date, but we can optionally filter by today or show recent
   const d = date || todayISO();
 
-  const start = new Date(d);
-  const end = new Date(d);
-  end.setDate(end.getDate() + 1);
+  const start = new Date(`${d}T00:00:00.000Z`);
+  const end = new Date(`${d}T23:59:59.999Z`);
 
-  const rows = await LabCase.find({
-    createdAt: { $gte: start, $lt: end },
-  })
-    .populate("patient", "name publicId")
+  const rows = await LabCase.find({ createdAt: { $gte: start, $lt: end } })
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId specialization")
     .populate("lab", "name publicId")
     .populate("sampleType", "name publicId")
     .sort({ createdAt: -1 })
     .lean();
 
-  // ✅ match receptionist store shape: patient, sample, lab, status
-  return rows.map((c) => ({
-    id: c.publicId,
-    patient: c.patient?.name || "",
-    sample: c.sampleType?.name || "",
-    lab: c.lab?.name || "",
-    status: humanizeLabStatus(c.status),
-    original: c,
-  }));
+  // For home widget/table you can return mapCase or a smaller shape.
+  // Keeping mapCase is safe and consistent with your store mapping.
+  return rows.map(mapCase);
 }
 
 function humanizeLabStatus(status) {
@@ -599,7 +671,7 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     date: a.date,
     time: a.time,
     reason: a.reason || "",
-    status: toUiStatus(a.status),
+    status: toUiAppointmentStatus(a.status),
     original: a,
   }));
 
@@ -627,7 +699,7 @@ export async function receptionistUpdateAppointmentStatus(_receptionistId, apptP
   const uiStatus = String(status || "").trim();
   if (!uiStatus) throw new Error("status is required");
 
-  const dbStatus = toDbStatus(uiStatus);
+  const dbStatus = toDbAppointmentStatus(uiStatus);
 
   const appt = await Appointment.findOne({ publicId: apptPublicId });
   if (!appt) throw new Error("Appointment not found");
@@ -651,7 +723,241 @@ export async function receptionistUpdateAppointmentStatus(_receptionistId, apptP
     date: populated.date,
     time: populated.time,
     reason: populated.reason || "",
-    status: toUiStatus(populated.status),
+    status: toUiAppointmentStatus(populated.status),
     original: populated,
   };
+}
+
+
+
+// ---------- LIST ----------
+export async function receptionistListLabSamples(_receptionistId, { status, q, date } = {}) {
+  const filter = {}; // ✅ MUST exist
+
+  // ✅ Date filter (your schema does NOT have createdAtISO)
+  if (date) {
+    const d = String(date);
+    filter.createdAt = {
+      $gte: new Date(`${d}T00:00:00.000Z`),
+      $lt: new Date(`${d}T23:59:59.999Z`),
+    };
+  }
+
+if (status && status !== "All") filter.status = toDbLabStatus(status);
+
+  const rows = await LabCase.find(filter)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let mapped = rows.map((c) => mapCase(c));
+
+  const needle = String(q || "").trim().toLowerCase();
+  if (needle) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.patientName} ${x.dentistName} ${x.labName} ${x.tooth} ${x.status} ${x.note}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }
+
+  return mapped;
+}
+
+// ---------- CREATE ----------
+// Expected body (safe default):
+// { patientId (PT-0001), dentistId (DT-0001) OR dentistName, labId, sampleTypeId, teeth: [..], notes }
+export async function receptionistCreateLabSample(_user, body) {
+  const patientKey = String(body?.patientId || "").trim();
+  if (!patientKey) throw new Error("patientId is required");
+
+  // ✅ FIX: read teeth from body, sanitize, ensure array of strings
+  const teeth = (Array.isArray(body?.teeth) ? body.teeth : [])
+    .map((t) => String(t).replace("#", "").trim())
+    .filter(Boolean);
+
+  if (!teeth.length) throw new Error("teeth are required");
+
+  // ✅ FIX: schema field is `note`
+  const note = String(body?.notes || body?.note || "");
+
+  const dentistKey = body?.dentistId || body?.dentistName || body?.dentist;
+  const labKey = body?.labId || body?.lab;
+  const sampleTypeKey = body?.sampleTypeId || body?.sampleType;
+
+  if (!dentistKey) throw new Error("dentistId is required");
+  if (!labKey) throw new Error("labId is required");
+  if (!sampleTypeKey) throw new Error("sampleTypeId is required");
+
+  const patient = await Patient.findOne({ publicId: patientKey });
+  if (!patient) throw new Error("Patient not found");
+
+  const dentist = await User.findOne({
+    role: "dentist",
+    $or: [{ publicId: String(dentistKey) }, { name: String(dentistKey) }],
+  });
+  if (!dentist) throw new Error("Dentist not found");
+
+  const lab = await User.findOne({
+    role: "lab",
+    $or: [{ publicId: String(labKey) }, { name: String(labKey) }],
+  });
+  if (!lab) throw new Error("Lab not found");
+
+  const sampleType = await SampleType.findOne({
+    $or: [{ publicId: String(sampleTypeKey) }, { name: String(sampleTypeKey) }],
+  });
+  if (!sampleType) throw new Error("Sample type not found");
+
+  const created = await LabCase.create({
+    patient: patient._id,
+    dentist: dentist._id,
+    lab: lab._id,
+    sampleType: sampleType._id,
+    teeth,                 // ✅ correct
+    note,                  // ✅ correct (not notes)
+    status: "sent",
+    timeline: [
+      {
+        at: new Date(),     // ✅ Date not string
+        status: "sent",
+        note: "Created by receptionist",
+      },
+    ],
+  });
+
+  const populated = await LabCase.findById(created._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapCase(populated);
+}
+
+// ---------- EDIT ----------
+export async function receptionistUpdateLabSample(_user, casePublicId, body) {
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw new Error("Sample not found");
+
+  // ✅ update lab by publicId (dropdown sends labId)
+  if (body?.labId) {
+    const lab = await User.findOne({ role: "lab", publicId: String(body.labId) }).select("_id");
+    if (!lab) throw new Error("Lab not found");
+    c.lab = lab._id;
+  }
+
+  // ✅ update teeth (array required) + sanitize
+  if (body?.teeth !== undefined) {
+    if (!Array.isArray(body.teeth)) throw new Error("teeth must be an array");
+    c.teeth = body.teeth
+      .map((t) => String(t).replace("#", "").trim())
+      .filter(Boolean);
+  }
+
+  // ✅ your schema field is `note` (NOT notes)
+  if (body?.notes !== undefined) {
+    c.note = String(body.notes || "");
+  }
+
+  await c.save();
+
+  const populated = await LabCase.findById(c._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapCase(populated);
+}
+// ---------- STATUS UPDATE ----------
+export async function receptionistUpdateLabSampleStatus(_user, casePublicId, body) {
+  const uiStatus = String(body?.status || "").trim();
+  if (!uiStatus) throw new Error("status is required");
+
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw new Error("Sample not found");
+
+  const dbStatus = toDbLabStatus(uiStatus);
+  c.status = dbStatus;
+  c.timeline = c.timeline || [];
+c.timeline.push({
+  at: new Date(),
+  status: dbStatus,
+  note: `Updated by receptionist`,
+});
+
+  await c.save();
+
+  const populated = await LabCase.findById(c._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapCase(populated);
+}
+
+// ---------- DELIVER ----------
+export async function receptionistDeliverLabSample(_user, casePublicId) {
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw new Error("Sample not found");
+
+  c.status = "delivered";
+  c.timeline = c.timeline || [];
+c.timeline.push({
+  at: new Date(),
+  status: "delivered",
+  note: "Marked delivered by receptionist",
+});
+
+  await c.save();
+
+  const populated = await LabCase.findById(c._id)
+    .populate("patient", "name publicId mr phone")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapCase(populated);
+}
+
+// ---------- DELETE ----------
+export async function receptionistDeleteLabSample(_user, casePublicId) {
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw new Error("Sample not found");
+
+  await LabCase.deleteOne({ _id: c._id });
+  return { message: "Deleted", id: casePublicId };
+}
+
+export async function receptionistGetLabs(_receptionistId) {
+  const rows = await User.find({ role: "lab" })
+    .select("name publicId")
+    .sort({ name: 1 })
+    .lean();
+
+  return rows.map((x) => ({
+    id: x.publicId || String(x._id),
+    name: x.name || "",
+  }));
+}
+
+export async function receptionistGetSampleTypes(_receptionistId) {
+  const rows = await SampleType.find({})
+    .select("name publicId")
+    .sort({ name: 1 })
+    .lean();
+
+  return rows.map((x) => ({
+    id: x.publicId || String(x._id),
+    name: x.name || "",
+  }));
 }

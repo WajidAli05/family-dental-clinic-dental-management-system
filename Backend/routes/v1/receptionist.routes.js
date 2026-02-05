@@ -5,14 +5,23 @@ import {
   changeReceptionistPassword,
   getReceptionistStats,
   getReceptionistAppointments,
-  getReceptionistLabSamples,
   createReceptionistPatient,
   createReceptionistAppointment,
     getReceptionistPatients,
   getReceptionistPatientStats,
   getReceptionistDentists,
   lookupReceptionistPatient,
-  updateReceptionistAppointmentStatus
+  updateReceptionistAppointmentStatus,
+
+    getReceptionistLabSamples,
+  createReceptionistLabSample,
+  updateReceptionistLabSample,
+  updateReceptionistLabSampleStatus,
+  deliverReceptionistLabSample,
+  deleteReceptionistLabSample,
+
+  getReceptionistLabs,
+  getReceptionistSampleTypes
 } from "../../controllers/receptionist.controller.js";
 
 const router = express.Router();
@@ -25,7 +34,6 @@ router.patch("/me/password", changeReceptionistPassword);
 // dashboard
 router.get("/stats", getReceptionistStats);
 router.get("/appointments", getReceptionistAppointments);
-router.get("/lab-samples", getReceptionistLabSamples);
 
 // quick actions (modals)
 router.post("/patients", createReceptionistPatient);
@@ -39,5 +47,15 @@ router.get("/dentists", getReceptionistDentists);
 router.get("/patients/lookup", lookupReceptionistPatient);
 
 router.patch("/appointments/:id/status", updateReceptionistAppointmentStatus);
+
+router.get("/lab-samples", getReceptionistLabSamples);
+router.post("/lab-samples", createReceptionistLabSample);
+router.patch("/lab-samples/:id", updateReceptionistLabSample);
+router.patch("/lab-samples/:id/status", updateReceptionistLabSampleStatus);
+router.patch("/lab-samples/:id/deliver", deliverReceptionistLabSample);
+router.delete("/lab-samples/:id", deleteReceptionistLabSample);
+
+router.get("/labs", getReceptionistLabs);
+router.get("/sample-types", getReceptionistSampleTypes);
 
 export default router;
