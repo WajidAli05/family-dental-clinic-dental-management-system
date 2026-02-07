@@ -18,6 +18,7 @@ import LabSamplesTable from "@/components/receptionist/LabSamplesTable";
 const ReceptionistDashboardHome = () => {
   const { stats, appointments, labSamples, fetchDashboard, loading, error } =
     useReceptionistStore();
+    console.log(appointments)
 
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [isAddAppointmentOpen, setIsAddAppointmentOpen] = useState(false);
@@ -26,34 +27,46 @@ const ReceptionistDashboardHome = () => {
     if (typeof fetchDashboard === "function") fetchDashboard();
   }, [fetchDashboard]);
 
-  // ✅ Adapt backend appointments => AppointmentsTable expects:
-  // { id, patientName, dentist, date, time, status }
-  const apptRows = useMemo(() => {
-    return (appointments || []).map((a) => ({
-      id: a.id || a.publicId || a._id,
-      patientName: a.patientName || a.patient || "",
-      dentist: a.dentist || a.dentistName || "",
-      date: a.date || "",
-      time: a.time || "",
-      status: a.status || "Scheduled",
-    }));
-  }, [appointments]);
+// ✅ LOCAL date (same fix we used in store)
+const localISODate = (d = new Date()) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
-  // ✅ Adapt backend lab samples => LabSamplesTable expects:
-  // { patient, sample, lab, status }
-  const labRows = useMemo(() => {
-    return (labSamples || []).map((x) => ({
-      patient: x.patient || x.patientName || "",
-      sample:
-        x.sample ||
-        x.sampleType ||
-        x.sampleTypeName ||
-        x.sampleType?.name ||
-        "—",
-      lab: x.lab || x.labName || "",
-      status: x.status || "Sent",
-    }));
-  }, [labSamples]);
+const apptRows = useMemo(() => {
+  const today = localISODate();
+
+  const mapped = (appointments || []).map((a) => ({
+    id: a.id || a.publicId || a._id,
+    patientName: a.patientName || a.patient || a.patient?.name || "",
+    dentist: a.dentist || a.dentistName || a.dentist?.name || "",
+    date: a.date || "",
+    time: a.time || "",
+    status: a.status || "Scheduled",
+  }));
+
+  // ✅ Only filter when date exists.
+  // If backend already filtered by date (it does), mapped is already "today".
+  const filtered = mapped.filter((x) => !x.date || x.date === today);
+
+  return filtered;
+}, [appointments]);
+
+const labRows = useMemo(() => {
+  return (labSamples || []).map((x) => ({
+    patient: x.patient || x.patientName || x.patient?.name || "",
+    sample:
+      x.sample ||
+      x.sampleType ||
+      x.sampleTypeName ||
+      x.sampleType?.name ||
+      "—",
+    lab: x.lab || x.labName || x.lab?.name || "",
+    status: x.status || "Sent",
+  }));
+}, [labSamples]);
 
   // ✅ Use existing table actions (Complete/Cancel) without changing the component
   const handleComplete = async (id) => {

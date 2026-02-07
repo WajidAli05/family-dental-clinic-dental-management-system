@@ -98,6 +98,24 @@
 import { create } from "zustand";
 import { receptionistApi } from "@/lib/receptionistApi";
 
+// ✅ LOCAL date (fixes timezone issues caused by toISOString() UTC)
+const localISODate = (d = new Date()) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// ✅ normalize appointment row for dashboard usage
+const normalizeAppt = (a) => ({
+  id: a?.id || a?.publicId || a?._id || "",
+  patientName: a?.patientName || a?.patient || a?.patient?.name || "",
+  dentist: a?.dentist || a?.dentistName || a?.dentist?.name || "",
+  date: a?.date || "",
+  time: a?.time || "",
+  status: a?.status || "Scheduled",
+});
+
 export const useReceptionistStore = create((set, get) => ({
   // ✅ dashboard expects these keys
   stats: {
@@ -107,7 +125,6 @@ export const useReceptionistStore = create((set, get) => ({
     todayRevenue: 0,
   },
 
-  // ✅ keep seeded demo so UI doesn't look empty before backend works
   appointments: [],
   labSamples: [],
 
@@ -118,7 +135,8 @@ export const useReceptionistStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const d = date || new Date().toISOString().slice(0, 10);
+      // ✅ IMPORTANT: use local date, not UTC
+      const d = date || localISODate();
 
       const [statsRes, apptRes, labRes] = await Promise.all([
         receptionistApi.getStats({ date: d }),
@@ -126,9 +144,27 @@ export const useReceptionistStore = create((set, get) => ({
         receptionistApi.getLabSamples({ date: d }),
       ]);
 
+      // ✅ normalize appointments to avoid UI mapping issues
+      let appts = Array.isArray(apptRes?.data) ? apptRes.data.map(normalizeAppt) : [];
+
+      /**
+       * ✅ Fallback:
+       * If backend returns empty for a "date" query, it’s usually timezone/format mismatch.
+       * We do a second fetch without date to confirm and still show appointments.
+       */
+      if (!appts.length) {
+        try {
+          const apptResNoDate = await receptionistApi.getAppointments();
+          const all = Array.isArray(apptResNoDate?.data) ? apptResNoDate.data.map(normalizeAppt) : [];
+          appts = all.filter((x) => x.date === d); // still show today in UI
+        } catch {
+          // ignore fallback failure
+        }
+      }
+
       set({
         stats: statsRes?.data || get().stats,
-        appointments: apptRes?.data || [],
+        appointments: appts,
         labSamples: labRes?.data || [],
         loading: false,
       });
