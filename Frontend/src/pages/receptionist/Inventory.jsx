@@ -50,7 +50,7 @@ const Inventory = () => {
   // fallback local stats
   const stats = serverStats || getStats();
 
-  // fallback local filter (still useful)
+  // fallback local filter
   const filtered = useMemo(() => {
     const q = String(query || "").toLowerCase();
     return (items || []).filter((i) => {
@@ -79,19 +79,9 @@ const Inventory = () => {
           options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
           className="absolute bottom-0 left-0 w-full opacity-20"
         />
-        <div className="relative z-10 p-6 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Inventory</h1>
-            <p className="text-gray-500">View clinic supplies and stock levels</p>
-          </div>
-
-          <Button
-            onClick={() => setAddOpen(true)}
-            className="bg-[#2ec4b6] hover:bg-[#26a699]"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Item
-          </Button>
+        <div className="relative z-10 p-6">
+          <h1 className="text-2xl font-bold">Inventory</h1>
+          <p className="text-gray-500">View clinic supplies and stock levels</p>
         </div>
       </div>
 
@@ -100,21 +90,34 @@ const Inventory = () => {
       ) : null}
 
       {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">Loading inventory...</div>
+        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
+          Loading inventory...
+        </div>
       ) : null}
 
       {/* Stats */}
       <InventoryStats stats={stats} />
 
-      {/* Filters + Table */}
+      {/* Filters + Add Button + Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
-          <InventoryFilters
-            query={query}
-            setQuery={setQuery}
-            stockFilter={stockFilter}
-            setStockFilter={setStockFilter}
-          />
+          {/* Filters row + Add Button */}
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+            <InventoryFilters
+              query={query}
+              setQuery={setQuery}
+              stockFilter={stockFilter}
+              setStockFilter={setStockFilter}
+            />
+
+            <Button
+              onClick={() => setAddOpen(true)}
+              className="bg-[#2ec4b6] hover:bg-[#26a699] w-full lg:w-auto"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
 
           <InventoryTable
             data={filtered}
