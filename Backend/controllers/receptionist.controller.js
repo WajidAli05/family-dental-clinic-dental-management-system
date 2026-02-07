@@ -31,6 +31,12 @@ import {
   receptionistUpdateInvoicePayment,
   receptionistDeleteInvoicePayment,
   receptionistCreateInvoice,
+  // ✅ Inventory service functions (IMPORTANT)
+  receptionistListInventory,
+  receptionistInventoryStats,
+  receptionistCreateInventoryItem,
+  receptionistUpdateInventoryItem,
+  receptionistDeleteInventoryItem,
 } from "../services/receptionist.service.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -74,16 +80,6 @@ export const getReceptionistStats = async (req, res) => {
     return res.status(500).json({ success: false, message: e.message });
   }
 };
-
-// export const getReceptionistAppointments = async (req, res) => {
-//   try {
-//     const { date } = req.query;
-//     const rows = await receptionistGetAppointments(req.user._id, { date });
-//     return res.json({ success: true, data: rows });
-//   } catch (e) {
-//     return res.status(500).json({ success: false, message: e.message });
-//   }
-// };
 
 export const getReceptionistLabSamples = async (req, res) => {
   try {
@@ -178,16 +174,6 @@ export const updateReceptionistAppointmentStatus = async (req, res) => {
     return res.status(400).json({ success: false, message: e.message });
   }
 };
-
-// export const getReceptionistLabSamples = async (req, res) => {
-//   try {
-//     const { status, q, date } = req.query;
-//     const rows = await receptionistListLabSamples(req.user._id, { status, q, date });
-//     return res.json({ success: true, data: rows });
-//   } catch (e) {
-//     return res.status(500).json({ success: false, message: e.message });
-//   }
-// };
 
 export const createReceptionistLabSample = async (req, res) => {
   try {
@@ -316,6 +302,55 @@ export const deleteInvoicePayment = async (req, res) => {
 export const createInvoice = async (req, res) => {
   try {
     const data = await receptionistCreateInvoice(req.user._id, req.body);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const listInventory = async (req, res) => {
+  try {
+    const data = await receptionistListInventory(req.user?.id, req.query);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const inventoryStats = async (req, res) => {
+  try {
+    const data = await receptionistInventoryStats(req.user?.id);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const createInventoryItem = async (req, res) => {
+  try {
+    const data = await receptionistCreateInventoryItem(req.user?.id, req.body);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateInventoryItem = async (req, res) => {
+  try {
+    const data = await receptionistUpdateInventoryItem(
+      req.user?.id,
+      req.params.id,
+      req.body
+    );
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const deleteInventoryItem = async (req, res) => {
+  try {
+    const data = await receptionistDeleteInventoryItem(req.user?.id, req.params.id);
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

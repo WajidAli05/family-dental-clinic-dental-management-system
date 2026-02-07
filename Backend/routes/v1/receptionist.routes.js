@@ -29,7 +29,12 @@ import {
   addInvoicePayment,
   updateInvoicePayment,
   deleteInvoicePayment,
-  createInvoice
+  createInvoice,
+  listInventory,
+  inventoryStats,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem
 } from "../../controllers/receptionist.controller.js";
 
 const router = express.Router();
@@ -74,5 +79,11 @@ router.post("/invoices/:id/payments", addInvoicePayment);
 router.patch("/invoices/:id/payments/:paymentId", updateInvoicePayment);
 router.delete("/invoices/:id/payments/:paymentId", deleteInvoicePayment);
 router.post("/invoices", createInvoice);
+
+router.get("/inventory", listInventory);
+router.get("/inventory/stats", inventoryStats);
+router.post("/inventory", createInventoryItem);
+router.patch("/inventory/:id", updateInventoryItem);
+router.delete("/inventory/:id", deleteInventoryItem);
 
 export default router;
