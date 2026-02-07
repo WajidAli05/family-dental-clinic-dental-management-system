@@ -26,6 +26,7 @@ export default function LabSampleManagementTable({
 }) {
   return (
     <Table>
+      {console.log(data)}
       <TableHeader>
         <TableRow>
           <TableHead>Sample ID</TableHead>

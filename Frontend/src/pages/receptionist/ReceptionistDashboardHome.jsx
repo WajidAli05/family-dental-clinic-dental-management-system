@@ -169,10 +169,10 @@ const labRows = useMemo(() => {
       </div>
 
       {/* Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Today’s Appointments</h2>
+            <h2 className="text-lg font-semibold mb-4">Today's Appointments</h2>
 
             <div className="overflow-x-auto">
               <AppointmentsTable
@@ -184,7 +184,7 @@ const labRows = useMemo(() => {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl">
+        {/* <Card className="rounded-2xl">
           <CardContent className="p-6">
             <h2 className="text-lg font-semibold mb-4">Lab Samples Status</h2>
 
@@ -192,7 +192,7 @@ const labRows = useMemo(() => {
               <LabSamplesTable data={labRows} />
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Modals */}
