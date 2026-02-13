@@ -12,6 +12,7 @@ const ChangePasswordModal = ({ open, onOpenChange, onSubmit }) => {
   const [oldPass, setOldPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   /* Reset when modal closes */
   useEffect(() => {
@@ -19,10 +20,11 @@ const ChangePasswordModal = ({ open, onOpenChange, onSubmit }) => {
       setOldPass("");
       setNewPass("");
       setError("");
+      setSaving(false);
     }
   }, [open]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!oldPass || !newPass) {
       setError("All fields are required");
       return;
@@ -39,8 +41,21 @@ const ChangePasswordModal = ({ open, onOpenChange, onSubmit }) => {
     }
 
     setError("");
-    onSubmit(oldPass, newPass);
-    onOpenChange(false);
+    setSaving(true);
+
+    try {
+      // ✅ FIX: match store signature
+      await onSubmit({
+        currentPassword: oldPass,
+        newPassword: newPass,
+      });
+
+      onOpenChange(false);
+    } catch (e) {
+      setError(e?.message || "Failed to change password");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -55,6 +70,7 @@ const ChangePasswordModal = ({ open, onOpenChange, onSubmit }) => {
           placeholder="Current Password"
           value={oldPass}
           onChange={(e) => setOldPass(e.target.value)}
+          disabled={saving}
         />
 
         <Input
@@ -62,18 +78,17 @@ const ChangePasswordModal = ({ open, onOpenChange, onSubmit }) => {
           placeholder="New Password"
           value={newPass}
           onChange={(e) => setNewPass(e.target.value)}
+          disabled={saving}
         />
 
-        {error && (
-          <p className="text-sm text-red-500">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-500">{error}</p>}
 
         <Button
-          className="bg-[#2ec4b6]"
+          className="bg-[#2ec4b6] hover:bg-[#26a699]"
           onClick={handleSubmit}
-          disabled={!oldPass || !newPass}
+          disabled={!oldPass || !newPass || saving}
         >
-          Update Password
+          {saving ? "Updating..." : "Update Password"}
         </Button>
       </DialogContent>
     </Dialog>

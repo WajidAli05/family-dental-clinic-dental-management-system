@@ -139,4 +139,10 @@ export const receptionistApi = {
   // Labs / Sample Types
   getLabs: () => request("/receptionist/labs"),
   getSampleTypes: () => request("/receptionist/sample-types"),
+
+  // ✅ Profile
+getMe: () => request("/receptionist/me"),
+updateMe: (body) => request("/receptionist/me", { method: "PATCH", body }),
+changePassword: (body) =>
+  request("/receptionist/me/password", { method: "PATCH", body }),
 };

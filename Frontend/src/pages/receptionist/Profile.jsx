@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Wavify from "react-wavify";
 
-import { useProfileStore } from "@/store/profileStore";
+import { useReceptionistStore } from "@/store/receptionistStore";
 
 import ProfileHeader from "@/components/receptionist/ProfileHeader";
 import ProfileDetails from "@/components/receptionist/ProfileDetails";
@@ -11,16 +11,21 @@ import { Button } from "@/components/ui/button";
 const Profile = () => {
   const {
     profile,
-    stats,
+    fetchProfile,
     updateProfile,
     changePassword,
-  } = useProfileStore();
+    loading,
+    error,
+  } = useReceptionistStore();
 
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
 
+  useEffect(() => {
+    if (typeof fetchProfile === "function") fetchProfile();
+  }, [fetchProfile]);
+
   return (
     <div className="space-y-8">
-
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-white">
         <Wavify
@@ -31,22 +36,30 @@ const Profile = () => {
         />
         <div className="relative z-10 p-6">
           <h1 className="text-2xl font-bold">My Profile</h1>
-          <p className="text-gray-500">
-            Manage your account details
-          </p>
+          <p className="text-gray-500">Manage your account details</p>
         </div>
       </div>
+
+      {error ? (
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
+          Loading profile...
+        </div>
+      ) : null}
 
       <ProfileHeader profile={profile} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ProfileDetails profile={profile} />
+        {/* ✅ keep your component, but pass updateProfile so it can save if it supports it */}
+        <ProfileDetails profile={profile} onSave={updateProfile} />
       </div>
 
-      <Button
-        variant="outline"
-        onClick={() => setIsPasswordOpen(true)}
-      >
+      <Button variant="outline" onClick={() => setIsPasswordOpen(true)}>
         Change Password
       </Button>
 
