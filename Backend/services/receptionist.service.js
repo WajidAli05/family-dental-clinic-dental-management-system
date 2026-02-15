@@ -633,7 +633,7 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
 
   // Status filtering (UI uses "Completed"/"Cancelled"/"Scheduled")
   if (status && status !== "All") {
-    filter.status = toDbStatus(status);
+    filter.status = toDbAppointmentStatus(status);
   }
 
   // We'll filter by dentist NAME at the mapping stage (safer if dentist is populated)
