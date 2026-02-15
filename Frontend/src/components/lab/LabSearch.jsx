@@ -22,7 +22,7 @@ export default function LabSearch() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search by ID, Type, or Tooth No..."
-        className="pl-9 bg-white border border-gray-300"
+        className="pl-9 bg-white border border-gray-300 text-gray-900"
       />
     </div>
   );
