@@ -1,3 +1,4 @@
+// pages/receptionist/Billing.jsx
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,48 @@ import ConfirmDeleteDialog from "@/components/ConfirmDeleteDialog";
 import CreateInvoiceModal from "@/components/receptionist/CreateInvoiceModal";
 
 import { printInvoice } from "@/utils/printInvoice";
+
+/**
+ * ✅ Compute stats from live invoices so cards update immediately
+ * Keeps labTotal/month values from backend stats if present.
+ */
+const computeInvoiceStats = (rows = [], merged = null) => {
+  let pending = 0;
+  let partial = 0;
+  let paid = 0;
+  let outstanding = 0;
+
+  for (const inv of rows) {
+    const total = Number(inv.total ?? inv.totalAmount ?? 0) || 0;
+
+    const paidAmt =
+      Number(inv.paid ?? inv.paidAmount ?? 0) ||
+      (Array.isArray(inv.payments)
+        ? inv.payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+        : 0);
+
+    const status =
+      inv.status || (paidAmt >= total ? "Paid" : paidAmt > 0 ? "Partial" : "Pending");
+
+    if (status === "Pending") pending += 1;
+    else if (status === "Partial") partial += 1;
+    else if (status === "Paid") paid += 1;
+
+    outstanding += Math.max(0, total - paidAmt);
+  }
+
+  const labTotal = Number(merged?.labTotal ?? 0) || 0;
+
+  return {
+    ...(merged || {}),
+    pending,
+    partial,
+    paid,
+    outstanding,
+    labTotal,
+    grandOutstanding: outstanding + labTotal,
+  };
+};
 
 const Billing = () => {
   const {
@@ -77,8 +120,6 @@ const Billing = () => {
     run();
   }, [fetchInvoices, fetchBillingStats, fetchLabBills, query, status]);
 
-  const stats = mergedStats || getStats();
-
   // ✅ Normalize invoices for InvoiceTable:
   // It expects { total, paid } but backend provides totalAmount/paidAmount
   const normalizedInvoices = useMemo(() => {
@@ -119,6 +160,33 @@ const Billing = () => {
   const selectedInvoice = useMemo(() => {
     return normalizedInvoices.find((i) => i.id === selectedInvoiceId) || null;
   }, [normalizedInvoices, selectedInvoiceId]);
+
+  /**
+   * ✅ IMPORTANT:
+   * Use LIVE invoices to compute stats (instant UI updates),
+   * but keep labTotal etc from mergedStats if present.
+   */
+  const stats = useMemo(() => {
+    // If store has no backend stats at all, fallback to getStats (if your store has it).
+    const baseMerged = mergedStats || null;
+    const live = computeInvoiceStats(invoices || [], baseMerged);
+
+    // If store's getStats exists and returns extra fields you want, merge them safely:
+    // (Optional; harmless if getStats returns basic counts only)
+    try {
+      const local = typeof getStats === "function" ? getStats() : null;
+      return { ...(local || {}), ...live };
+    } catch {
+      return live;
+    }
+  }, [invoices, mergedStats, getStats]);
+
+  // helper to resync after backend mutations
+  const refetchAll = async () => {
+    if (typeof fetchInvoices === "function") await fetchInvoices({ q: query, status });
+    if (typeof fetchBillingStats === "function") await fetchBillingStats();
+    if (typeof fetchLabBills === "function") await fetchLabBills();
+  };
 
   return (
     <div className="space-y-8">
@@ -188,10 +256,20 @@ const Billing = () => {
             <PaymentHistory
               invoice={selectedInvoice}
               onEdit={async (paymentId, amount) => {
+                if (!selectedInvoice) return;
+
+                // ✅ optimistic update first (instant stats change)
+                updatePayment(selectedInvoice.id, paymentId, amount);
+
                 if (typeof editPayment === "function") {
-                  await editPayment(selectedInvoice.id, paymentId, amount);
-                } else {
-                  updatePayment(selectedInvoice.id, paymentId, amount);
+                  try {
+                    await editPayment(selectedInvoice.id, paymentId, amount);
+                    await refetchAll();
+                  } catch (e) {
+                    // rollback by refetch
+                    await refetchAll();
+                    throw e;
+                  }
                 }
               }}
               onDelete={(paymentId) => {
@@ -211,14 +289,25 @@ const Billing = () => {
         onSubmit={async (payment) => {
           if (!selectedInvoice) return;
 
+          // ✅ optimistic: add temp payment immediately
+          const tempPayment = { id: `tmp-${Date.now()}`, ...payment };
+          addPayment(selectedInvoice.id, tempPayment);
+
           if (typeof createPayment === "function") {
-            await createPayment(selectedInvoice.id, {
-              amount: payment.amount,
-              mode: payment.mode,
-              date: payment.date,
-            });
-          } else {
-            addPayment(selectedInvoice.id, payment);
+            try {
+              await createPayment(selectedInvoice.id, {
+                amount: payment.amount,
+                mode: payment.mode,
+                date: payment.date,
+              });
+
+              // ✅ sync to replace temp + update backend stats
+              await refetchAll();
+            } catch (e) {
+              // rollback by refetch
+              await refetchAll();
+              throw e;
+            }
           }
         }}
       />
@@ -232,10 +321,18 @@ const Billing = () => {
         onConfirm={async () => {
           if (!selectedInvoice || !deletePaymentId) return;
 
+          // ✅ optimistic delete first (instant stats change)
+          deletePayment(selectedInvoice.id, deletePaymentId);
+
           if (typeof removePayment === "function") {
-            await removePayment(selectedInvoice.id, deletePaymentId);
-          } else {
-            deletePayment(selectedInvoice.id, deletePaymentId);
+            try {
+              await removePayment(selectedInvoice.id, deletePaymentId);
+              await refetchAll();
+            } catch (e) {
+              // rollback by refetch
+              await refetchAll();
+              throw e;
+            }
           }
 
           setDeletePaymentId(null);
@@ -250,8 +347,7 @@ const Billing = () => {
 
           // refresh after close (backend)
           if (!open) {
-            if (typeof fetchInvoices === "function") await fetchInvoices({ q: query, status });
-            if (typeof fetchBillingStats === "function") await fetchBillingStats();
+            await refetchAll();
           }
         }}
       />
