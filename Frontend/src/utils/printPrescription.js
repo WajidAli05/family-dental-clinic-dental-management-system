@@ -1,3 +1,4 @@
+// utils/printPrescription.js
 import jsPDF from "jspdf";
 
 const QUADRANTS = ["Q1", "Q2", "Q3", "Q4"];
@@ -35,7 +36,6 @@ const formatTeethLines = (arr, perLine = 4) => {
 const BRAND_BLUE = [20, 70, 140]; // close to the printed blue
 
 const drawSimpleLogo = (doc, x, y) => {
-  // A simple “people + tooth” mark (vector-ish, no external images needed)
   doc.setDrawColor(...BRAND_BLUE);
   doc.setLineWidth(0.6);
 
@@ -138,7 +138,7 @@ export const printPrescription = (data) => {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
 
-  // ===== Letterhead (matches your photo layout) =====
+  // ===== Letterhead =====
   drawLetterhead(doc);
 
   // ===== Top row: Name (left) + Date (right) =====
@@ -149,17 +149,12 @@ export const printPrescription = (data) => {
 
   doc.setFont("helvetica", "normal");
   doc.setTextColor(60);
-  doc.text(
-    new Date().toLocaleDateString(),
-    pageW - margin,
-    y,
-    { align: "right" }
-  );
+  doc.text(new Date().toLocaleDateString(), pageW - margin, y, { align: "right" });
   doc.setTextColor(0);
 
   y += 10;
 
-  // ===== Body fields (clean, form-replaced) =====
+  // ===== Body fields =====
   const row = (label, value) => {
     labelValue(doc, `${label}:`, value, margin, margin + 50, y);
     y += 8;
@@ -171,35 +166,35 @@ export const printPrescription = (data) => {
   row("Clinical Findings", data.clinicalFinding);
   row("Treatment Status", data.visualStatus);
 
-  // ===== Selected Teeth (quadrant box like your new UI) =====
+  // ===== Selected Teeth label (left) + SMALL quadrant box (top-right, 1/4 page) =====
   y += 2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(70);
   doc.text("Selected Teeth:", margin, y);
-  y += 5;
 
   const grouped = groupSelectedTeeth(data.selectedTeeth || []);
 
-  const boxX = margin;
-  const boxY = y;
-  const boxW = pageW - margin * 2;
-  const boxH = 46;
+// ✅ smaller box on top-right + moved upwards
+const boxW = (pageW - margin * 2) * 0.38; // was 0.48
+const boxH = 30; // was 38
+const boxX = pageW - margin - boxW;
+const boxY = y - 12; // was y - 6 (moves it UP)
 
-  // thin + light grey (as requested)
+  // thin + light grey
   doc.setDrawColor(210);
   doc.setLineWidth(0.2);
-  doc.roundedRect(boxX, boxY, boxW, boxH, 2.5, 2.5);
+  doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2);
 
   // center cross
   doc.line(boxX + boxW / 2, boxY, boxX + boxW / 2, boxY + boxH);
   doc.line(boxX, boxY + boxH / 2, boxX + boxW, boxY + boxH / 2);
 
-  // quadrant labels + 4-per-line teeth
-  doc.setFontSize(10);
+  // quadrant labels + teeth (smaller text)
+  doc.setFontSize(7);
   doc.setTextColor(90);
 
-  const pad = 4;
+  const pad = 2;
   const qW = boxW / 2;
   const qH = boxH / 2;
 
@@ -210,12 +205,12 @@ export const printPrescription = (data) => {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(60);
 
-    const lines = formatTeethLines(grouped[qKey], 4);
-    const startY = qy + pad + 8;
+    // ✅ 3 per line to fit compact box
+    const lines = formatTeethLines(grouped[qKey], 2);
+    const startY = qy + pad + 7;
 
-    // 2 lines max fits nicely (8 teeth = 2 lines)
     doc.text(lines[0] ?? "-", qx + pad, startY);
-    doc.text(lines[1] ?? "", qx + pad, startY + 5);
+    doc.text(lines[1] ?? "", qx + pad, startY + 4);
 
     doc.setTextColor(90);
   };
@@ -226,9 +221,11 @@ export const printPrescription = (data) => {
   drawQuadrant("Q4", boxX + qW, boxY + qH);
 
   doc.setTextColor(0);
-  y = boxY + boxH + 10;
 
-  // ===== Notes (multi-line, friendly spacing) =====
+  // ✅ Continue content BELOW the box (so it doesn't overlap)
+y = Math.max(y + 6, boxY + boxH + 10);
+
+  // ===== Notes =====
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(70);
@@ -237,9 +234,10 @@ export const printPrescription = (data) => {
 
   doc.setFontSize(11);
   doc.setTextColor(40);
-  doc.text(data.notes || "-", margin, y, { maxWidth: boxW });
+  const bodyW = pageW - margin * 2;
+  doc.text(data.notes || "-", margin, y, { maxWidth: bodyW });
 
-  // ===== Signature area (like the letter) =====
+  // ===== Signature area =====
   const sigY = 265;
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
