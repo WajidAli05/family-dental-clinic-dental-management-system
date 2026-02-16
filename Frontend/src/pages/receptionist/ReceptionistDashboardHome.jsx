@@ -18,7 +18,6 @@ import LabSamplesTable from "@/components/receptionist/LabSamplesTable";
 const ReceptionistDashboardHome = () => {
   const { stats, appointments, labSamples, fetchDashboard, loading, error } =
     useReceptionistStore();
-    console.log(appointments)
 
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [isAddAppointmentOpen, setIsAddAppointmentOpen] = useState(false);
