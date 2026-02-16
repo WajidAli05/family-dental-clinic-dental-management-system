@@ -1,9 +1,10 @@
-import React, { useRef, useState } from "react";
-import { useNavigate } from 'react-router-dom';
+import React, { useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Float } from "@react-three/drei";
 import Wavify from "react-wavify";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { toast } from "sonner";
 
 import DentalChart from "../components/DentalCavityModel";
 
@@ -18,68 +19,57 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // ✅ optional: keep inline error for non-credential errors
+  const [inlineError, setInlineError] = useState("");
+
   // Zustand actions + state
   const { login, error } = useUserStore();
 
-  // const handleLogin = (e) => {
-  //   e.preventDefault();
+  // ✅ show toast when store error is "Invalid credentials"
+  useEffect(() => {
+    if (!error) return;
 
-  //   // Attempt login through zustand store
-  //   login(email, password);
+    const msg = String(error || "");
 
-  //   const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (msg.toLowerCase().includes("invalid credentials")) {
+      toast.error("Invalid credentials");
+      setInlineError(""); // don't show inline for this one
+    } else {
+      setInlineError(msg); // show other errors inline (optional)
+    }
+  }, [error]);
 
-  //   // If login fails → error is already handled by store
-  //   if (!storedUser) return;
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setInlineError(""); // clear previous inline error
 
-  //   // Redirect based on role
-  //   switch (storedUser.role) {
-  //     case "owner":
-  //       navigate("/owner-dashboard");
-  //       break;
-  //     case "dentist":
-  //       navigate("/dentist-dashboard");
-  //       break;
-  //     case "receptionist":
-  //       navigate("/receptionist-dashboard");
-  //       break;
-  //     case "lab":
-  //       navigate("/lab-dashboard");
-  //       break;
-  //     default:
-  //       navigate("/login");
-  //   }
-  // };
+    const ok = await login(email, password);
 
-const handleLogin = async (e) => {
-  e.preventDefault();
+    // ✅ if login failed, store will set `error` and useEffect will toast
+    if (!ok) return;
 
-  const ok = await login(email, password);
-  if (!ok) return;
+    const storedUser = JSON.parse(localStorage.getItem("user"));
 
-  const storedUser = JSON.parse(localStorage.getItem("user"));
-
-  switch (storedUser.role) {
-    case "owner":
-      navigate("/owner-dashboard");
-      break;
-    case "dentist":
-      navigate("/dentist-dashboard");
-      break;
-    case "receptionist":
-      navigate("/receptionist-dashboard");
-      break;
-    case "lab":
-      navigate("/lab-dashboard");
-      break;
-    default:
-      navigate("/login");
-  }
-};
+    switch (storedUser?.role) {
+      case "owner":
+        navigate("/owner-dashboard");
+        break;
+      case "dentist":
+        navigate("/dentist-dashboard");
+        break;
+      case "receptionist":
+        navigate("/receptionist-dashboard");
+        break;
+      case "lab":
+        navigate("/lab-dashboard");
+        break;
+      default:
+        navigate("/login");
+    }
+  };
 
   return (
     <div className="login-container">
-      
       {/* LEFT SECTION */}
       <div className="left-side">
         <div className="tooth-3d-wrapper">
@@ -115,10 +105,11 @@ const handleLogin = async (e) => {
       <div className="right-side">
         <div className="form-box">
           <h2 className="signin-title">Sign In</h2>
-          <p className="signin-subtitle">Enter your credentials to access your account.</p>
+          <p className="signin-subtitle">
+            Enter your credentials to access your account.
+          </p>
 
           <form onSubmit={handleLogin}>
-
             {/* EMAIL */}
             <div className="input-group">
               <label>Email Address</label>
@@ -149,12 +140,13 @@ const handleLogin = async (e) => {
               </span>
             </div>
 
-            {/* ERROR */}
-            {error && <p className="error-text">{error}</p>}
+            {/* ✅ INLINE ERROR (optional) */}
+            {inlineError && <p className="error-text">{inlineError}</p>}
 
             {/* SUBMIT */}
-            <button className="login-btn" type="submit">Sign In</button>
-
+            <button className="login-btn" type="submit">
+              Sign In
+            </button>
           </form>
         </div>
       </div>
