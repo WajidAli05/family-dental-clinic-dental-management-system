@@ -21,14 +21,12 @@ const filterAppointments = (appointments, filters) => {
     if (from && d < from) return false;
     if (to && d > to) return false;
 
-    if (dentistId !== "all" && String(a.dentistId) !== String(dentistId))
-      return false;
+    if (dentistId !== "all" && String(a.dentistId) !== String(dentistId)) return false;
 
     if (status !== "all" && a.status !== status) return false;
 
     if (q) {
-      const hay =
-        `${a.id} ${a.patientName} ${a.patientPhone} ${a.dentistName} ${a.reason} ${a.status}`.toLowerCase();
+      const hay = `${a.id} ${a.patientName} ${a.patientPhone} ${a.dentistName} ${a.reason} ${a.status}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
 
@@ -37,7 +35,8 @@ const filterAppointments = (appointments, filters) => {
 };
 
 const OwnerAppointments = () => {
-  const { dentists } = useDentistStore();
+  const dentists = useDentistStore((s) => s.dentists);
+  const fetchAllDentists = useDentistStore((s) => s.fetchAllDentists);
 
   const filters = useOwnerAppointmentsStore((s) => s.filters);
   const appointments = useOwnerAppointmentsStore((s) => s.appointments);
@@ -45,39 +44,32 @@ const OwnerAppointments = () => {
   const setFilter = useOwnerAppointmentsStore((s) => s.setFilter);
   const resetFilters = useOwnerAppointmentsStore((s) => s.resetFilters);
 
-  const selectedAppointment = useOwnerAppointmentsStore(
-    (s) => s.selectedAppointment
-  );
+  const selectedAppointment = useOwnerAppointmentsStore((s) => s.selectedAppointment);
   const openDetails = useOwnerAppointmentsStore((s) => s.openDetails);
   const closeDetails = useOwnerAppointmentsStore((s) => s.closeDetails);
 
   useEffect(() => {
-    useOwnerAppointmentsStore.getState().init();
-  }, []);
+    // ✅ Load dentists for dropdown (owner is allowed on /receptionist/dentists per your v1 router)
+    fetchAllDentists?.();
 
-  const data = useMemo(
-    () => filterAppointments(appointments, filters),
-    [appointments, filters]
-  );
+    // ✅ Load appointments list (owner store init)
+    useOwnerAppointmentsStore.getState().init();
+  }, [fetchAllDentists]);
+
+  const data = useMemo(() => filterAppointments(appointments, filters), [appointments, filters]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <OwnerPageHeader
         title="Appointments"
         subtitle="All clinics view — filter by date, dentist, and status"
       />
 
-      {/* Filters */}
       <Card className="rounded-2xl">
         <CardContent className="p-6">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={resetFilters}
-            >
+            <Button variant="outline" className="rounded-xl" onClick={resetFilters}>
               Reset
             </Button>
           </div>
@@ -142,14 +134,12 @@ const OwnerAppointments = () => {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-semibold text-gray-900">Results</h2>
             <p className="text-sm text-gray-500">
-              Showing{" "}
-              <span className="font-semibold text-gray-900">{data.length}</span>
+              Showing <span className="font-semibold text-gray-900">{data.length}</span>
             </p>
           </div>
 
