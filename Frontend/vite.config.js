@@ -1,24 +1,48 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+// import { defineConfig } from 'vite'
+// import react from '@vitejs/plugin-react'
+// import path from 'path'
+
+// export default defineConfig({
+//   plugins: [react()],
+//   resolve: {
+//     alias: {
+//       '@': path.resolve(__dirname, './src'),
+//     },
+//   },
+//   server: {
+//     host: true, // Allow external access
+//     port: 5173,
+//     strictPort: true,
+//     allowedHosts: [
+//       '.ngrok-free.app', // Allow all ngrok free subdomains
+//       '.ngrok.io',       // Allow all ngrok paid subdomains
+//     ],
+//     hmr: {
+//       clientPort: 443, // Use HTTPS port for HMR through ngrok
+//     },
+//   },
+// })`
+
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
+      react: path.resolve(__dirname, "./node_modules/react"),
+      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
     },
   },
   server: {
-    host: true, // Allow external access
+    host: true,
     port: 5173,
     strictPort: true,
-    allowedHosts: [
-      '.ngrok-free.app', // Allow all ngrok free subdomains
-      '.ngrok.io',       // Allow all ngrok paid subdomains
-    ],
+    allowedHosts: [".ngrok-free.app", ".ngrok.io"],
     hmr: {
-      clientPort: 443, // Use HTTPS port for HMR through ngrok
+      clientPort: 443,
     },
   },
-})
+});

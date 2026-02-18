@@ -13,7 +13,7 @@ const formatPKR = (n) =>
   }).format(Number(n || 0));
 
 const OwnerDashboardHome = () => {
-  const { stats, appointmentsSummary, init } = useOwnerDashboardStore();
+  const { stats, appointmentsSummary, init, loading, error } = useOwnerDashboardStore();
 
   useEffect(() => {
     init();
