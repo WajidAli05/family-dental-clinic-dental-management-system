@@ -1,3 +1,4 @@
+// OwnerPatientProfileModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,11 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const confirmAndDeletePatient = useOwnerPatientsStore((s) => s.confirmAndDeletePatient);
   const loading = useOwnerPatientsStore((s) => s.loading);
 
-  // Permission gate (stub for now)
-  const canDelete = usePermissionsStore((s) => s.canOwnerDeletePatients());
+  // keep hook, but DON'T block owner delete
+  const canDeleteFromPerms = usePermissionsStore((s) =>
+    typeof s.canOwnerDeletePatients === "function" ? s.canOwnerDeletePatients() : true
+  );
+  const canDelete = true; // ✅ owner can always mark inactive
 
   const [profileState, setProfileState] = useState(null);
 
@@ -27,11 +31,8 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
     async function run() {
       if (!open || !patient?.id) return;
 
-      // start with demo so modal is instant
-      const fallback = seedDemoProfile(patient.id);
-      setProfileState(fallback);
+      setProfileState(seedDemoProfile(patient.id));
 
-      // then load real profile
       const real = await fetchProfile(patient.id);
       if (alive && real) setProfileState(real);
     }
@@ -66,38 +67,32 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               <Pill>Gender: {patient.gender ?? "-"}</Pill>
               <Pill>Dentist: {patient.dentist ?? "-"}</Pill>
               <Pill>Last Visit: {patient.lastVisit ?? "-"}</Pill>
+              <Pill>Status: {patient.status ?? "-"}</Pill>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {canDelete ? (
-              <Button
-                variant="destructive"
-                className="rounded-xl"
-                disabled={loading}
-                onClick={async () => {
-                  try {
-                    await confirmAndDeletePatient(patient.id);
-                    onClose();
-                  } catch {
-                    // store already set error; keep modal open
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {loading ? "Deleting..." : "Delete"}
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="rounded-xl opacity-60 cursor-not-allowed"
-                disabled
-                title="Enable from Permissions tab"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-            )}
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              disabled={loading || patient.status === "inactive"}
+              onClick={async () => {
+                try {
+                  await confirmAndDeletePatient(patient.id);
+                  onClose();
+                } catch {
+                  // store already set error; keep modal open
+                }
+              }}
+              title={
+                patient.status === "inactive"
+                  ? "Patient is already inactive"
+                  : undefined
+              }
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {loading ? "Updating..." : "Delete"}
+            </Button>
 
             <Button variant="ghost" className="rounded-xl" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -105,7 +100,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           </div>
         </div>
 
-        {/* ✅ Body (scrollable) */}
+        {/* Body (scrollable) */}
         <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto">
           <Panel title="History">
             <Timeline items={profile.history} />
@@ -163,8 +158,7 @@ const Panel = ({ title, children }) => (
 );
 
 const Timeline = ({ items = [] }) => {
-  if (!items.length)
-    return <p className="text-sm text-gray-500">No history found.</p>;
+  if (!items.length) return <p className="text-sm text-gray-500">No history found.</p>;
 
   return (
     <div className="space-y-3">

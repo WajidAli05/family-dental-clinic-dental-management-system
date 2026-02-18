@@ -1,3 +1,4 @@
+// src/store/ownerPatientsStore.js
 import { create } from "zustand";
 import { ownerApi } from "@/lib/ownerApi";
 
@@ -180,7 +181,6 @@ export const useOwnerPatientsStore = create((set, get) => ({
     const id = String(patientId || "").trim();
     if (!id) return null;
 
-    // already cached
     const cached = get().profileCache?.[id];
     if (cached) return cached;
 
@@ -194,7 +194,6 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
       return profile;
     } catch (e) {
-      // fallback to demo profile
       return get().seedDemoProfile(id);
     }
   },
@@ -216,7 +215,23 @@ export const useOwnerPatientsStore = create((set, get) => ({
       selectedPatient: state.selectedPatient?.id === patientId ? null : state.selectedPatient,
     })),
 
-  // ✅ NEW: confirm + call backend + update store
+  // ✅ helper: update local patient status to inactive (NO removal)
+  markPatientInactiveLocal: (patientId) => {
+    const id = String(patientId || "").trim();
+    if (!id) return;
+
+    set((state) => ({
+      patients: (state.patients || []).map((p) =>
+        p.id === id ? { ...p, status: "inactive" } : p
+      ),
+      selectedPatient:
+        state.selectedPatient?.id === id
+          ? { ...state.selectedPatient, status: "inactive" }
+          : state.selectedPatient,
+    }));
+  },
+
+  // ✅ NEW: confirm + call backend + update store (mark inactive)
   confirmAndDeletePatient: async (patientId) => {
     const id = String(patientId || "").trim();
     if (!id) return;
@@ -224,19 +239,21 @@ export const useOwnerPatientsStore = create((set, get) => ({
     const p = get().patients.find((x) => x.id === id);
     const label = p ? `${p.name} (${p.id})` : id;
 
-    const ok = window.confirm(`Are you sure you want to delete ${label}?\n\nThis action will mark the patient inactive.`);
+    const ok = window.confirm(
+      `Mark ${label} as inactive?\n\nThis will not remove data; it only sets status to inactive.`
+    );
     if (!ok) return;
 
     try {
       set({ loading: true, error: null });
+
+      // backend marks inactive
       await ownerApi.deletePatient(id);
 
-      // remove from list immediately for UX (or refetch)
-      set((state) => ({
-        patients: state.patients.filter((x) => x.id !== id),
-        selectedPatient: state.selectedPatient?.id === id ? null : state.selectedPatient,
-        loading: false,
-      }));
+      // ✅ update local list (DO NOT remove)
+      get().markPatientInactiveLocal(id);
+
+      set({ loading: false });
     } catch (e) {
       set({ loading: false, error: e.message });
       throw e;
