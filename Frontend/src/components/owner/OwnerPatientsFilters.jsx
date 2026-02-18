@@ -14,7 +14,7 @@ const inputClass =
 const OwnerPatientsFilters = ({
   filters,
   dentists = [],
-  cities = [],
+  cities = [], // ✅ keep prop (do not remove), but we won’t render it
   onChange,
   onReset,
 }) => {
@@ -33,7 +33,7 @@ const OwnerPatientsFilters = ({
             <input
               value={filters.query}
               onChange={(e) => onChange("query", e.target.value)}
-              placeholder="Name, phone, ID, city, tags..."
+              placeholder="Name, phone, ID, tags..."
               className={inputClass}
             />
           </Field>
@@ -50,20 +50,7 @@ const OwnerPatientsFilters = ({
             </select>
           </Field>
 
-          <Field label="City">
-            <select
-              value={filters.city}
-              onChange={(e) => onChange("city", e.target.value)}
-              className={inputClass}
-            >
-              <option value="all">All</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {/* ✅ City filter UI removed (but filter key remains in store for safety) */}
 
           <Field label="Dentist">
             <select

@@ -14,13 +14,25 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const seedDemoProfile = useOwnerPatientsStore((s) => s.seedDemoProfile);
   const deletePatient = useOwnerPatientsStore((s) => s.deletePatient);
 
-  // Permission gate (stub for now)
-  const canDelete = usePermissionsStore((s) => s.canOwnerDeletePatients());
+  // ✅ keep permissions store usage (do not remove)
+  const canDeleteFromPerms = usePermissionsStore((s) => s.canOwnerDeletePatients());
+
+  // ✅ NEW: read real profile cache if present
+  const profileById = useOwnerPatientsStore((s) => s.profileById);
+  const profileLoading = useOwnerPatientsStore((s) => s.profileLoading);
+
+  // ✅ Owner should always be able to delete (per your requirement)
+  const canDelete = true || canDeleteFromPerms;
 
   const profile = useMemo(() => {
     if (!patient) return { history: [], invoices: [], labs: [], treatments: [] };
+
+    const payload = profileById?.[patient.id]; // { patient, profile } from backend
+    if (payload?.profile) return payload.profile;
+
+    // fallback demo profile (kept)
     return seedDemoProfile(patient.id);
-  }, [patient, seedDemoProfile]);
+  }, [patient, seedDemoProfile, profileById]);
 
   if (!open || !patient) return null;
 
@@ -50,8 +62,8 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               <Button
                 variant="destructive"
                 className="rounded-xl"
-                onClick={() => {
-                  deletePatient(patient.id);
+                onClick={async () => {
+                  await deletePatient(patient.id);
                   onClose();
                 }}
               >
@@ -76,43 +88,49 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Panel title="History">
-            <Timeline items={profile.history} />
-          </Panel>
+        {/* ✅ Body (SCROLLABLE) */}
+        <div className="p-5 max-h-[70vh] overflow-y-auto">
+          {profileLoading ? (
+            <p className="text-sm text-gray-500">Loading profile...</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Panel title="History">
+                <Timeline items={profile.history} />
+              </Panel>
 
-          <Panel title="Invoices">
-            <SimpleList
-              items={profile.invoices.map((x) => ({
-                left: x.id,
-                right: `${x.date} • PKR ${x.amount} • ${x.status}`,
-              }))}
-              empty="No invoices found."
-            />
-          </Panel>
+              <Panel title="Invoices">
+                <SimpleList
+                  items={profile.invoices.map((x) => ({
+                    left: x.id,
+                    right: `${x.date} • PKR ${x.amount} • ${x.status}`,
+                  }))}
+                  empty="No invoices found."
+                />
+              </Panel>
 
-          <Panel title="Lab Samples">
-            <SimpleList
-              items={profile.labs.map((x) => ({
-                left: x.id,
-                right: `${x.date} • ${x.type} • ${x.status}`,
-              }))}
-              empty="No lab samples found."
-            />
-          </Panel>
+              <Panel title="Lab Samples">
+                <SimpleList
+                  items={profile.labs.map((x) => ({
+                    left: x.id,
+                    right: `${x.date} • ${x.type} • ${x.status}`,
+                  }))}
+                  empty="No lab samples found."
+                />
+              </Panel>
 
-          <div className="lg:col-span-3">
-            <Panel title="Treatments">
-              <SimpleList
-                items={profile.treatments.map((x) => ({
-                  left: x.id,
-                  right: `${x.date} • ${x.title}`,
-                }))}
-                empty="No treatments found."
-              />
-            </Panel>
-          </div>
+              <div className="lg:col-span-3">
+                <Panel title="Treatments">
+                  <SimpleList
+                    items={profile.treatments.map((x) => ({
+                      left: x.id,
+                      right: `${x.date} • ${x.title}`,
+                    }))}
+                    empty="No treatments found."
+                  />
+                </Panel>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -134,8 +152,7 @@ const Panel = ({ title, children }) => (
 );
 
 const Timeline = ({ items = [] }) => {
-  if (!items.length)
-    return <p className="text-sm text-gray-500">No history found.</p>;
+  if (!items.length) return <p className="text-sm text-gray-500">No history found.</p>;
 
   return (
     <div className="space-y-3">

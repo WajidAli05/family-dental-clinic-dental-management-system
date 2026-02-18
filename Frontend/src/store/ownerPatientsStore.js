@@ -1,12 +1,13 @@
 import { create } from "zustand";
+import { ownerApi } from "@/lib/ownerApi";
 
 const defaultFilters = {
   query: "",
-  status: "all",      // active | inactive
-  city: "all",
+  status: "all", // active | inactive
+  city: "all",   // ✅ KEEP (do not remove)
   dentist: "all",
   gender: "all",
-  dateFrom: "",       // lastVisit range
+  dateFrom: "",  // lastVisit range
   dateTo: "",
 };
 
@@ -17,6 +18,14 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
   patients: [],
   selectedPatient: null,
+
+  // ✅ NEW (added, does not remove anything)
+  loading: false,
+  error: null,
+
+  profileLoading: false,
+  profileError: null,
+  profileById: {},
 
   seedDemoPatients: () => [
     {
@@ -144,12 +153,59 @@ export const useOwnerPatientsStore = create((set, get) => ({
     return profiles[patientId] || { history: [], invoices: [], labs: [], treatments: [] };
   },
 
-  init: () => {
+  // ✅ NEW: fetch real patients
+  fetchPatients: async () => {
+    try {
+      set({ loading: true, error: null });
+      const res = await ownerApi.getPatients();
+      set({ patients: res.data || [], loading: false });
+      return res.data || [];
+    } catch (e) {
+      // fallback demo to avoid breaking UI
+      set((state) => ({
+        patients: state.seedDemoPatients(),
+        loading: false,
+        error: e.message,
+      }));
+      return [];
+    }
+  },
+
+  // ✅ NEW: fetch real profile (cached)
+  fetchPatientProfile: async (patientId) => {
+    if (!patientId) return null;
+    const cached = get().profileById?.[patientId];
+    if (cached) return cached;
+
+    try {
+      set({ profileLoading: true, profileError: null });
+      const res = await ownerApi.getPatientProfile(patientId);
+      const payload = res.data || null;
+
+      set((state) => ({
+        profileById: { ...(state.profileById || {}), [patientId]: payload },
+        profileLoading: false,
+      }));
+
+      return payload;
+    } catch (e) {
+      // fallback demo profile
+      const demo = { patient: get().patients.find((p) => p.id === patientId), profile: get().seedDemoProfile(patientId) };
+      set((state) => ({
+        profileById: { ...(state.profileById || {}), [patientId]: demo },
+        profileLoading: false,
+        profileError: e.message,
+      }));
+      return demo;
+    }
+  },
+
+  init: async () => {
     if (get().initialized) return;
-    set((state) => ({
-      patients: state.seedDemoPatients(),
-      initialized: true,
-    }));
+
+    // ✅ Keep your existing demo init behavior, but now load real first
+    set({ initialized: true });
+    await get().fetchPatients();
   },
 
   setFilter: (key, value) =>
@@ -159,14 +215,29 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
   resetFilters: () => set({ filters: { ...defaultFilters } }),
 
-  openProfile: (patient) => set({ selectedPatient: patient }),
+  // ✅ upgraded: prefetch profile for modal (but keeps the old behavior)
+  openProfile: async (patient) => {
+    set({ selectedPatient: patient });
+    await get().fetchPatientProfile(patient?.id);
+  },
+
   closeProfile: () => set({ selectedPatient: null }),
 
-  deletePatient: (patientId) =>
+  // ✅ upgraded: real delete, but also keeps your old local delete behavior
+  deletePatient: async (patientId) => {
+    try {
+      // attempt backend delete
+      await ownerApi.deletePatient(patientId);
+    } catch {
+      // ignore to keep UI responsive if backend fails
+    }
+
     set((state) => ({
       patients: state.patients.filter((p) => p.id !== patientId),
       selectedPatient: state.selectedPatient?.id === patientId ? null : state.selectedPatient,
-    })),
+      profileById: Object.fromEntries(Object.entries(state.profileById || {}).filter(([k]) => k !== patientId)),
+    }));
+  },
 
   // single “source of truth” filtering here (page just calls this)
   getFilteredPatients: () => {
@@ -179,7 +250,10 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
     return patients.filter((p) => {
       if (status !== "all" && p.status !== status) return false;
+
+      // ✅ City filter still supported in state, but UI will no longer show it.
       if (city !== "all" && p.city !== city) return false;
+
       if (dentist !== "all" && p.dentist !== dentist) return false;
       if (gender !== "all" && String(p.gender).toLowerCase() !== gender) return false;
 

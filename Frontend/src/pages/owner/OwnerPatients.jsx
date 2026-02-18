@@ -6,6 +6,7 @@ import OwnerPatientsTable from "@/components/owner/OwnerPatientsTable";
 import OwnerPatientProfileModal from "@/components/owner/OwnerPatientProfileModal";
 import { Card, CardContent } from "@/components/ui/card";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
+import { useDentistStore } from "@/store/dentistStore";
 import { Users, UserCheck, FlaskConical, Banknote } from "lucide-react";
 
 const OwnerPatients = () => {
@@ -18,14 +19,18 @@ const OwnerPatients = () => {
   const openProfile = useOwnerPatientsStore((s) => s.openProfile);
   const closeProfile = useOwnerPatientsStore((s) => s.closeProfile);
 
+  // ✅ load dentists from backend (re-uses receptionist route)
+  const dentistsStore = useDentistStore((s) => s.dentists);
+  const fetchAllDentists = useDentistStore((s) => s.fetchAllDentists);
+
   useEffect(() => {
     useOwnerPatientsStore.getState().init();
-  }, []);
+    fetchAllDentists(); // ✅ now dentists will appear in filters
+  }, [fetchAllDentists]);
 
   // ✅ stable filtered data (no hook-subscribe to computed lists)
   const data = useMemo(() => {
     const store = useOwnerPatientsStore.getState();
-    // use store method but based on latest state (safe)
     return store.getFilteredPatients();
   }, [patients, filters]);
 
@@ -34,10 +39,10 @@ const OwnerPatients = () => {
     return getStats(data);
   }, [data]);
 
+  // ✅ dentists list for filter (names)
   const dentists = useMemo(() => {
-    const set = new Set(patients.map((p) => p.dentist).filter(Boolean));
-    return Array.from(set);
-  }, [patients]);
+    return (dentistsStore || []).map((d) => d.name).filter(Boolean);
+  }, [dentistsStore]);
 
   const cities = useMemo(() => {
     const set = new Set(patients.map((p) => p.city).filter(Boolean));
@@ -60,14 +65,14 @@ const OwnerPatients = () => {
           title="Total Revenue (Patients)"
           value={`PKR ${Number(stats.revenue || 0).toLocaleString("en-PK")}`}
           icon={Banknote}
-          subtitle="Sum of totalSpent (demo)"
+          subtitle="Sum of totalSpent"
         />
       </div>
 
       {/* Filters */}
       <OwnerPatientsFilters
         filters={filters}
-        dentists={dentists}
+        dentists={dentists}   // ✅ from backend now
         cities={cities}
         onChange={setFilter}
         onReset={resetFilters}

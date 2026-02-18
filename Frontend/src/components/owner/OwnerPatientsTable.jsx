@@ -32,7 +32,6 @@ const OwnerPatientsTable = ({ data = [], onView }) => {
             <th className="py-3 pr-4">Dentist</th>
             <th className="py-3 pr-4">Pending Labs</th>
             <th className="py-3 pr-4">Total Spent</th>
-            <th className="py-3 pr-4">Tags</th>
             <th className="py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -58,14 +57,6 @@ const OwnerPatientsTable = ({ data = [], onView }) => {
                 <td className="py-3 pr-4">{p.dentist || "-"}</td>
                 <td className="py-3 pr-4">{p.pendingLab ?? 0}</td>
                 <td className="py-3 pr-4">PKR {Number(p.totalSpent || 0).toLocaleString("en-PK")}</td>
-                <td className="py-3 pr-4">
-                  <div className="flex flex-wrap gap-2">
-                    {(p.tags || []).slice(0, 2).map((t) => (
-                      <Tag key={t}>{t}</Tag>
-                    ))}
-                    {(p.tags || []).length > 2 ? <Tag>+{(p.tags || []).length - 2}</Tag> : null}
-                  </div>
-                </td>
                 <td className="py-3 text-right">
                   <Button
                     variant="outline"
