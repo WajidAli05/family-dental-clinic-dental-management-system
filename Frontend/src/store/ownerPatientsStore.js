@@ -3,30 +3,25 @@ import { ownerApi } from "@/lib/ownerApi";
 
 const defaultFilters = {
   query: "",
-  status: "all", // active | inactive
-  city: "all",   // ✅ KEEP (do not remove)
+  status: "all",      // active | inactive
+  city: "all",
   dentist: "all",
   gender: "all",
-  dateFrom: "",  // lastVisit range
+  dateFrom: "",       // lastVisit range
   dateTo: "",
 };
 
 export const useOwnerPatientsStore = create((set, get) => ({
   initialized: false,
+  loading: false,
+  error: null,
 
   filters: { ...defaultFilters },
 
   patients: [],
   selectedPatient: null,
 
-  // ✅ NEW (added, does not remove anything)
-  loading: false,
-  error: null,
-
-  profileLoading: false,
-  profileError: null,
-  profileById: {},
-
+  // keep your demo seeds (DO NOT remove)
   seedDemoPatients: () => [
     {
       id: "PT-1001",
@@ -153,59 +148,55 @@ export const useOwnerPatientsStore = create((set, get) => ({
     return profiles[patientId] || { history: [], invoices: [], labs: [], treatments: [] };
   },
 
-  // ✅ NEW: fetch real patients
-  fetchPatients: async () => {
-    try {
-      set({ loading: true, error: null });
-      const res = await ownerApi.getPatients();
-      set({ patients: res.data || [], loading: false });
-      return res.data || [];
-    } catch (e) {
-      // fallback demo to avoid breaking UI
-      set((state) => ({
-        patients: state.seedDemoPatients(),
-        loading: false,
-        error: e.message,
-      }));
-      return [];
-    }
-  },
+  // ✅ cache for real profiles
+  profileCache: {},
 
-  // ✅ NEW: fetch real profile (cached)
-  fetchPatientProfile: async (patientId) => {
-    if (!patientId) return null;
-    const cached = get().profileById?.[patientId];
-    if (cached) return cached;
-
-    try {
-      set({ profileLoading: true, profileError: null });
-      const res = await ownerApi.getPatientProfile(patientId);
-      const payload = res.data || null;
-
-      set((state) => ({
-        profileById: { ...(state.profileById || {}), [patientId]: payload },
-        profileLoading: false,
-      }));
-
-      return payload;
-    } catch (e) {
-      // fallback demo profile
-      const demo = { patient: get().patients.find((p) => p.id === patientId), profile: get().seedDemoProfile(patientId) };
-      set((state) => ({
-        profileById: { ...(state.profileById || {}), [patientId]: demo },
-        profileLoading: false,
-        profileError: e.message,
-      }));
-      return demo;
-    }
-  },
-
+  // ✅ init now fetches real patients
   init: async () => {
     if (get().initialized) return;
 
-    // ✅ Keep your existing demo init behavior, but now load real first
     set({ initialized: true });
     await get().fetchPatients();
+  },
+
+  // ✅ load patients from backend
+  fetchPatients: async () => {
+    try {
+      set({ loading: true, error: null });
+      const res = await ownerApi.listPatients();
+      set({ patients: res.data || [], loading: false });
+    } catch (e) {
+      // fallback to demo so UI doesn't go blank
+      set((state) => ({
+        patients: state.patients?.length ? state.patients : state.seedDemoPatients(),
+        loading: false,
+        error: e.message,
+      }));
+    }
+  },
+
+  // ✅ load real profile (history/invoices/labs/treatments)
+  fetchProfile: async (patientId) => {
+    const id = String(patientId || "").trim();
+    if (!id) return null;
+
+    // already cached
+    const cached = get().profileCache?.[id];
+    if (cached) return cached;
+
+    try {
+      const res = await ownerApi.getPatientProfile(id);
+      const profile = res.data || { history: [], invoices: [], labs: [], treatments: [] };
+
+      set((state) => ({
+        profileCache: { ...(state.profileCache || {}), [id]: profile },
+      }));
+
+      return profile;
+    } catch (e) {
+      // fallback to demo profile
+      return get().seedDemoProfile(id);
+    }
   },
 
   setFilter: (key, value) =>
@@ -215,28 +206,41 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
   resetFilters: () => set({ filters: { ...defaultFilters } }),
 
-  // ✅ upgraded: prefetch profile for modal (but keeps the old behavior)
-  openProfile: async (patient) => {
-    set({ selectedPatient: patient });
-    await get().fetchPatientProfile(patient?.id);
-  },
-
+  openProfile: (patient) => set({ selectedPatient: patient }),
   closeProfile: () => set({ selectedPatient: null }),
 
-  // ✅ upgraded: real delete, but also keeps your old local delete behavior
-  deletePatient: async (patientId) => {
-    try {
-      // attempt backend delete
-      await ownerApi.deletePatient(patientId);
-    } catch {
-      // ignore to keep UI responsive if backend fails
-    }
-
+  // keep existing local delete method (DO NOT remove)
+  deletePatient: (patientId) =>
     set((state) => ({
       patients: state.patients.filter((p) => p.id !== patientId),
       selectedPatient: state.selectedPatient?.id === patientId ? null : state.selectedPatient,
-      profileById: Object.fromEntries(Object.entries(state.profileById || {}).filter(([k]) => k !== patientId)),
-    }));
+    })),
+
+  // ✅ NEW: confirm + call backend + update store
+  confirmAndDeletePatient: async (patientId) => {
+    const id = String(patientId || "").trim();
+    if (!id) return;
+
+    const p = get().patients.find((x) => x.id === id);
+    const label = p ? `${p.name} (${p.id})` : id;
+
+    const ok = window.confirm(`Are you sure you want to delete ${label}?\n\nThis action will mark the patient inactive.`);
+    if (!ok) return;
+
+    try {
+      set({ loading: true, error: null });
+      await ownerApi.deletePatient(id);
+
+      // remove from list immediately for UX (or refetch)
+      set((state) => ({
+        patients: state.patients.filter((x) => x.id !== id),
+        selectedPatient: state.selectedPatient?.id === id ? null : state.selectedPatient,
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
   },
 
   // single “source of truth” filtering here (page just calls this)
@@ -250,10 +254,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
     return patients.filter((p) => {
       if (status !== "all" && p.status !== status) return false;
-
-      // ✅ City filter still supported in state, but UI will no longer show it.
       if (city !== "all" && p.city !== city) return false;
-
       if (dentist !== "all" && p.dentist !== dentist) return false;
       if (gender !== "all" && String(p.gender).toLowerCase() !== gender) return false;
 

@@ -74,8 +74,8 @@ export const ownerApi = {
   // ✅ Owner appointments list
   getAppointments: (params) => request("/owner/appointments", { params }),
 
-  // ✅ Owner patients tab (NEW)
-  getPatients: () => request("/owner/patients"),
+  // ✅ Patients
+  listPatients: () => request("/owner/patients"),
   getPatientProfile: (id) => request(`/owner/patients/${id}/profile`),
   deletePatient: (id) => request(`/owner/patients/${id}`, { method: "DELETE" }),
 };
