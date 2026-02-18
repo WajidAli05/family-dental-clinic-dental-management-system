@@ -1,4 +1,3 @@
-// src/store/ownerPatientsStore.js
 import { create } from "zustand";
 import { ownerApi } from "@/lib/ownerApi";
 
@@ -181,6 +180,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
     const id = String(patientId || "").trim();
     if (!id) return null;
 
+    // already cached
     const cached = get().profileCache?.[id];
     if (cached) return cached;
 
@@ -194,6 +194,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
 
       return profile;
     } catch (e) {
+      // fallback to demo profile
       return get().seedDemoProfile(id);
     }
   },
@@ -215,7 +216,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
       selectedPatient: state.selectedPatient?.id === patientId ? null : state.selectedPatient,
     })),
 
-  // ✅ helper: update local patient status to inactive (NO removal)
+  // ✅ NEW: local status update (inactive)
   markPatientInactiveLocal: (patientId) => {
     const id = String(patientId || "").trim();
     if (!id) return;
@@ -231,33 +232,26 @@ export const useOwnerPatientsStore = create((set, get) => ({
     }));
   },
 
-  // ✅ NEW: confirm + call backend + update store (mark inactive)
-  confirmAndDeletePatient: async (patientId) => {
+  // ✅ NEW: call backend delete route (soft delete -> mark inactive)
+  markPatientInactive: async (patientId) => {
     const id = String(patientId || "").trim();
     if (!id) return;
 
-    const p = get().patients.find((x) => x.id === id);
-    const label = p ? `${p.name} (${p.id})` : id;
-
-    const ok = window.confirm(
-      `Mark ${label} as inactive?\n\nThis will not remove data; it only sets status to inactive.`
-    );
-    if (!ok) return;
-
     try {
       set({ loading: true, error: null });
-
-      // backend marks inactive
-      await ownerApi.deletePatient(id);
-
-      // ✅ update local list (DO NOT remove)
+      await ownerApi.deletePatient(id); // backend marks inactive
       get().markPatientInactiveLocal(id);
-
       set({ loading: false });
     } catch (e) {
       set({ loading: false, error: e.message });
       throw e;
     }
+  },
+
+  // ✅ keep existing method name (DO NOT remove), but NO browser confirm anymore
+  confirmAndDeletePatient: async (patientId) => {
+    // now just executes the action (confirmation is handled by UI)
+    return get().markPatientInactive(patientId);
   },
 
   // single “source of truth” filtering here (page just calls this)

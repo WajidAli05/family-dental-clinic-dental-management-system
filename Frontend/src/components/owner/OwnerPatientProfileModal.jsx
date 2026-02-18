@@ -1,9 +1,7 @@
-// OwnerPatientProfileModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
-import { usePermissionsStore } from "@/store/permissionsStore";
 
 const Pill = ({ children }) => (
   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
@@ -17,13 +15,8 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const confirmAndDeletePatient = useOwnerPatientsStore((s) => s.confirmAndDeletePatient);
   const loading = useOwnerPatientsStore((s) => s.loading);
 
-  // keep hook, but DON'T block owner delete
-  const canDeleteFromPerms = usePermissionsStore((s) =>
-    typeof s.canOwnerDeletePatients === "function" ? s.canOwnerDeletePatients() : true
-  );
-  const canDelete = true; // ✅ owner can always mark inactive
-
   const [profileState, setProfileState] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -31,8 +24,10 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
     async function run() {
       if (!open || !patient?.id) return;
 
+      // instant UI
       setProfileState(seedDemoProfile(patient.id));
 
+      // real profile
       const real = await fetchProfile(patient.id);
       if (alive && real) setProfileState(real);
     }
@@ -48,6 +43,8 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   }, [profileState]);
 
   if (!open || !patient) return null;
+
+  const alreadyInactive = String(patient.status || "").toLowerCase() === "inactive";
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
@@ -75,20 +72,9 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
             <Button
               variant="destructive"
               className="rounded-xl"
-              disabled={loading || patient.status === "inactive"}
-              onClick={async () => {
-                try {
-                  await confirmAndDeletePatient(patient.id);
-                  onClose();
-                } catch {
-                  // store already set error; keep modal open
-                }
-              }}
-              title={
-                patient.status === "inactive"
-                  ? "Patient is already inactive"
-                  : undefined
-              }
+              disabled={loading || alreadyInactive}
+              onClick={() => setConfirmOpen(true)}
+              title={alreadyInactive ? "Patient is already inactive" : undefined}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {loading ? "Updating..." : "Delete"}
@@ -143,6 +129,70 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
         <div className="p-5 border-t border-gray-100 flex items-center justify-end">
           <Button variant="outline" className="rounded-xl" onClick={onClose}>
             Close
+          </Button>
+        </div>
+      </div>
+
+      {/* ✅ Custom Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Mark patient as inactive?"
+        description={`This will mark ${patient.name} (${patient.id}) as inactive. No data will be deleted.`}
+        confirmText={loading ? "Updating..." : "Yes, mark inactive"}
+        cancelText="Cancel"
+        disabled={loading}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={async () => {
+          try {
+            await confirmAndDeletePatient(patient.id); // marks inactive
+            setConfirmOpen(false);
+            onClose();
+          } catch {
+            // store already has error; keep dialog open if needed
+          }
+        }}
+      />
+    </div>
+  );
+};
+
+const ConfirmDialog = ({
+  open,
+  title,
+  description,
+  confirmText,
+  cancelText,
+  disabled,
+  onClose,
+  onConfirm,
+}) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100">
+          <h4 className="text-base font-semibold text-gray-900">{title}</h4>
+          <p className="mt-1 text-sm text-gray-600">{description}</p>
+        </div>
+
+        <div className="p-5 flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={onClose}
+            disabled={disabled}
+          >
+            {cancelText}
+          </Button>
+
+          <Button
+            variant="destructive"
+            className="rounded-xl"
+            onClick={onConfirm}
+            disabled={disabled}
+          >
+            {confirmText}
           </Button>
         </div>
       </div>
