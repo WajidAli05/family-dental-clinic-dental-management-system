@@ -2,12 +2,13 @@ import { Button } from "@/components/ui/button";
 
 const StatusPill = ({ status }) => {
   const map = {
+    sent: "bg-gray-50 text-gray-700 border-gray-100",
     received: "bg-blue-50 text-blue-700 border-blue-100",
     in_progress: "bg-amber-50 text-amber-700 border-amber-100",
     ready: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    dispatched: "bg-purple-50 text-purple-700 border-purple-100",
     delivered: "bg-gray-50 text-gray-700 border-gray-100",
-    cancelled: "bg-rose-50 text-rose-700 border-rose-100",
+    approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    rejected: "bg-rose-50 text-rose-700 border-rose-100",
   };
   const cls = map[status] || "bg-gray-50 text-gray-700 border-gray-100";
   return (

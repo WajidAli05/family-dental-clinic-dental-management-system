@@ -78,13 +78,14 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
           </Field>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Email">
+            <Field label="Email *">
               <input
                 value={form.email}
                 onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
                 className={inputClass}
                 placeholder="lab@example.com"
                 type="email"
+                required
               />
             </Field>
 

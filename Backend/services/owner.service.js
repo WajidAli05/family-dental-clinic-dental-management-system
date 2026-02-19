@@ -6,6 +6,7 @@ import Appointment from "../models/Appointment.model.js";
 import Invoice from "../models/Invoice.model.js";
 import LabCase from "../models/LabCase.model.js";
 import Prescription from "../models/Prescription.model.js";
+import SampleType from "../models/SampleType.model.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -284,4 +285,223 @@ export async function ownerPatientDelete(_ownerId, patientPublicId) {
   await patient.save();
 
   return { message: "Deleted", id: pid };
+}
+
+// helpers
+const pad = (n, w = 4) => String(n).padStart(w, "0");
+const randPassword = () => Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+
+// ---------- LAB ACCOUNTS ----------
+export async function ownerListLabAccounts(_ownerId) {
+  const labs = await User.find({ role: "lab" })
+    .select("publicId name email phone enabled forcePasswordChange createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return labs.map((u) => ({
+    id: u.publicId,
+    name: u.name || "",
+    email: u.email || "",
+    phone: u.phone || "",
+    enabled: !!u.enabled,
+    forcePasswordChange: !!u.forcePasswordChange,
+    createdAt: toISO(u.createdAt),
+  }));
+}
+
+export async function ownerCreateLabAccount(_ownerId, payload = {}) {
+  const name = normalize(payload.name);
+  const email = lower(payload.email);
+  const phone = normalize(payload.phone);
+  const enabled = payload.enabled !== undefined ? !!payload.enabled : true;
+  const forcePasswordChange = payload.forcePasswordChange !== undefined ? !!payload.forcePasswordChange : true;
+
+  if (!name) throw new Error("Lab name is required");
+  if (!email) throw new Error("Email is required");
+
+  // generate next LAB-USER-####
+  const last = await User.findOne({ role: "lab", publicId: { $regex: /^LAB-USER-\d+$/ } })
+    .select("publicId")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let n = 1;
+  if (last?.publicId) {
+    const m = String(last.publicId).match(/^LAB-USER-(\d+)$/);
+    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  }
+  const publicId = `LAB-USER-${pad(n)}`;
+
+  const u = new User({
+    publicId,
+    name,
+    email,
+    phone,
+    role: "lab",
+    enabled,
+    forcePasswordChange,
+  });
+
+  // set temporary password (lab will change on login if forcePasswordChange=true)
+  await u.setPassword(randPassword());
+  await u.save();
+
+  return {
+    id: u.publicId,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    enabled: u.enabled,
+    forcePasswordChange: u.forcePasswordChange,
+    createdAt: toISO(u.createdAt),
+  };
+}
+
+export async function ownerUpdateLabAccount(_ownerId, labPublicId, patch = {}) {
+  const id = normalize(labPublicId);
+  if (!id) throw new Error("Lab id is required");
+
+  const u = await User.findOne({ role: "lab", publicId: id });
+  if (!u) throw new Error("Lab not found");
+
+  if (patch.name !== undefined) u.name = normalize(patch.name);
+  if (patch.email !== undefined) u.email = lower(patch.email);
+  if (patch.phone !== undefined) u.phone = normalize(patch.phone);
+  if (patch.enabled !== undefined) u.enabled = !!patch.enabled;
+  if (patch.forcePasswordChange !== undefined) u.forcePasswordChange = !!patch.forcePasswordChange;
+
+  if (!u.name) throw new Error("Lab name is required");
+  if (!u.email) throw new Error("Email is required");
+
+  await u.save();
+
+  return {
+    id: u.publicId,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    enabled: u.enabled,
+    forcePasswordChange: u.forcePasswordChange,
+    createdAt: toISO(u.createdAt),
+  };
+}
+
+export async function ownerSetLabAccountEnabled(_ownerId, labPublicId, enabled) {
+  return ownerUpdateLabAccount(_ownerId, labPublicId, { enabled: !!enabled });
+}
+
+// ---------- LAB CASES (read-only) ----------
+export async function ownerListLabCases(_ownerId) {
+  const rows = await LabCase.find({})
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .lean();
+
+  return rows.map((c) => ({
+    id: c.publicId,
+    createdAt: toISO(c.createdAt),
+    patientName: c.patient?.name || "",
+    dentistId: c.dentist?.publicId || "",
+    dentistName: c.dentist?.name || "",
+    labId: c.lab?.publicId || "",
+    labName: c.lab?.name || "",
+    sampleTypeId: c.sampleType?.publicId || "",
+    sampleTypeName: c.sampleType?.name || "",
+    status: c.status || "",
+    notes: c.note || "",
+    timeline: (c.timeline || []).map((t) => ({
+      at: t.at,
+      status: t.status,
+      note: t.note || "",
+    })),
+  }));
+}
+
+// ---------- SAMPLE TYPES ----------
+export async function ownerListSampleTypes(_ownerId) {
+  const rows = await SampleType.find({}).sort({ createdAt: -1 }).lean();
+  return rows.map((s) => ({
+    id: s.publicId,
+    name: s.name || "",
+    description: s.description || "",
+    active: !!s.active,
+    price: money(s.price),
+  }));
+}
+
+export async function ownerCreateSampleType(_ownerId, payload = {}) {
+  const name = normalize(payload.name);
+  const description = normalize(payload.description);
+  const active = payload.active !== undefined ? !!payload.active : true;
+  const price = Math.max(0, money(payload.price));
+
+  if (!name) throw new Error("Name is required");
+
+  // next ST-#
+  const last = await SampleType.findOne({ publicId: { $regex: /^ST-\d+$/ } })
+    .select("publicId")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let n = 1;
+  if (last?.publicId) {
+    const m = String(last.publicId).match(/^ST-(\d+)$/);
+    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  }
+
+  const st = await SampleType.create({
+    publicId: `ST-${n}`,
+    name,
+    description,
+    active,
+    price,
+  });
+
+  return {
+    id: st.publicId,
+    name: st.name,
+    description: st.description,
+    active: !!st.active,
+    price: money(st.price),
+  };
+}
+
+export async function ownerUpdateSampleType(_ownerId, sampleTypePublicId, patch = {}) {
+  const id = normalize(sampleTypePublicId);
+  if (!id) throw new Error("Sample type id is required");
+
+  const st = await SampleType.findOne({ publicId: id });
+  if (!st) throw new Error("Sample type not found");
+
+  if (patch.name !== undefined) st.name = normalize(patch.name);
+  if (patch.description !== undefined) st.description = normalize(patch.description);
+  if (patch.active !== undefined) st.active = !!patch.active;
+  if (patch.price !== undefined) st.price = Math.max(0, money(patch.price));
+
+  if (!st.name) throw new Error("Name is required");
+
+  await st.save();
+
+  return {
+    id: st.publicId,
+    name: st.name,
+    description: st.description,
+    active: !!st.active,
+    price: money(st.price),
+  };
+}
+
+export async function ownerDeleteSampleType(_ownerId, sampleTypePublicId) {
+  const id = normalize(sampleTypePublicId);
+  if (!id) throw new Error("Sample type id is required");
+
+  const st = await SampleType.findOne({ publicId: id });
+  if (!st) throw new Error("Sample type not found");
+
+  await SampleType.deleteOne({ _id: st._id });
+  return { message: "Deleted", id };
 }

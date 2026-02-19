@@ -102,12 +102,13 @@ const OwnerLabFilters = ({
               className={inputClass}
             >
               <option value="all">All</option>
+              <option value="sent">Sent</option>
               <option value="received">Received</option>
               <option value="in_progress">In Progress</option>
               <option value="ready">Ready</option>
-              <option value="dispatched">Dispatched</option>
               <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </Field>
 

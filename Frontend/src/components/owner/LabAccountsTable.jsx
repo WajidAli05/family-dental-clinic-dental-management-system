@@ -12,7 +12,7 @@ const StatusBadge = ({ enabled }) => (
   </span>
 );
 
-const LabAccountsTable = ({ data = [], onEdit, onToggle, onResetPassword }) => {
+const LabAccountsTable = ({ data = [], onEdit, onToggle }) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -54,13 +54,6 @@ const LabAccountsTable = ({ data = [], onEdit, onToggle, onResetPassword }) => {
                     </Button>
                     <Button variant="outline" className="rounded-xl" onClick={() => onToggle(a)}>
                       {a.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => onResetPassword(a)}
-                    >
-                      Reset Password
                     </Button>
                   </div>
                 </td>

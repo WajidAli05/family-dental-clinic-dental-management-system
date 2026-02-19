@@ -8,15 +8,50 @@ const defaultFilters = {
     query: "",
     labId: "all",
     dentistId: "all",
-    status: "all", // received | in_progress | ready | dispatched | delivered | cancelled
+    status: "all", // sent | received | in_progress | ready | delivered | approved | rejected
     dateFrom: "",
     dateTo: "",
   },
   sampleTypes: { query: "" },
 };
 
+const baseURL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
+
+function buildUrl(path, params) {
+  const url = new URL(baseURL + path);
+  if (params && typeof params === "object") {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === "") return;
+      url.searchParams.set(k, String(v));
+    });
+  }
+  return url.toString();
+}
+
+async function request(path, { method = "GET", params, body } = {}) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(buildUrl(path, params), {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    throw new Error(json?.message || `Request failed: ${res.status}`);
+  }
+  return json; // { success, data }
+}
+
 export const useOwnerLabManagementStore = create((set, get) => ({
   initialized: false,
+  loading: false,
+  error: null,
+
   activeTab: "accounts", // accounts | cases | sampleTypes
 
   // ---------- DATA ----------
@@ -27,10 +62,10 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   // ---------- UI ----------
   filters: { ...defaultFilters },
 
-  modal: { open: false, type: null, mode: "create", payload: null }, // type: labAccount | sampleType | caseDetails
+  modal: { open: false, type: null, mode: "create", payload: null }, // labAccount | sampleType | caseDetails
   confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null },
 
-  // ---------- SEED ----------
+  // ---------- SEED (keep) ----------
   seed: () => ({
     labAccounts: [
       { id: "LAB-USER-1", name: "Dental Lab Rawalpindi", email: "lab.rwp@example.com", phone: "051-5551234", enabled: true, forcePasswordChange: false, createdAt: "2025-10-01" },
@@ -38,17 +73,17 @@ export const useOwnerLabManagementStore = create((set, get) => ({
       { id: "LAB-USER-3", name: "Ortho Lab PK", email: "ortholab@example.com", phone: "051-4447766", enabled: false, forcePasswordChange: false, createdAt: "2026-01-02" },
     ],
     sampleTypes: [
-      { id: "ST-1", name: "Impression", description: "Alginate / silicone impression sample", active: true },
-      { id: "ST-2", name: "Crown", description: "Crown case type", active: true },
-      { id: "ST-3", name: "Bridge", description: "Bridge case type", active: true },
-      { id: "ST-4", name: "Denture", description: "Complete/partial denture", active: true },
+      { id: "ST-1", name: "Impression", description: "Alginate / silicone impression sample", active: true, price: 0 },
+      { id: "ST-2", name: "Crown", description: "Crown case type", active: true, price: 0 },
+      { id: "ST-3", name: "Bridge", description: "Bridge case type", active: true, price: 0 },
+      { id: "ST-4", name: "Denture", description: "Complete/partial denture", active: true, price: 0 },
     ],
     labCases: [
       {
         id: "CASE-2001",
         createdAt: "2026-01-15",
         patientName: "Ali Raza",
-        dentistId: 1,
+        dentistId: "D-1",
         dentistName: "Dr. Ahmed",
         labId: "LAB-USER-1",
         labName: "Dental Lab Rawalpindi",
@@ -61,50 +96,49 @@ export const useOwnerLabManagementStore = create((set, get) => ({
           { at: "2026-01-15 13:05", status: "in_progress", note: "Work started" },
         ],
       },
-      {
-        id: "CASE-2002",
-        createdAt: "2026-01-16",
-        patientName: "Ayesha Khan",
-        dentistId: 2,
-        dentistName: "Dr. Saif",
-        labId: "LAB-USER-2",
-        labName: "Smile Craft Lab",
-        sampleTypeId: "ST-1",
-        sampleTypeName: "Impression",
-        status: "received",
-        notes: "Impression for braces planning",
-        timeline: [{ at: "2026-01-16 09:20", status: "received", note: "Case logged" }],
-      },
-      {
-        id: "CASE-2003",
-        createdAt: "2026-01-17",
-        patientName: "Hamza Ali",
-        dentistId: 3,
-        dentistName: "Dr. Hina",
-        labId: "LAB-USER-1",
-        labName: "Dental Lab Rawalpindi",
-        sampleTypeId: "ST-4",
-        sampleTypeName: "Denture",
-        status: "ready",
-        notes: "Partial denture, lower arch",
-        timeline: [
-          { at: "2026-01-17 11:00", status: "received", note: "Received" },
-          { at: "2026-01-17 14:40", status: "in_progress", note: "Fabrication started" },
-          { at: "2026-01-18 10:15", status: "ready", note: "Ready for dispatch" },
-        ],
-      },
     ],
   }),
 
-  init: () => {
+  // ---------- INIT ----------
+  init: async () => {
     if (get().initialized) return;
+
+    set({ initialized: true, loading: true, error: null });
+
+    // instant demo so UI isn't empty
     const demo = get().seed();
     set({
       labAccounts: demo.labAccounts,
       sampleTypes: demo.sampleTypes,
       labCases: demo.labCases,
-      initialized: true,
     });
+
+    try {
+      await Promise.all([
+        get().fetchLabAccounts(),
+        get().fetchSampleTypes(),
+        get().fetchLabCases(),
+      ]);
+      set({ loading: false });
+    } catch (e) {
+      set({ loading: false, error: e.message });
+    }
+  },
+
+  // ---------- FETCHERS ----------
+  fetchLabAccounts: async () => {
+    const res = await request("/owner/labs");
+    set({ labAccounts: res.data || [] });
+  },
+
+  fetchSampleTypes: async () => {
+    const res = await request("/owner/sample-types");
+    set({ sampleTypes: res.data || [] });
+  },
+
+  fetchLabCases: async () => {
+    const res = await request("/owner/lab-cases");
+    set({ labCases: res.data || [] });
   },
 
   // ---------- TABS ----------
@@ -130,91 +164,144 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   // ---------- CONFIRM ----------
   openConfirm: ({ title, message, onConfirmKey, onConfirmPayload }) =>
     set({ confirm: { open: true, title, message, onConfirmKey, onConfirmPayload } }),
-  closeConfirm: () => set({ confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null } }),
+  closeConfirm: () =>
+    set({ confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null } }),
 
-  runConfirm: () => {
+  runConfirm: async () => {
     const { confirm } = get();
     if (!confirm.onConfirmKey) return;
 
     const map = {
-      deleteSampleType: (id) => get().deleteSampleType(id),
-      disableLabAccount: (id) => get().setLabAccountEnabled(id, false),
+      deleteSampleType: async (id) => get().deleteSampleType(id),
     };
 
     const fn = map[confirm.onConfirmKey];
-    if (fn) fn(confirm.onConfirmPayload);
-    get().closeConfirm();
+    try {
+      if (fn) await fn(confirm.onConfirmPayload);
+    } finally {
+      get().closeConfirm();
+    }
   },
 
-  // ---------- LAB ACCOUNTS CRUD ----------
-  addLabAccount: (data) =>
-    set((state) => ({
-      labAccounts: [
-        ...state.labAccounts,
-        {
-          id: `LAB-USER-${uid()}`,
-          name: data.name?.trim() || "New Lab",
-          email: (data.email || "").trim(),
-          phone: (data.phone || "").trim(),
-          enabled: data.enabled ?? true,
-          forcePasswordChange: data.forcePasswordChange ?? true,
-          createdAt: new Date().toISOString().slice(0, 10),
-        },
-      ],
-    })),
+  // ---------- LAB ACCOUNTS CRUD (REAL) ----------
+  addLabAccount: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request("/owner/labs", { method: "POST", body: data });
+      const created = res.data;
+      set((state) => ({
+        labAccounts: [created, ...(state.labAccounts || [])],
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
 
-  updateLabAccount: (id, patch) =>
-    set((state) => ({
-      labAccounts: state.labAccounts.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-    })),
+  updateLabAccount: async (id, patch) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request(`/owner/labs/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: patch,
+      });
+      const updated = res.data;
+      set((state) => ({
+        labAccounts: (state.labAccounts || []).map((x) => (x.id === id ? updated : x)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
 
-  setLabAccountEnabled: (id, enabled) =>
-    set((state) => ({
-      labAccounts: state.labAccounts.map((x) => (x.id === id ? { ...x, enabled } : x)),
-    })),
+  setLabAccountEnabled: async (id, enabled) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request(`/owner/labs/${encodeURIComponent(id)}/enabled`, {
+        method: "PATCH",
+        body: { enabled: !!enabled },
+      });
+      const updated = res.data;
+      set((state) => ({
+        labAccounts: (state.labAccounts || []).map((x) => (x.id === id ? updated : x)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
 
-  resetLabPassword: (id) =>
-    // demo: just mark force change on next login
-    set((state) => ({
-      labAccounts: state.labAccounts.map((x) =>
-        x.id === id ? { ...x, forcePasswordChange: true } : x
-      ),
-    })),
+  // kept for compatibility with page (but table no longer shows it)
+  resetLabPassword: async (_id) => {
+    // intentionally noop (feature removed from UI per requirement)
+    return;
+  },
 
-  // ---------- SAMPLE TYPES CRUD ----------
-  addSampleType: (data) =>
-    set((state) => ({
-      sampleTypes: [
-        ...state.sampleTypes,
-        {
-          id: `ST-${uid()}`,
-          name: data.name?.trim() || "New Sample Type",
-          description: data.description || "",
-          active: data.active ?? true,
-        },
-      ],
-    })),
+  // ---------- SAMPLE TYPES CRUD (REAL) ----------
+  addSampleType: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request("/owner/sample-types", { method: "POST", body: data });
+      const created = res.data;
+      set((state) => ({
+        sampleTypes: [created, ...(state.sampleTypes || [])],
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
 
-  updateSampleType: (id, patch) =>
-    set((state) => ({
-      sampleTypes: state.sampleTypes.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-    })),
+  updateSampleType: async (id, patch) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request(`/owner/sample-types/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: patch,
+      });
+      const updated = res.data;
+      set((state) => ({
+        sampleTypes: (state.sampleTypes || []).map((x) => (x.id === id ? updated : x)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
 
-  deleteSampleType: (id) =>
-    set((state) => ({
-      sampleTypes: state.sampleTypes.filter((x) => x.id !== id),
-    })),
+  setSampleTypeActive: async (id, active) => {
+    return get().updateSampleType(id, { active: !!active });
+  },
 
-  // ---------- FILTERED LISTS ----------
+  deleteSampleType: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      await request(`/owner/sample-types/${encodeURIComponent(id)}`, { method: "DELETE" });
+      set((state) => ({
+        sampleTypes: (state.sampleTypes || []).filter((x) => x.id !== id),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  // ---------- FILTERED LISTS (kept) ----------
   getFilteredAccounts: () => {
     const { labAccounts, filters } = get();
     const { query, status } = filters.accounts;
     const q = String(query || "").trim().toLowerCase();
 
-    return labAccounts.filter((a) => {
+    return (labAccounts || []).filter((a) => {
       if (status === "enabled" && !a.enabled) return false;
       if (status === "disabled" && a.enabled) return false;
-
       if (q) {
         const hay = `${a.id} ${a.name} ${a.email} ${a.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -226,7 +313,7 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   getFilteredSampleTypes: () => {
     const { sampleTypes, filters } = get();
     const q = String(filters.sampleTypes.query || "").trim().toLowerCase();
-    return sampleTypes.filter((s) => {
+    return (sampleTypes || []).filter((s) => {
       if (!q) return true;
       const hay = `${s.id} ${s.name} ${s.description}`.toLowerCase();
       return hay.includes(q);
@@ -241,7 +328,7 @@ export const useOwnerLabManagementStore = create((set, get) => ({
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
     const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
 
-    return labCases.filter((c) => {
+    return (labCases || []).filter((c) => {
       const d = new Date(`${c.createdAt}T12:00:00`);
       if (from && d < from) return false;
       if (to && d > to) return false;

@@ -17,6 +17,7 @@ const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
     () => ({
       name: "",
       description: "",
+      price: 0,
       active: true,
     }),
     []
@@ -30,6 +31,7 @@ const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
       setForm({
         name: initial.name || "",
         description: initial.description || "",
+        price: Number(initial.price || 0),
         active: initial.active ?? true,
       });
     } else {
@@ -44,6 +46,7 @@ const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
     onSubmit?.({
       name: String(form.name || "").trim(),
       description: String(form.description || ""),
+      price: Math.max(0, Number(form.price || 0) || 0),
       active: !!form.active,
     });
   };
@@ -70,6 +73,21 @@ const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
               required
             />
           </Field>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Price (PKR) *">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.price}
+                onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))}
+                className={inputClass}
+                placeholder="0"
+                required
+              />
+            </Field>
+          </div>
 
           <Field label="Description">
             <textarea

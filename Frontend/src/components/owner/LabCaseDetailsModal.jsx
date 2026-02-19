@@ -8,12 +8,13 @@ const modalBox =
 
 const StatusPill = ({ status }) => {
   const map = {
+    sent: "bg-gray-50 text-gray-700 border-gray-100",
     received: "bg-blue-50 text-blue-700 border-blue-100",
     in_progress: "bg-amber-50 text-amber-700 border-amber-100",
     ready: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    dispatched: "bg-purple-50 text-purple-700 border-purple-100",
     delivered: "bg-gray-50 text-gray-700 border-gray-100",
-    cancelled: "bg-rose-50 text-rose-700 border-rose-100",
+    approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    rejected: "bg-rose-50 text-rose-700 border-rose-100",
   };
   const cls = map[status] || "bg-gray-50 text-gray-700 border-gray-100";
   return (
@@ -47,7 +48,6 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Summary */}
           <div className="rounded-2xl border border-gray-100 p-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
@@ -68,7 +68,6 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
             </div>
           </div>
 
-          {/* Timeline */}
           <div className="rounded-2xl border border-gray-100 p-4">
             <div className="text-sm font-semibold text-gray-900">Timeline</div>
             <div className="text-xs text-gray-500 mt-1">
@@ -91,7 +90,9 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
                         <div className="text-sm font-semibold text-gray-900">
                           {String(t.status || "").replaceAll("_", " ")}
                         </div>
-                        <div className="text-xs text-gray-500">{t.at}</div>
+                        <div className="text-xs text-gray-500">
+                          {t.at ? new Date(t.at).toLocaleString() : "-"}
+                        </div>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
                         {t.note || "-"}

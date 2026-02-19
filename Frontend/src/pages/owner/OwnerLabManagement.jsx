@@ -48,10 +48,10 @@ const OwnerLabManagement = () => {
   const addLabAccount = useOwnerLabManagementStore((s) => s.addLabAccount);
   const updateLabAccount = useOwnerLabManagementStore((s) => s.updateLabAccount);
   const setLabAccountEnabled = useOwnerLabManagementStore((s) => s.setLabAccountEnabled);
-  const resetLabPassword = useOwnerLabManagementStore((s) => s.resetLabPassword);
 
   const addSampleType = useOwnerLabManagementStore((s) => s.addSampleType);
   const updateSampleType = useOwnerLabManagementStore((s) => s.updateSampleType);
+  const setSampleTypeActive = useOwnerLabManagementStore((s) => s.setSampleTypeActive);
 
   useEffect(() => {
     useOwnerLabManagementStore.getState().init();
@@ -62,7 +62,6 @@ const OwnerLabManagement = () => {
     [labAccounts]
   );
 
-  // ✅ safe computed lists (no store computed selector subscription)
   const accountsData = useMemo(() => {
     const { query, status } = filters.accounts;
     const q = String(query || "").trim().toLowerCase();
@@ -113,7 +112,7 @@ const OwnerLabManagement = () => {
   const primaryActionLabel = useMemo(() => {
     if (activeTab === "accounts") return "Create Lab Account";
     if (activeTab === "sampleTypes") return "Add Sample Type";
-    return null; // cases: read-only for owner here
+    return null;
   }, [activeTab]);
 
   return (
@@ -168,7 +167,6 @@ const OwnerLabManagement = () => {
               data={accountsData}
               onEdit={(a) => openEdit("labAccount", a)}
               onToggle={(a) => setLabAccountEnabled(a.id, !a.enabled)}
-              onResetPassword={(a) => resetLabPassword(a.id)}
             />
           ) : null}
 
@@ -180,6 +178,7 @@ const OwnerLabManagement = () => {
             <SampleTypesTable
               data={sampleTypesData}
               onEdit={(s) => openEdit("sampleType", s)}
+              onToggle={(s) => setSampleTypeActive(s.id, !s.active)}
               onDelete={(s) =>
                 openConfirm({
                   title: "Delete Sample Type",
@@ -199,9 +198,9 @@ const OwnerLabManagement = () => {
         mode={modal.mode}
         initial={modal.payload}
         onClose={closeModal}
-        onSubmit={(payload) => {
-          if (modal.mode === "edit") updateLabAccount(modal.payload.id, payload);
-          else addLabAccount(payload);
+        onSubmit={async (payload) => {
+          if (modal.mode === "edit") await updateLabAccount(modal.payload.id, payload);
+          else await addLabAccount(payload);
           closeModal();
         }}
       />
@@ -211,9 +210,9 @@ const OwnerLabManagement = () => {
         mode={modal.mode}
         initial={modal.payload}
         onClose={closeModal}
-        onSubmit={(payload) => {
-          if (modal.mode === "edit") updateSampleType(modal.payload.id, payload);
-          else addSampleType(payload);
+        onSubmit={async (payload) => {
+          if (modal.mode === "edit") await updateSampleType(modal.payload.id, payload);
+          else await addSampleType(payload);
           closeModal();
         }}
       />

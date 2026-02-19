@@ -9,6 +9,9 @@ const sampleTypeSchema = new Schema(
     name: { type: String, required: true, trim: true, index: true },
     description: { type: String, default: "" },
     active: { type: Boolean, default: true, index: true },
+
+    // ✅ NEW
+    price: { type: Number, min: 0, default: 0 },
   },
   { timestamps: true }
 );
