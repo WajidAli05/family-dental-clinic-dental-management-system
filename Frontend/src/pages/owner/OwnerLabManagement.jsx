@@ -20,7 +20,8 @@ import { useOwnerLabManagementStore } from "@/store/ownerLabManagementStore";
 import { useDentistStore } from "@/store/dentistStore";
 
 const OwnerLabManagement = () => {
-  const { dentists } = useDentistStore();
+  // existing dentists store (keep working)
+  const { dentists: dentistsFromDentistStore } = useDentistStore();
 
   const activeTab = useOwnerLabManagementStore((s) => s.activeTab);
   const setActiveTab = useOwnerLabManagementStore((s) => s.setActiveTab);
@@ -32,6 +33,9 @@ const OwnerLabManagement = () => {
   const labAccounts = useOwnerLabManagementStore((s) => s.labAccounts);
   const sampleTypes = useOwnerLabManagementStore((s) => s.sampleTypes);
   const labCases = useOwnerLabManagementStore((s) => s.labCases);
+
+  // ✅ dentists fetched by this module from backend (preferred for cases filtering)
+  const dentistsFromOwnerStore = useOwnerLabManagementStore((s) => s.dentists);
 
   const modal = useOwnerLabManagementStore((s) => s.modal);
   const confirm = useOwnerLabManagementStore((s) => s.confirm);
@@ -61,6 +65,14 @@ const OwnerLabManagement = () => {
     () => labAccounts.map((l) => ({ id: l.id, name: l.name })),
     [labAccounts]
   );
+
+  // ✅ choose dentists: prefer backend-loaded list; fallback to dentistStore
+  const dentistsForDropdown = useMemo(() => {
+    if (Array.isArray(dentistsFromOwnerStore) && dentistsFromOwnerStore.length > 0) {
+      return dentistsFromOwnerStore;
+    }
+    return Array.isArray(dentistsFromDentistStore) ? dentistsFromDentistStore : [];
+  }, [dentistsFromOwnerStore, dentistsFromDentistStore]);
 
   const accountsData = useMemo(() => {
     const { query, status } = filters.accounts;
@@ -141,7 +153,7 @@ const OwnerLabManagement = () => {
         tab={activeTab}
         filters={filters[activeTab]}
         labs={labsForDropdown}
-        dentists={dentists}
+        dentists={dentistsForDropdown}  // ✅ now comes from backend when available
         onChange={(key, value) => setFilter(activeTab, key, value)}
         onReset={() => resetFilters(activeTab)}
       />

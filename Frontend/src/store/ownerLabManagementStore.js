@@ -58,19 +58,50 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   labAccounts: [],
   sampleTypes: [],
   labCases: [],
+  dentists: [], // ✅ NEW (for cases filtering dropdown)
 
   // ---------- UI ----------
   filters: { ...defaultFilters },
 
   modal: { open: false, type: null, mode: "create", payload: null }, // labAccount | sampleType | caseDetails
-  confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null },
+  confirm: {
+    open: false,
+    title: "",
+    message: "",
+    onConfirmKey: null,
+    onConfirmPayload: null,
+  },
 
   // ---------- SEED (keep) ----------
   seed: () => ({
     labAccounts: [
-      { id: "LAB-USER-1", name: "Dental Lab Rawalpindi", email: "lab.rwp@example.com", phone: "051-5551234", enabled: true, forcePasswordChange: false, createdAt: "2025-10-01" },
-      { id: "LAB-USER-2", name: "Smile Craft Lab", email: "smilecraft@example.com", phone: "051-7778899", enabled: true, forcePasswordChange: true, createdAt: "2025-12-10" },
-      { id: "LAB-USER-3", name: "Ortho Lab PK", email: "ortholab@example.com", phone: "051-4447766", enabled: false, forcePasswordChange: false, createdAt: "2026-01-02" },
+      {
+        id: "LAB-USER-1",
+        name: "Dental Lab Rawalpindi",
+        email: "lab.rwp@example.com",
+        phone: "051-5551234",
+        enabled: true,
+        forcePasswordChange: false,
+        createdAt: "2025-10-01",
+      },
+      {
+        id: "LAB-USER-2",
+        name: "Smile Craft Lab",
+        email: "smilecraft@example.com",
+        phone: "051-7778899",
+        enabled: true,
+        forcePasswordChange: true,
+        createdAt: "2025-12-10",
+      },
+      {
+        id: "LAB-USER-3",
+        name: "Ortho Lab PK",
+        email: "ortholab@example.com",
+        phone: "051-4447766",
+        enabled: false,
+        forcePasswordChange: false,
+        createdAt: "2026-01-02",
+      },
     ],
     sampleTypes: [
       { id: "ST-1", name: "Impression", description: "Alginate / silicone impression sample", active: true, price: 0 },
@@ -118,6 +149,7 @@ export const useOwnerLabManagementStore = create((set, get) => ({
         get().fetchLabAccounts(),
         get().fetchSampleTypes(),
         get().fetchLabCases(),
+        get().fetchDentists(), // ✅ NEW
       ]);
       set({ loading: false });
     } catch (e) {
@@ -139,6 +171,17 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   fetchLabCases: async () => {
     const res = await request("/owner/lab-cases");
     set({ labCases: res.data || [] });
+  },
+
+  // ✅ NEW: dentists for cases filter (expects [{id,name}] or similar)
+  fetchDentists: async () => {
+    try {
+      const res = await request("/owner/dentists");
+      set({ dentists: res.data || [] });
+    } catch {
+      // do not break page if endpoint isn't ready yet
+      set({ dentists: [] });
+    }
   },
 
   // ---------- TABS ----------
@@ -235,9 +278,8 @@ export const useOwnerLabManagementStore = create((set, get) => ({
     }
   },
 
-  // kept for compatibility with page (but table no longer shows it)
+  // kept for compatibility with page (but UI may remove it later)
   resetLabPassword: async (_id) => {
-    // intentionally noop (feature removed from UI per requirement)
     return;
   },
 
@@ -302,6 +344,7 @@ export const useOwnerLabManagementStore = create((set, get) => ({
     return (labAccounts || []).filter((a) => {
       if (status === "enabled" && !a.enabled) return false;
       if (status === "disabled" && a.enabled) return false;
+
       if (q) {
         const hay = `${a.id} ${a.name} ${a.email} ${a.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;

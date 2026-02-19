@@ -12,6 +12,7 @@ import { getOwnerAppointments,
   ownerCreateSampleTypeController,
   ownerUpdateSampleTypeController,
   ownerDeleteSampleTypeController,
+  ownerGetDentists
  } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -37,5 +38,7 @@ router.get("/sample-types", ownerListSampleTypesController);
 router.post("/sample-types", ownerCreateSampleTypeController);
 router.patch("/sample-types/:id", ownerUpdateSampleTypeController);
 router.delete("/sample-types/:id", ownerDeleteSampleTypeController);
+
+router.get("/dentists", ownerGetDentists);
 
 export default router;

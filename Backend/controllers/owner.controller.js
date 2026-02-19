@@ -11,6 +11,7 @@ import { ownerListAppointments,
   ownerCreateSampleType,
   ownerUpdateSampleType,
   ownerDeleteSampleType,
+  ownerListDentists
  } from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
@@ -149,5 +150,14 @@ export const ownerDeleteSampleTypeController = async (req, res) => {
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerGetDentists = async (req, res) => {
+  try {
+    const data = await ownerListDentists(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 };

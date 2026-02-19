@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 const overlay =
   "fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-3";
 const modalBox =
-  "w-full max-w-3xl rounded-2xl bg-white shadow-xl overflow-hidden";
+  "w-full max-w-3xl rounded-2xl bg-white shadow-xl overflow-hidden max-h-[85vh] flex flex-col";
 
 const StatusPill = ({ status }) => {
   const map = {
@@ -18,7 +18,9 @@ const StatusPill = ({ status }) => {
   };
   const cls = map[status] || "bg-gray-50 text-gray-700 border-gray-100";
   return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${cls}`}
+    >
       {String(status).replaceAll("_", " ")}
     </span>
   );
@@ -32,6 +34,7 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
   return (
     <div className={overlay} onMouseDown={onClose}>
       <div className={modalBox} onMouseDown={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div className="p-6 border-b border-gray-100 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
@@ -47,12 +50,18 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
           </Button>
         </div>
 
-        <div className="p-6 space-y-6">
+        {/* ✅ Scrollable body */}
+        <div className="p-6 space-y-6 overflow-y-auto">
+          {/* Summary */}
           <div className="rounded-2xl border border-gray-100 p-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <div className="text-sm font-semibold text-gray-900">{caseItem?.id}</div>
-                <div className="text-xs text-gray-500">Created: {caseItem?.createdAt}</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {caseItem?.id}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Created: {caseItem?.createdAt}
+                </div>
               </div>
               <StatusPill status={caseItem?.status} />
             </div>
@@ -68,6 +77,7 @@ const LabCaseDetailsModal = ({ open, caseItem, onClose }) => {
             </div>
           </div>
 
+          {/* Timeline */}
           <div className="rounded-2xl border border-gray-100 p-4">
             <div className="text-sm font-semibold text-gray-900">Timeline</div>
             <div className="text-xs text-gray-500 mt-1">

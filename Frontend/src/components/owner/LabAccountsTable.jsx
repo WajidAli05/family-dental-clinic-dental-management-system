@@ -22,7 +22,6 @@ const LabAccountsTable = ({ data = [], onEdit, onToggle }) => {
             <th className="py-3 pr-4">Status</th>
             <th className="py-3 pr-4">Email</th>
             <th className="py-3 pr-4">Phone</th>
-            <th className="py-3 pr-4">Force Password Change</th>
             <th className="py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -30,7 +29,7 @@ const LabAccountsTable = ({ data = [], onEdit, onToggle }) => {
         <tbody className="divide-y divide-gray-100">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={6} className="py-8 text-center text-gray-500">
+              <td colSpan={5} className="py-8 text-center text-gray-500">
                 No lab accounts found.
               </td>
             </tr>
@@ -46,7 +45,6 @@ const LabAccountsTable = ({ data = [], onEdit, onToggle }) => {
                 </td>
                 <td className="py-3 pr-4">{a.email || "-"}</td>
                 <td className="py-3 pr-4">{a.phone || "-"}</td>
-                <td className="py-3 pr-4">{a.forcePasswordChange ? "Yes" : "No"}</td>
                 <td className="py-3 text-right">
                   <div className="inline-flex gap-2">
                     <Button variant="outline" className="rounded-xl" onClick={() => onEdit(a)}>

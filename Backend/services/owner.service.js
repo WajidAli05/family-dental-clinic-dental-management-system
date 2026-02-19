@@ -505,3 +505,16 @@ export async function ownerDeleteSampleType(_ownerId, sampleTypePublicId) {
   await SampleType.deleteOne({ _id: st._id });
   return { message: "Deleted", id };
 }
+
+// ✅ NEW: Owner dentists list (for filters)
+export async function ownerListDentists(_ownerId) {
+  const rows = await User.find({ role: "dentist" })
+    .select("publicId name")
+    .sort({ name: 1 })
+    .lean();
+
+  return rows.map((d) => ({
+    id: d.publicId,
+    name: d.name || "",
+  }));
+}

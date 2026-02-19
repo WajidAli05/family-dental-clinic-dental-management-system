@@ -1,4 +1,3 @@
-// src/components/owner/LabAccountModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,7 +18,6 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
       email: "",
       phone: "",
       enabled: true,
-      forcePasswordChange: true,
     }),
     []
   );
@@ -34,7 +32,6 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
         email: initial.email || "",
         phone: initial.phone || "",
         enabled: initial.enabled ?? true,
-        forcePasswordChange: initial.forcePasswordChange ?? false,
       });
     } else {
       setForm(empty);
@@ -50,7 +47,6 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
       email: String(form.email || "").trim(),
       phone: String(form.phone || "").trim(),
       enabled: !!form.enabled,
-      forcePasswordChange: !!form.forcePasswordChange,
     });
   };
 
@@ -62,7 +58,7 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
             {isEdit ? "Edit Lab Account" : "Create Lab Account"}
           </h3>
           <p className="text-sm text-gray-500 mt-1">
-            Lab role user for portal access (no routing controls here).
+            Lab role user for portal access.
           </p>
         </div>
 
@@ -111,20 +107,6 @@ const LabAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
               <Toggle
                 checked={!!form.enabled}
                 onChange={(v) => setForm((s) => ({ ...s, enabled: v }))}
-              />
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Force Password Change</div>
-                <div className="text-xs text-gray-500">
-                  Require lab to change password on next login.
-                </div>
-              </div>
-
-              <Toggle
-                checked={!!form.forcePasswordChange}
-                onChange={(v) => setForm((s) => ({ ...s, forcePasswordChange: v }))}
               />
             </div>
           </Card>
