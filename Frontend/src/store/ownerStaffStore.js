@@ -27,17 +27,20 @@ const PERMISSION_KEYS = [
   "tab_dentist_profile",
 ];
 
-// permissions stored as { [permKey]: { receptionist: boolean, dentist: boolean } }
+// ----------------------------------------------------
+// Permissions normalization
+// UI shape: { [permKey]: { receptionist:boolean, dentist:boolean } }
+// Backend may return:
+//  A) {permKey:{receptionist:true,dentist:false}}
+//  B) {permKey:["receptionist","dentist"]}
+//  C) wrapped: { permissions: {...} } or { data: { permissions: {...} } }
+// ----------------------------------------------------
 const normalizePermissions = (raw) => {
   const base = {};
   PERMISSION_KEYS.forEach((k) => (base[k] = { receptionist: false, dentist: false }));
 
   if (!raw || typeof raw !== "object") return base;
 
-  // accept either:
-  // A) {permKey:{receptionist:true,dentist:false}}
-  // B) {permKey:["receptionist","dentist"]}
-  // C) legacy: {permKey:["S-1","S-2"]} -> ignore (owner matrix no longer per-staff)
   Object.entries(raw).forEach(([k, v]) => {
     if (!base[k]) return;
 
@@ -58,6 +61,38 @@ const normalizePermissions = (raw) => {
   });
 
   return base;
+};
+
+// Some backends return:
+//   { success:true, data:{ permissions:{...} } }
+// Some return:
+//   { success:true, data:{...} }
+// Some return:
+//   { success:true, permissions:{...} } (rare)
+// This makes the store tolerant.
+const extractPermissionsPayload = (apiResponse) => {
+  if (!apiResponse) return {};
+  const d = apiResponse?.data ?? apiResponse;
+
+  if (!d || typeof d !== "object") return {};
+  if (d.permissions && typeof d.permissions === "object") return d.permissions;
+
+  return d;
+};
+
+// Convert UI boolean object -> backend array format:
+// { permKey: { receptionist:true, dentist:false } }
+// -> { permKey: ["receptionist"] }
+const serializePermissionsForBackend = (uiPerms) => {
+  const out = {};
+  PERMISSION_KEYS.forEach((k) => {
+    const row = uiPerms?.[k] || {};
+    const roles = [];
+    if (row.receptionist) roles.push("receptionist");
+    if (row.dentist) roles.push("dentist");
+    out[k] = roles;
+  });
+  return out;
 };
 
 export const useOwnerStaffStore = create((set, get) => ({
@@ -121,7 +156,11 @@ export const useOwnerStaffStore = create((set, get) => ({
     set({ loadingPermissions: true });
     try {
       const res = await ownerApi.getPermissions();
-      const normalized = normalizePermissions(res?.data || {});
+
+      // ✅ tolerant extraction
+      const raw = extractPermissionsPayload(res);
+
+      const normalized = normalizePermissions(raw);
       set({
         permissions: normalized,
         permissionsSaved: deepClone(normalized),
@@ -181,7 +220,13 @@ export const useOwnerStaffStore = create((set, get) => ({
 
   closeConfirm: () =>
     set({
-      confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null },
+      confirm: {
+        open: false,
+        title: "",
+        message: "",
+        onConfirmKey: null,
+        onConfirmPayload: null,
+      },
     }),
 
   runConfirm: async () => {
@@ -199,7 +244,6 @@ export const useOwnerStaffStore = create((set, get) => ({
 
   // ---------- CRUD (STAFF) ----------
   addStaff: async (form) => {
-    // optimistic insert to avoid empty table / reload requirement
     const tempId = `TEMP-${Date.now()}`;
     const optimistic = {
       id: tempId,
@@ -219,23 +263,19 @@ export const useOwnerStaffStore = create((set, get) => ({
       const res = await ownerApi.createStaff(form);
       const created = res?.data;
 
-      // replace temp with real record
       set((s) => ({
         staff: s.staff.map((x) => (x.id === tempId ? created : x)).filter(Boolean),
       }));
     } catch (e) {
       console.error("addStaff failed", e);
-      // rollback optimistic insert
       set((s) => ({ staff: s.staff.filter((x) => x.id !== tempId) }));
       throw e;
     } finally {
-      // ensure consistency
       await get().fetchStaff();
     }
   },
 
   updateStaff: async (id, patch) => {
-    // optimistic update
     set((s) => ({
       staff: s.staff.map((x) => (x.id === id ? { ...x, ...patch } : x)),
     }));
@@ -244,7 +284,6 @@ export const useOwnerStaffStore = create((set, get) => ({
       await ownerApi.updateStaff(id, patch);
     } catch (e) {
       console.error("updateStaff failed", e);
-      // refetch to restore truth
       await get().fetchStaff();
       throw e;
     } finally {
@@ -253,7 +292,6 @@ export const useOwnerStaffStore = create((set, get) => ({
   },
 
   deleteStaff: async (id) => {
-    // optimistic remove
     const prev = get().staff;
     set((s) => ({ staff: s.staff.filter((x) => x.id !== id) }));
 
@@ -261,7 +299,6 @@ export const useOwnerStaffStore = create((set, get) => ({
       await ownerApi.deleteStaff(id);
     } catch (e) {
       console.error("deleteStaff failed", e);
-      // rollback
       set({ staff: prev });
       throw e;
     } finally {
@@ -275,7 +312,6 @@ export const useOwnerStaffStore = create((set, get) => ({
 
     const next = !row.enabled;
 
-    // optimistic
     set((s) => ({
       staff: s.staff.map((x) => (x.id === id ? { ...x, enabled: next } : x)),
     }));
@@ -284,7 +320,6 @@ export const useOwnerStaffStore = create((set, get) => ({
       await ownerApi.toggleStaffEnabled(id, next);
     } catch (e) {
       console.error("toggleAccountEnabled failed", e);
-      // revert
       set((s) => ({
         staff: s.staff.map((x) => (x.id === id ? { ...x, enabled: !next } : x)),
       }));
@@ -296,14 +331,12 @@ export const useOwnerStaffStore = create((set, get) => ({
 
   // ---------- PERMISSIONS (ROLE MATRIX) ----------
   togglePermission: (permKey, roleKey) => {
-    // roleKey: "receptionist" | "dentist"
     set((s) => {
       const next = deepClone(s.permissions);
       if (!next[permKey]) next[permKey] = { receptionist: false, dentist: false };
       next[permKey][roleKey] = !next[permKey][roleKey];
 
       const dirty = JSON.stringify(next) !== JSON.stringify(s.permissionsSaved);
-
       return { permissions: next, permissionsDirty: dirty };
     });
   },
@@ -315,8 +348,17 @@ export const useOwnerStaffStore = create((set, get) => ({
 
     set({ loadingPermissions: true });
     try {
-      const res = await ownerApi.updatePermissions({ permissions });
-      const normalized = normalizePermissions(res?.data || permissions);
+      // ✅ IMPORTANT: send backend-friendly shape
+      const payload = {
+        permissions: serializePermissionsForBackend(permissions),
+      };
+
+      const res = await ownerApi.updatePermissions(payload);
+
+      // ✅ tolerant extraction again
+      const raw = extractPermissionsPayload(res);
+
+      const normalized = normalizePermissions(raw || payload.permissions);
 
       set({
         permissions: normalized,
@@ -325,7 +367,6 @@ export const useOwnerStaffStore = create((set, get) => ({
       });
     } catch (e) {
       console.error("savePermissions failed", e);
-      // keep dirty state; user can retry
       throw e;
     } finally {
       set({ loadingPermissions: false });

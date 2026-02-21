@@ -36,44 +36,103 @@ const pad = (n, w = 4) => String(n).padStart(w, "0");
 // =====================================================
 const STAFF_ROLES = ["dentist", "receptionist", "lab"];
 const PERMISSION_ROLES = ["receptionist", "dentist"]; // labs removed from permissions tab
+const PERMISSIONS_DOC_ID = "PERMISSIONS";
 
-// Choose the permissions you want surfaced in UI.
-// You can add more keys later without schema changes.
+// These must match your frontend PERMISSION_KEYS
 export const OWNER_PERMISSION_KEYS = [
-  "manage_patients",
-  "manage_appointments",
-  "view_billing",
-  "manage_lab_cases",
-  "edit_prescriptions",
-  "manage_inventory",
-  "view_reports",
+  // receptionist tabs
+  "tab_receptionist_dashboard",
+  "tab_receptionist_patients",
+  "tab_receptionist_appointments",
+  "tab_receptionist_lab_samples",
+  "tab_receptionist_billing",
+  "tab_receptionist_inventory",
+  "tab_receptionist_profile",
+
+  // dentist tabs
+  "tab_dentist_dashboard",
+  "tab_dentist_appointments",
+  "tab_dentist_lab_samples",
+  "tab_dentist_profile",
 ];
 
-function normalizePermissionDoc(raw = {}) {
-  const out = {};
-  OWNER_PERMISSION_KEYS.forEach((key) => {
-    const row = raw?.[key] || {};
-    out[key] = {
-      receptionist: !!row.receptionist,
-      dentist: !!row.dentist,
-    };
-  });
-  return out;
-}
+// --- Permissions helpers ---
+// Stored in DB as: permissions: Map<permKey, ["receptionist","dentist"]>
+const mapToPlainObject = (maybeMap) => {
+  if (!maybeMap) return {};
+  if (typeof maybeMap.entries === "function") return Object.fromEntries(maybeMap.entries());
+  return maybeMap;
+};
 
-async function ensurePermissionDoc() {
-  let doc = await Permissions.findById("PERMISSIONS");
+const sanitizeRolesArray = (arr) => {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((x) => String(x || "").trim().toLowerCase())
+    .filter((x) => PERMISSION_ROLES.includes(x));
+};
+
+// Accept payload as:
+// A) { permissions: { key: ["receptionist"] } }
+// B) { permissions: { key: {receptionist:true,dentist:false} } }
+// C) { key: ["receptionist"] } (tolerate)
+const sanitizePermissionsPayload = (payload) => {
+  const raw = payload?.permissions && typeof payload.permissions === "object" ? payload.permissions : payload;
+  const out = {};
+  if (!raw || typeof raw !== "object") {
+    OWNER_PERMISSION_KEYS.forEach((k) => (out[k] = []));
+    return out;
+  }
+
+  OWNER_PERMISSION_KEYS.forEach((k) => {
+    const v = raw[k];
+
+    if (Array.isArray(v)) {
+      out[k] = sanitizeRolesArray(v);
+      return;
+    }
+
+    if (v && typeof v === "object") {
+      const roles = [];
+      if (v.receptionist) roles.push("receptionist");
+      if (v.dentist) roles.push("dentist");
+      out[k] = roles;
+      return;
+    }
+
+    out[k] = [];
+  });
+
+  return out;
+};
+
+async function ensurePermissionsDoc() {
+  let doc = await Permissions.findById(PERMISSIONS_DOC_ID);
   if (!doc) {
+    const seed = {};
+    OWNER_PERMISSION_KEYS.forEach((k) => (seed[k] = []));
     doc = await Permissions.create({
-      _id: "PERMISSIONS",
-      permissions: normalizePermissionDoc({}),
+      _id: PERMISSIONS_DOC_ID,
+      permissions: new Map(Object.entries(seed)),
     });
   } else {
     // backfill missing keys safely
-    const current = doc.permissions?.toObject ? doc.permissions.toObject() : doc.permissions || {};
-    const normalized = normalizePermissionDoc(current);
-    doc.permissions = normalized;
-    await doc.save();
+    const current = mapToPlainObject(doc.permissions) || {};
+    let changed = false;
+
+    OWNER_PERMISSION_KEYS.forEach((k) => {
+      if (!(k in current)) {
+        current[k] = [];
+        changed = true;
+      } else {
+        // also sanitize any old values
+        if (Array.isArray(current[k])) current[k] = sanitizeRolesArray(current[k]);
+      }
+    });
+
+    if (changed) {
+      doc.permissions = new Map(Object.entries(current));
+      await doc.save();
+    }
   }
   return doc;
 }
@@ -81,7 +140,7 @@ async function ensurePermissionDoc() {
 function staffPrefix(role) {
   if (role === "lab") return "LAB-USER";
   if (role === "receptionist") return "REC-USER";
-  return "DEN-USER"; // dentist
+  return "DEN-USER";
 }
 
 async function nextStaffPublicId(role) {
@@ -102,6 +161,7 @@ async function nextStaffPublicId(role) {
   return `${prefix}-${pad(n)}`;
 }
 
+// ---------- STAFF CRUD ----------
 export async function ownerStaffList(_ownerId) {
   const rows = await User.find({ role: { $in: STAFF_ROLES } })
     .select("publicId name email phone role enabled commissionPercent createdAt")
@@ -145,7 +205,7 @@ export async function ownerStaffCreate(_ownerId, payload = {}) {
     email,
     phone,
     enabled,
-    forcePasswordChange: false, // per your requirement
+    forcePasswordChange: false,
   });
 
   if (role === "dentist") {
@@ -180,7 +240,7 @@ export async function ownerStaffUpdate(_ownerId, staffPublicId, patch = {}) {
   if (patch.phone !== undefined) u.phone = normalize(patch.phone);
   if (patch.enabled !== undefined) u.enabled = !!patch.enabled;
 
-  // password reset (optional on edit)
+  // optional reset password
   if (patch.password !== undefined && patch.password !== null && String(patch.password).trim()) {
     const pw = String(patch.password);
     if (pw.length < 6) throw new Error("Password must be at least 6 characters");
@@ -196,7 +256,6 @@ export async function ownerStaffUpdate(_ownerId, staffPublicId, patch = {}) {
   if (!u.name) throw new Error("Name is required");
   if (!u.email) throw new Error("Email is required");
 
-  // unique email check if changed
   if (patch.email !== undefined) {
     const clash = await User.findOne({ email: u.email, _id: { $ne: u._id } }).select("_id").lean();
     if (clash) throw new Error("Email already exists");
@@ -220,12 +279,13 @@ export async function ownerStaffDelete(_ownerId, staffPublicId) {
   const id = normalize(staffPublicId);
   if (!id) throw new Error("Staff id is required");
 
-  const u = await User.findOne({ publicId: id, role: { $in: STAFF_ROLES } }).select("_id role publicId").lean();
+  const u = await User.findOne({ publicId: id, role: { $in: STAFF_ROLES } })
+    .select("_id")
+    .lean();
   if (!u) throw new Error("Staff not found");
 
   await User.deleteOne({ _id: u._id });
 
-  // nothing to cleanup in permissions now (role-based)
   return { message: "Deleted", id };
 }
 
@@ -233,33 +293,35 @@ export async function ownerStaffSetEnabled(_ownerId, staffPublicId, enabled) {
   return ownerStaffUpdate(_ownerId, staffPublicId, { enabled: !!enabled });
 }
 
+// ---------- PERMISSIONS (role-based matrix) ----------
 export async function ownerPermissionsGet(_ownerId) {
-  const doc = await ensurePermissionDoc();
-  const raw = doc.permissions?.toObject ? doc.permissions.toObject() : doc.permissions || {};
-  return normalizePermissionDoc(raw);
+  const doc = await ensurePermissionsDoc();
+  const raw = mapToPlainObject(doc.permissions) || {};
+  const cleaned = sanitizePermissionsPayload({ permissions: raw });
+
+  return { permissions: cleaned };
 }
 
 export async function ownerPermissionsUpdate(_ownerId, payload = {}) {
-  const incoming = payload?.permissions || payload || {};
-  const sanitized = {};
+  const cleaned = sanitizePermissionsPayload(payload);
 
-  OWNER_PERMISSION_KEYS.forEach((key) => {
-    const row = incoming?.[key] || {};
-    sanitized[key] = {
-      receptionist: !!row.receptionist,
-      dentist: !!row.dentist,
-    };
-  });
-
-  let doc = await Permissions.findById("PERMISSIONS");
-  if (!doc) doc = new Permissions({ _id: "PERMISSIONS", permissions: sanitized });
-  else doc.permissions = sanitized;
+  let doc = await Permissions.findById(PERMISSIONS_DOC_ID);
+  if (!doc) {
+    doc = new Permissions({
+      _id: PERMISSIONS_DOC_ID,
+      permissions: new Map(Object.entries(cleaned)),
+    });
+  } else {
+    doc.permissions = new Map(Object.entries(cleaned));
+  }
 
   await doc.save();
 
-  const saved = await Permissions.findById("PERMISSIONS").lean();
-  const raw = saved?.permissions || {};
-  return normalizePermissionDoc(raw);
+  const saved = await Permissions.findById(PERMISSIONS_DOC_ID).lean();
+  const raw = mapToPlainObject(saved?.permissions) || {};
+  const normalized = sanitizePermissionsPayload({ permissions: raw });
+
+  return { permissions: normalized };
 }
 
 // =====================================================
@@ -471,7 +533,7 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
     });
   });
 
-  history.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "").toString()));
+  history.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
   return {
     patient: {
@@ -530,7 +592,6 @@ export async function ownerListLabAccounts(_ownerId) {
   }));
 }
 
-// (Keep your existing lab/sample/billing exports below unchanged…)
 export async function ownerCreateLabAccount(_ownerId, payload = {}) {
   const name = normalize(payload.name);
   const email = lower(payload.email);

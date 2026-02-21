@@ -23,7 +23,7 @@ import {
   ownerUpdateCommissionRules,
   ownerBillingARSummaryService,
 
-  // ✅ NEW
+  // ✅ STAFF + PERMISSIONS
   ownerStaffList,
   ownerStaffCreate,
   ownerStaffUpdate,
@@ -43,6 +43,7 @@ export const getOwnerAppointments = async (req, res) => {
   }
 };
 
+// Patients
 export const ownerListPatients = async (req, res) => {
   try {
     const data = await ownerPatientsList(req.user?._id);
@@ -70,6 +71,7 @@ export const ownerDeletePatient = async (req, res) => {
   }
 };
 
+// Labs
 export const ownerListLabs = async (req, res) => {
   try {
     const data = await ownerListLabAccounts(req.user?._id);
@@ -107,6 +109,7 @@ export const ownerToggleLabEnabled = async (req, res) => {
   }
 };
 
+// Lab cases
 export const ownerListLabCasesController = async (req, res) => {
   try {
     const data = await ownerListLabCases(req.user?._id);
@@ -116,6 +119,7 @@ export const ownerListLabCasesController = async (req, res) => {
   }
 };
 
+// Sample types
 export const ownerListSampleTypesController = async (req, res) => {
   try {
     const data = await ownerListSampleTypes(req.user?._id);
@@ -152,6 +156,7 @@ export const ownerDeleteSampleTypeController = async (req, res) => {
   }
 };
 
+// Dentists for filters
 export const ownerGetDentists = async (req, res) => {
   try {
     const data = await ownerListDentists(req.user?._id);
@@ -161,7 +166,7 @@ export const ownerGetDentists = async (req, res) => {
   }
 };
 
-// --- BILLING ---
+// Billing
 export const ownerBillingListPayments = async (req, res) => {
   try {
     const { dateFrom, dateTo, dentistId } = req.query;

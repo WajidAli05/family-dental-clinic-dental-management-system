@@ -24,7 +24,11 @@ const OwnerStaffManagement = () => {
   const resetFilters = useOwnerStaffStore((s) => s.resetFilters);
 
   const staff = useOwnerStaffStore((s) => s.staff);
+
   const permissions = useOwnerStaffStore((s) => s.permissions);
+  const permissionsDirty = useOwnerStaffStore((s) => s.permissionsDirty);
+  const savePermissions = useOwnerStaffStore((s) => s.savePermissions);
+  const loadingPermissions = useOwnerStaffStore((s) => s.loadingPermissions);
 
   const modal = useOwnerStaffStore((s) => s.modal);
   const confirm = useOwnerStaffStore((s) => s.confirm);
@@ -38,13 +42,10 @@ const OwnerStaffManagement = () => {
   const runConfirm = useOwnerStaffStore((s) => s.runConfirm);
 
   const togglePermission = useOwnerStaffStore((s) => s.togglePermission);
-  const permissionsDirty = useOwnerStaffStore((s) => s.permissionsDirty);
-  const savePermissions = useOwnerStaffStore((s) => s.savePermissions);
-
   const toggleAccountEnabled = useOwnerStaffStore((s) => s.toggleAccountEnabled);
 
   useEffect(() => {
-    useOwnerStaffStore.getState().init().catch(() => {});
+    useOwnerStaffStore.getState().init();
   }, []);
 
   const staffData = useMemo(() => {
@@ -60,6 +61,7 @@ const OwnerStaffManagement = () => {
         const hay = `${s.id} ${s.name} ${s.email} ${s.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+
       return true;
     });
   }, [staff, filters.directory]);
@@ -81,7 +83,16 @@ const OwnerStaffManagement = () => {
           >
             Add Staff
           </Button>
-        ) : null}
+        ) : (
+          <Button
+            className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] text-white"
+            onClick={() => savePermissions?.()}
+            disabled={!permissionsDirty || !!loadingPermissions}
+            title={!permissionsDirty ? "No changes to save" : "Save permissions"}
+          >
+            {loadingPermissions ? "Saving..." : "Save"}
+          </Button>
+        )}
       </div>
 
       {activeTab === "directory" ? (
@@ -113,12 +124,7 @@ const OwnerStaffManagement = () => {
       ) : null}
 
       {activeTab === "permissions" ? (
-        <PermissionsMatrix
-          permissions={permissions}
-          onToggle={togglePermission}
-          dirty={permissionsDirty()}
-          onSave={() => savePermissions().catch(() => {})}
-        />
+        <PermissionsMatrix permissions={permissions} onToggle={togglePermission} />
       ) : null}
 
       <StaffAccountModal
@@ -126,11 +132,11 @@ const OwnerStaffManagement = () => {
         mode={modal.mode}
         initial={modal.payload}
         onClose={closeModal}
-        onSubmit={(form) => {
+        onSubmit={async (form) => {
           if (modal.mode === "edit") {
-            useOwnerStaffStore.getState().updateStaff(modal.payload.id, form).catch(() => {});
+            await useOwnerStaffStore.getState().updateStaff(modal.payload.id, form);
           } else {
-            useOwnerStaffStore.getState().addStaff(form).catch(() => {});
+            await useOwnerStaffStore.getState().addStaff(form);
           }
           closeModal();
         }}
@@ -141,7 +147,7 @@ const OwnerStaffManagement = () => {
         title={confirm.title}
         message={confirm.message}
         onCancel={closeConfirm}
-        onConfirm={() => runConfirm().catch(() => {})}
+        onConfirm={runConfirm}
       />
     </div>
   );
