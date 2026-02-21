@@ -34,6 +34,14 @@ export default function ReceptionistDashboard() {
     // TEMP (if you only have owner endpoint): create a dedicated endpoint; do NOT use owner endpoint here in prod
     ownerApi.getPermissions().then((r) => setPermissions(r.data)).catch(() => setPermissions({}));
   }, []);
+}
+
+// const permMapDentist = {
+//   Dashboard: "tab_dentist_dashboard",
+//   Appointments: "tab_dentist_appointments",
+//   "Lab Samples": "tab_dentist_lab_samples",
+//   Profile: "tab_dentist_profile",
+// };
 
 //   const receptionistMenu = useMemo(() => {
 //     const base = [
@@ -56,11 +64,3 @@ export default function ReceptionistDashboard() {
 //   }, [permissions, user?.role]);
 
 //   // ...render your sidebar using receptionistMenu
-// }
-
-// const permMapDentist = {
-//   Dashboard: "tab_dentist_dashboard",
-//   Appointments: "tab_dentist_appointments",
-//   "Lab Samples": "tab_dentist_lab_samples",
-//   Profile: "tab_dentist_profile",
-// };
