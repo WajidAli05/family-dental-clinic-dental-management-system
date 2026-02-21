@@ -1,11 +1,15 @@
-import { ownerListAppointments,
-    ownerPatientsList,
+// Backend/controllers/owner.controller.js
+import {
+  ownerListAppointments,
+  ownerPatientsList,
   ownerPatientProfile,
   ownerPatientDelete,
-    ownerListLabAccounts,
+
+  ownerListLabAccounts,
   ownerCreateLabAccount,
   ownerUpdateLabAccount,
   ownerSetLabAccountEnabled,
+
   ownerListLabCases,
   ownerListSampleTypes,
   ownerCreateSampleType,
@@ -13,32 +17,32 @@ import { ownerListAppointments,
   ownerDeleteSampleType,
   ownerListDentists,
 
-    ownerBillingPayments,
+  ownerBillingPayments,
   ownerBillingLabBills,
   ownerGetCommissionRules,
   ownerUpdateCommissionRules,
   ownerBillingARSummaryService,
- } from "../services/owner.service.js";
+
+  // ✅ NEW
+  ownerStaffList,
+  ownerStaffCreate,
+  ownerStaffUpdate,
+  ownerStaffDelete,
+  ownerStaffSetEnabled,
+  ownerPermissionsGet,
+  ownerPermissionsUpdate,
+} from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
   try {
     const { dateFrom, dateTo, dentistId, status, q } = req.query;
-
-    const rows = await ownerListAppointments(req.user?._id, {
-      dateFrom,
-      dateTo,
-      dentistId,
-      status,
-      q,
-    });
-
+    const rows = await ownerListAppointments(req.user?._id, { dateFrom, dateTo, dentistId, status, q });
     return res.json({ success: true, data: rows });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
 };
 
-// GET /owner/patients
 export const ownerListPatients = async (req, res) => {
   try {
     const data = await ownerPatientsList(req.user?._id);
@@ -48,7 +52,6 @@ export const ownerListPatients = async (req, res) => {
   }
 };
 
-// GET /owner/patients/:id/profile
 export const ownerGetPatientProfile = async (req, res) => {
   try {
     const data = await ownerPatientProfile(req.user?._id, req.params.id);
@@ -58,7 +61,6 @@ export const ownerGetPatientProfile = async (req, res) => {
   }
 };
 
-// DELETE /owner/patients/:id
 export const ownerDeletePatient = async (req, res) => {
   try {
     const data = await ownerPatientDelete(req.user?._id, req.params.id);
@@ -68,7 +70,6 @@ export const ownerDeletePatient = async (req, res) => {
   }
 };
 
-// GET /owner/labs
 export const ownerListLabs = async (req, res) => {
   try {
     const data = await ownerListLabAccounts(req.user?._id);
@@ -78,7 +79,6 @@ export const ownerListLabs = async (req, res) => {
   }
 };
 
-// POST /owner/labs
 export const ownerCreateLab = async (req, res) => {
   try {
     const data = await ownerCreateLabAccount(req.user?._id, req.body);
@@ -88,7 +88,6 @@ export const ownerCreateLab = async (req, res) => {
   }
 };
 
-// PATCH /owner/labs/:id
 export const ownerUpdateLab = async (req, res) => {
   try {
     const data = await ownerUpdateLabAccount(req.user?._id, req.params.id, req.body);
@@ -98,7 +97,6 @@ export const ownerUpdateLab = async (req, res) => {
   }
 };
 
-// PATCH /owner/labs/:id/enabled
 export const ownerToggleLabEnabled = async (req, res) => {
   try {
     const enabled = !!req.body?.enabled;
@@ -109,7 +107,6 @@ export const ownerToggleLabEnabled = async (req, res) => {
   }
 };
 
-// GET /owner/lab-cases
 export const ownerListLabCasesController = async (req, res) => {
   try {
     const data = await ownerListLabCases(req.user?._id);
@@ -119,7 +116,6 @@ export const ownerListLabCasesController = async (req, res) => {
   }
 };
 
-// GET /owner/sample-types
 export const ownerListSampleTypesController = async (req, res) => {
   try {
     const data = await ownerListSampleTypes(req.user?._id);
@@ -129,7 +125,6 @@ export const ownerListSampleTypesController = async (req, res) => {
   }
 };
 
-// POST /owner/sample-types
 export const ownerCreateSampleTypeController = async (req, res) => {
   try {
     const data = await ownerCreateSampleType(req.user?._id, req.body);
@@ -139,7 +134,6 @@ export const ownerCreateSampleTypeController = async (req, res) => {
   }
 };
 
-// PATCH /owner/sample-types/:id
 export const ownerUpdateSampleTypeController = async (req, res) => {
   try {
     const data = await ownerUpdateSampleType(req.user?._id, req.params.id, req.body);
@@ -149,7 +143,6 @@ export const ownerUpdateSampleTypeController = async (req, res) => {
   }
 };
 
-// DELETE /owner/sample-types/:id
 export const ownerDeleteSampleTypeController = async (req, res) => {
   try {
     const data = await ownerDeleteSampleType(req.user?._id, req.params.id);
@@ -168,8 +161,7 @@ export const ownerGetDentists = async (req, res) => {
   }
 };
 
-// --- BILLING & FINANCIALS (Owner) ---
-
+// --- BILLING ---
 export const ownerBillingListPayments = async (req, res) => {
   try {
     const { dateFrom, dateTo, dentistId } = req.query;
@@ -208,11 +200,80 @@ export const ownerBillingUpdateCommissionRules = async (req, res) => {
   }
 };
 
-// NEW: A/R summary
 export const ownerBillingARSummary = async (req, res) => {
   try {
     const { dateFrom, dateTo } = req.query;
     const data = await ownerBillingARSummaryService(req.user?._id, { dateFrom, dateTo });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =====================================================
+// ✅ STAFF (NEW)
+// =====================================================
+export const ownerListStaff = async (req, res) => {
+  try {
+    const data = await ownerStaffList(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerCreateStaff = async (req, res) => {
+  try {
+    const data = await ownerStaffCreate(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateStaff = async (req, res) => {
+  try {
+    const data = await ownerStaffUpdate(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerToggleStaffEnabled = async (req, res) => {
+  try {
+    const enabled = !!req.body?.enabled;
+    const data = await ownerStaffSetEnabled(req.user?._id, req.params.id, enabled);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerDeleteStaff = async (req, res) => {
+  try {
+    const data = await ownerStaffDelete(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =====================================================
+// ✅ PERMISSIONS (NEW)
+// =====================================================
+export const ownerGetPermissions = async (req, res) => {
+  try {
+    const data = await ownerPermissionsGet(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdatePermissions = async (req, res) => {
+  try {
+    const data = await ownerPermissionsUpdate(req.user?._id, req.body || {});
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

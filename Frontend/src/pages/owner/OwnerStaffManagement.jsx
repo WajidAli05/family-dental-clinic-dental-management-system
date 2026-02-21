@@ -1,3 +1,4 @@
+// src/pages/owner/OwnerStaffManagement.jsx
 import { useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,17 +38,20 @@ const OwnerStaffManagement = () => {
   const runConfirm = useOwnerStaffStore((s) => s.runConfirm);
 
   const togglePermission = useOwnerStaffStore((s) => s.togglePermission);
+  const permissionsDirty = useOwnerStaffStore((s) => s.permissionsDirty);
+  const savePermissions = useOwnerStaffStore((s) => s.savePermissions);
+
   const toggleAccountEnabled = useOwnerStaffStore((s) => s.toggleAccountEnabled);
 
   useEffect(() => {
-    useOwnerStaffStore.getState().init();
+    useOwnerStaffStore.getState().init().catch(() => {});
   }, []);
 
   const staffData = useMemo(() => {
     const { role, status, query } = filters.directory;
     const q = String(query || "").trim().toLowerCase();
 
-    return staff.filter((s) => {
+    return (staff || []).filter((s) => {
       if (role !== "all" && s.role !== role) return false;
       if (status === "enabled" && !s.enabled) return false;
       if (status === "disabled" && s.enabled) return false;
@@ -56,7 +60,6 @@ const OwnerStaffManagement = () => {
         const hay = `${s.id} ${s.name} ${s.email} ${s.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-
       return true;
     });
   }, [staff, filters.directory]);
@@ -111,9 +114,10 @@ const OwnerStaffManagement = () => {
 
       {activeTab === "permissions" ? (
         <PermissionsMatrix
-          staff={staff}
           permissions={permissions}
           onToggle={togglePermission}
+          dirty={permissionsDirty()}
+          onSave={() => savePermissions().catch(() => {})}
         />
       ) : null}
 
@@ -123,8 +127,11 @@ const OwnerStaffManagement = () => {
         initial={modal.payload}
         onClose={closeModal}
         onSubmit={(form) => {
-          if (modal.mode === "edit") useOwnerStaffStore.getState().updateStaff(modal.payload.id, form);
-          else useOwnerStaffStore.getState().addStaff(form);
+          if (modal.mode === "edit") {
+            useOwnerStaffStore.getState().updateStaff(modal.payload.id, form).catch(() => {});
+          } else {
+            useOwnerStaffStore.getState().addStaff(form).catch(() => {});
+          }
           closeModal();
         }}
       />
@@ -134,7 +141,7 @@ const OwnerStaffManagement = () => {
         title={confirm.title}
         message={confirm.message}
         onCancel={closeConfirm}
-        onConfirm={runConfirm}
+        onConfirm={() => runConfirm().catch(() => {})}
       />
     </div>
   );

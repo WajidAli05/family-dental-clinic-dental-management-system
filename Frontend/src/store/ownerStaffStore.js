@@ -1,29 +1,27 @@
+// src/store/ownerStaffStore.js
 import { create } from "zustand";
+import { ownerApi } from "@/lib/ownerApi";
 
-const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const deepClone = (x) => JSON.parse(JSON.stringify(x || {}));
+const deepEqual = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
 
 export const useOwnerStaffStore = create((set, get) => ({
   initialized: false,
+  loading: false,
 
   activeTab: "directory",
 
   filters: {
-    directory: {
-      role: "all",
-      status: "all",
-      query: "",
-    },
+    directory: { role: "all", status: "all", query: "" },
   },
 
   staff: [],
 
-  permissions: {},
+  // role-based permission matrix
+  permissions: {}, // working copy
+  savedPermissions: {}, // last saved from server
 
-  modal: {
-    open: false,
-    mode: "create",
-    payload: null,
-  },
+  modal: { open: false, mode: "create", payload: null },
 
   confirm: {
     open: false,
@@ -33,130 +31,131 @@ export const useOwnerStaffStore = create((set, get) => ({
     onConfirmPayload: null,
   },
 
-  seed: () => ({
-    staff: [
-      { id: "S-1", name: "Dr. Ahmed", role: "dentist", email: "ahmed@test.com", phone: "0301-1111111", enabled: true, commission: 30 },
-      { id: "S-2", name: "Dr. Saif", role: "dentist", email: "saif@test.com", phone: "0302-2222222", enabled: true, commission: 35 },
-      { id: "S-3", name: "Ayesha", role: "receptionist", email: "ayesha@test.com", phone: "0303-3333333", enabled: true },
-      { id: "S-4", name: "Lab ABC", role: "lab", email: "lab@test.com", phone: "0304-4444444", enabled: true },
-    ],
+  // --------------------
+  // init/load
+  // --------------------
+init: async () => {
+  if (get().initialized) return;
 
-    permissions: {
-      manage_patients: ["S-3"],
-      manage_appointments: ["S-3"],
-      view_billing: ["S-1", "S-2"],
-      manage_lab_cases: ["S-4"],
-      edit_prescriptions: ["S-1", "S-2"],
-    },
-  }),
+  try {
+    const [staffRes, permRes] = await Promise.all([
+      ownerApi.listStaff(),
+      ownerApi.getPermissions(),
+    ]);
 
-  init: () => {
-    if (get().initialized) return;
-    const demo = get().seed();
     set({
-      staff: demo.staff,
-      permissions: demo.permissions,
+      staff: staffRes?.data || [],
+      permissions: permRes?.data || {},
       initialized: true,
     });
+  } catch (e) {
+    console.error("ownerStaff init failed:", e);
+    set({ staff: [], permissions: {}, initialized: true });
+  }
+},
+
+  fetchStaff: async () => {
+    const data = await ownerApi.listStaff();
+    set({ staff: Array.isArray(data) ? data : [] });
   },
 
+  fetchPermissions: async () => {
+    const data = await ownerApi.getPermissions();
+    const safe = data && typeof data === "object" ? data : {};
+    set({ permissions: deepClone(safe), savedPermissions: deepClone(safe) });
+  },
+
+  // --------------------
+  // tabs/filters
+  // --------------------
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   setFilter: (section, key, value) =>
     set((state) => ({
-      filters: {
-        ...state.filters,
-        [section]: { ...state.filters[section], [key]: value },
-      },
+      filters: { ...state.filters, [section]: { ...state.filters[section], [key]: value } },
     })),
 
   resetFilters: (section) =>
     set((state) => ({
-      filters: {
-        ...state.filters,
-        [section]: { role: "all", status: "all", query: "" },
-      },
+      filters: { ...state.filters, [section]: { role: "all", status: "all", query: "" } },
     })),
 
-  openCreate: () =>
-    set({
-      modal: { open: true, mode: "create", payload: null },
-    }),
+  // --------------------
+  // modal
+  // --------------------
+  openCreate: () => set({ modal: { open: true, mode: "create", payload: null } }),
+  openEdit: (payload) => set({ modal: { open: true, mode: "edit", payload } }),
+  closeModal: () => set({ modal: { open: false, mode: "create", payload: null } }),
 
-  openEdit: (payload) =>
-    set({
-      modal: { open: true, mode: "edit", payload },
-    }),
-
-  closeModal: () =>
-    set({
-      modal: { open: false, mode: "create", payload: null },
-    }),
-
+  // --------------------
+  // confirm
+  // --------------------
   openConfirm: ({ title, message, onConfirmKey, onConfirmPayload }) =>
-    set({
-      confirm: { open: true, title, message, onConfirmKey, onConfirmPayload },
-    }),
+    set({ confirm: { open: true, title, message, onConfirmKey, onConfirmPayload } }),
 
   closeConfirm: () =>
     set({
       confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null },
     }),
 
-  runConfirm: () => {
+  runConfirm: async () => {
     const { confirm } = get();
     if (!confirm.onConfirmKey) return;
 
     const map = {
-      deleteStaff: (id) => get().deleteStaff(id),
+      deleteStaff: async (id) => {
+        await ownerApi.deleteStaff(id);
+        await get().fetchStaff();
+      },
     };
 
     const fn = map[confirm.onConfirmKey];
-    if (fn) fn(confirm.onConfirmPayload);
-    get().closeConfirm();
+    try {
+      if (fn) await fn(confirm.onConfirmPayload);
+    } finally {
+      get().closeConfirm();
+    }
   },
 
-  addStaff: (data) =>
-    set((state) => ({
-      staff: [
-        ...state.staff,
-        {
-          id: `S-${uid()}`,
-          name: data.name.trim(),
-          role: data.role,
-          email: data.email,
-          phone: data.phone,
-          enabled: true,
-          commission: Number(data.commission || 0),
-        },
-      ],
-    })),
+  // --------------------
+  // staff CRUD
+  // --------------------
+  addStaff: async (data) => {
+    await ownerApi.createStaff(data);
+    await get().fetchStaff();
+  },
 
-  updateStaff: (id, patch) =>
-    set((state) => ({
-      staff: state.staff.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    })),
+  updateStaff: async (id, patch) => {
+    await ownerApi.updateStaff(id, patch);
+    await get().fetchStaff();
+  },
 
-  deleteStaff: (id) =>
-    set((state) => ({
-      staff: state.staff.filter((s) => s.id !== id),
-    })),
+  toggleAccountEnabled: async (publicId) => {
+    const s = get().staff.find((x) => x.id === publicId);
+    if (!s) return;
+    await ownerApi.setStaffEnabled(publicId, !s.enabled);
+    await get().fetchStaff();
+  },
 
-  toggleAccountEnabled: (id) =>
-    set((state) => ({
-      staff: state.staff.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    })),
-
-  togglePermission: (permKey, staffId) => {
-    const perms = get().permissions;
-    const current = perms[permKey] || [];
-
-    const updated = current.includes(staffId)
-      ? current.filter((id) => id !== staffId)
-      : [...current, staffId];
-
-    set({
-      permissions: { ...perms, [permKey]: updated },
+  // --------------------
+  // permissions
+  // --------------------
+  togglePermission: (permKey, roleKey) => {
+    // roleKey: "receptionist" | "dentist"
+    set((state) => {
+      const next = deepClone(state.permissions);
+      const row = next[permKey] || { receptionist: false, dentist: false };
+      row[roleKey] = !row[roleKey];
+      next[permKey] = row;
+      return { permissions: next };
     });
+  },
+
+  permissionsDirty: () => !deepEqual(get().permissions, get().savedPermissions),
+
+  savePermissions: async () => {
+    const perms = get().permissions;
+    const saved = await ownerApi.updatePermissions(perms);
+    set({ permissions: deepClone(saved), savedPermissions: deepClone(saved) });
   },
 }));

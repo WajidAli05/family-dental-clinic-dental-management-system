@@ -1,10 +1,6 @@
+// src/components/owner/StaffAccountModal.jsx
 import { useEffect, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 const inputClass =
@@ -18,7 +14,8 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
     role: "dentist", // dentist | receptionist | lab
     email: "",
     phone: "",
-    commission: "", // only for dentist
+    password: "",
+    commission: "", // dentist only
     enabled: true,
   });
 
@@ -31,10 +28,8 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
         role: initial.role || "dentist",
         email: initial.email || "",
         phone: initial.phone || "",
-        commission:
-          initial.role === "dentist"
-            ? String(initial.commission ?? "")
-            : "",
+        password: "", // optional on edit
+        commission: initial.role === "dentist" ? String(initial.commission ?? "") : "",
         enabled: initial.enabled ?? true,
       });
     } else {
@@ -43,6 +38,7 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
         role: "dentist",
         email: "",
         phone: "",
+        password: "",
         commission: "",
         enabled: true,
       });
@@ -53,12 +49,19 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const canSubmit = useMemo(() => {
+    const nameOk = !!String(form.name || "").trim();
+    const emailOk = !!String(form.email || "").trim();
+    const pwOk = isEdit ? true : String(form.password || "").trim().length >= 6;
+    return nameOk && emailOk && pwOk;
+  }, [form.name, form.email, form.password, isEdit]);
+
   const handleSubmit = () => {
     const name = String(form.name || "").trim();
     const email = String(form.email || "").trim();
     const phone = String(form.phone || "").trim();
 
-    if (!name) return;
+    if (!name || !email) return;
 
     const payload = {
       name,
@@ -67,6 +70,10 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
       phone,
       enabled: !!form.enabled,
     };
+
+    // password: required for create, optional for edit
+    if (!isEdit) payload.password = String(form.password || "").trim();
+    else if (String(form.password || "").trim()) payload.password = String(form.password || "").trim();
 
     if (form.role === "dentist") {
       const c = Number(form.commission || 0);
@@ -101,6 +108,7 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
                 value={form.role}
                 onChange={(e) => update("role", e.target.value)}
                 className={inputClass}
+                disabled={isEdit} // role change is usually not desired; remove if you want it editable
               >
                 <option value="dentist">Dentist</option>
                 <option value="receptionist">Receptionist</option>
@@ -108,7 +116,7 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
               </select>
             </Field>
 
-            <Field label="Email">
+            <Field label="Email *">
               <input
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
@@ -126,6 +134,16 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
               />
             </Field>
 
+            <Field label={isEdit ? "Password (leave blank to keep)" : "Password * (min 6 chars)"}>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+                placeholder={isEdit ? "••••••••" : "Create a password"}
+                className={inputClass}
+              />
+            </Field>
+
             {showCommission ? (
               <Field label="Commission % (Dentist)">
                 <input
@@ -138,7 +156,9 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
                   className={inputClass}
                 />
               </Field>
-            ) : null}
+            ) : (
+              <div />
+            )}
 
             {isEdit ? (
               <Field label="Account Status">
@@ -149,9 +169,7 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
                     onChange={(e) => update("enabled", e.target.checked)}
                     className="h-4 w-4 accent-[#2ec4b6]"
                   />
-                  <span className="text-sm text-gray-700">
-                    {form.enabled ? "Enabled" : "Disabled"}
-                  </span>
+                  <span className="text-sm text-gray-700">{form.enabled ? "Enabled" : "Disabled"}</span>
                 </div>
               </Field>
             ) : (
@@ -166,17 +184,11 @@ const StaffAccountModal = ({ open, mode = "create", initial, onClose, onSubmit }
             <Button
               className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] text-white"
               onClick={handleSubmit}
-              disabled={!String(form.name || "").trim()}
+              disabled={!canSubmit}
             >
               {isEdit ? "Save Changes" : "Create Account"}
             </Button>
           </div>
-
-          {!isEdit ? (
-            <p className="text-xs text-gray-500">
-              Note: In production you can generate a temporary password and force change on first login.
-            </p>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>

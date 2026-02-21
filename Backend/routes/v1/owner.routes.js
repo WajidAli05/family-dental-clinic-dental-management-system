@@ -1,31 +1,48 @@
+// Backend/routes/v1/owner.routes.js
 import express from "express";
-import { getOwnerAppointments,
-      ownerListPatients,
+import {
+  getOwnerAppointments,
+
+  ownerListPatients,
   ownerGetPatientProfile,
   ownerDeletePatient,
-    ownerListLabs,
+
+  ownerListLabs,
   ownerCreateLab,
   ownerUpdateLab,
   ownerToggleLabEnabled,
+
   ownerListLabCasesController,
+
   ownerListSampleTypesController,
   ownerCreateSampleTypeController,
   ownerUpdateSampleTypeController,
   ownerDeleteSampleTypeController,
+
   ownerGetDentists,
-  
+
   ownerBillingListPayments,
   ownerBillingListLabBills,
   ownerBillingGetCommissionRules,
   ownerBillingUpdateCommissionRules,
   ownerBillingARSummary,
- } from "../../controllers/owner.controller.js";
+
+  // ✅ NEW
+  ownerListStaff,
+  ownerCreateStaff,
+  ownerUpdateStaff,
+  ownerToggleStaffEnabled,
+  ownerDeleteStaff,
+  ownerGetPermissions,
+  ownerUpdatePermissions,
+} from "../../controllers/owner.controller.js";
 
 const router = express.Router();
 
-// Appointments (Owner)
+// Appointments
 router.get("/appointments", getOwnerAppointments);
 
+// Patients
 router.get("/patients", ownerListPatients);
 router.get("/patients/:id/profile", ownerGetPatientProfile);
 router.delete("/patients/:id", ownerDeletePatient);
@@ -45,16 +62,29 @@ router.post("/sample-types", ownerCreateSampleTypeController);
 router.patch("/sample-types/:id", ownerUpdateSampleTypeController);
 router.delete("/sample-types/:id", ownerDeleteSampleTypeController);
 
+// Dentists for filters
 router.get("/dentists", ownerGetDentists);
 
-// --- BILLING & FINANCIALS (Owner) ---
+// Billing
 router.get("/billing/payments", ownerBillingListPayments);
 router.get("/billing/lab-bills", ownerBillingListLabBills);
-
 router.get("/billing/commission-rules", ownerBillingGetCommissionRules);
 router.patch("/billing/commission-rules", ownerBillingUpdateCommissionRules);
-
-// NEW: Accounts Receivable (Invoices) summary
 router.get("/billing/ar-summary", ownerBillingARSummary);
+
+// =====================================================
+// ✅ STAFF (NEW)
+// =====================================================
+router.get("/staff", ownerListStaff);
+router.post("/staff", ownerCreateStaff);
+router.patch("/staff/:id", ownerUpdateStaff);
+router.patch("/staff/:id/enabled", ownerToggleStaffEnabled);
+router.delete("/staff/:id", ownerDeleteStaff);
+
+// =====================================================
+// ✅ PERMISSIONS (NEW)
+// =====================================================
+router.get("/permissions", ownerGetPermissions);
+router.patch("/permissions", ownerUpdatePermissions);
 
 export default router;

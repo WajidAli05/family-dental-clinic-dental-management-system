@@ -1,5 +1,8 @@
 // src/lib/ownerApi.js
-const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
+import { useUserStore } from "@/store/userStore";
+
+const baseURL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
 
 function buildUrl(path, params) {
   const url = new URL(baseURL + path);
@@ -13,7 +16,9 @@ function buildUrl(path, params) {
 }
 
 async function request(path, { method = "GET", params, body } = {}) {
-  const token = localStorage.getItem("token");
+  // ✅ use Zustand store as source of truth
+  const token =
+    useUserStore.getState().token || localStorage.getItem("token");
 
   const res = await fetch(buildUrl(path, params), {
     method,
@@ -25,10 +30,13 @@ async function request(path, { method = "GET", params, body } = {}) {
   });
 
   const json = await res.json().catch(() => ({}));
+
   if (!res.ok || json?.success === false) {
     throw new Error(json?.message || `Request failed: ${res.status}`);
   }
-  return json; // { success, data }
+
+  // normalize: some endpoints return {success:true,data:...}
+  return json;
 }
 
 export const ownerApi = {
@@ -40,14 +48,28 @@ export const ownerApi = {
   getPatientProfile: (patientId) => request(`/owner/patients/${patientId}/profile`),
   deletePatient: (patientId) => request(`/owner/patients/${patientId}`, { method: "DELETE" }),
 
-  // ✅ owner dentists + labs (for filters)
+  // dentists + labs
   getDentists: () => request("/owner/dentists"),
   getLabs: () => request("/owner/labs"),
 
-  // ✅ billing
+  // billing
   getBillingPayments: (params) => request("/owner/billing/payments", { params }),
   getBillingLabBills: (params) => request("/owner/billing/lab-bills", { params }),
   getCommissionRules: () => request("/owner/billing/commission-rules"),
-  updateCommissionRules: (body) => request("/owner/billing/commission-rules", { method: "PATCH", body }),
+  updateCommissionRules: (body) =>
+    request("/owner/billing/commission-rules", { method: "PATCH", body }),
   getARSummary: (params) => request("/owner/billing/ar-summary", { params }),
+
+  // ✅ STAFF MANAGEMENT (these must exist on backend)
+  listStaff: () => request("/owner/staff"),
+  createStaff: (body) => request("/owner/staff", { method: "POST", body }),
+  updateStaff: (id, body) => request(`/owner/staff/${id}`, { method: "PATCH", body }),
+  deleteStaff: (id) => request(`/owner/staff/${id}`, { method: "DELETE" }),
+  toggleStaffEnabled: (id, enabled) =>
+    request(`/owner/staff/${id}/enabled`, { method: "PATCH", body: { enabled: !!enabled } }),
+
+  // ✅ Permissions (role-based matrix)
+  getPermissions: () => request("/owner/permissions"),
+  updatePermissions: (body) =>
+    request("/owner/permissions", { method: "PATCH", body }),
 };

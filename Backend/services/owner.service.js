@@ -11,6 +11,7 @@ import SampleType from "../models/SampleType.model.js";
 import OwnerPayment from "../models/OwnerPayment.model.js";
 import LabBill from "../models/LabBill.model.js";
 import CommissionRules from "../models/CommissionRules.model.js";
+import Permissions from "../models/Permissions.model.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -27,28 +28,263 @@ const toISO = (d) => {
 
 const money = (v) => Number(v || 0) || 0;
 
+// helpers
+const pad = (n, w = 4) => String(n).padStart(w, "0");
+
+// =====================================================
+// ✅ STAFF & PERMISSIONS (NEW)
+// =====================================================
+const STAFF_ROLES = ["dentist", "receptionist", "lab"];
+const PERMISSION_ROLES = ["receptionist", "dentist"]; // labs removed from permissions tab
+
+// Choose the permissions you want surfaced in UI.
+// You can add more keys later without schema changes.
+export const OWNER_PERMISSION_KEYS = [
+  "manage_patients",
+  "manage_appointments",
+  "view_billing",
+  "manage_lab_cases",
+  "edit_prescriptions",
+  "manage_inventory",
+  "view_reports",
+];
+
+function normalizePermissionDoc(raw = {}) {
+  const out = {};
+  OWNER_PERMISSION_KEYS.forEach((key) => {
+    const row = raw?.[key] || {};
+    out[key] = {
+      receptionist: !!row.receptionist,
+      dentist: !!row.dentist,
+    };
+  });
+  return out;
+}
+
+async function ensurePermissionDoc() {
+  let doc = await Permissions.findById("PERMISSIONS");
+  if (!doc) {
+    doc = await Permissions.create({
+      _id: "PERMISSIONS",
+      permissions: normalizePermissionDoc({}),
+    });
+  } else {
+    // backfill missing keys safely
+    const current = doc.permissions?.toObject ? doc.permissions.toObject() : doc.permissions || {};
+    const normalized = normalizePermissionDoc(current);
+    doc.permissions = normalized;
+    await doc.save();
+  }
+  return doc;
+}
+
+function staffPrefix(role) {
+  if (role === "lab") return "LAB-USER";
+  if (role === "receptionist") return "REC-USER";
+  return "DEN-USER"; // dentist
+}
+
+async function nextStaffPublicId(role) {
+  const prefix = staffPrefix(role);
+  const last = await User.findOne({
+    role,
+    publicId: { $regex: new RegExp(`^${prefix}-\\d+$`) },
+  })
+    .select("publicId")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let n = 1;
+  if (last?.publicId) {
+    const m = String(last.publicId).match(new RegExp(`^${prefix}-(\\d+)$`));
+    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  }
+  return `${prefix}-${pad(n)}`;
+}
+
+export async function ownerStaffList(_ownerId) {
+  const rows = await User.find({ role: { $in: STAFF_ROLES } })
+    .select("publicId name email phone role enabled commissionPercent createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return rows.map((u) => ({
+    id: u.publicId,
+    name: u.name || "",
+    role: u.role,
+    email: u.email || "",
+    phone: u.phone || "",
+    enabled: !!u.enabled,
+    commission: u.role === "dentist" ? Number(u.commissionPercent || 0) : undefined,
+    createdAt: toISO(u.createdAt),
+  }));
+}
+
+export async function ownerStaffCreate(_ownerId, payload = {}) {
+  const name = normalize(payload.name);
+  const role = normalize(payload.role);
+  const email = lower(payload.email);
+  const phone = normalize(payload.phone);
+  const password = String(payload.password || "");
+  const enabled = payload.enabled !== undefined ? !!payload.enabled : true;
+
+  if (!name) throw new Error("Name is required");
+  if (!STAFF_ROLES.includes(role)) throw new Error("Invalid role");
+  if (!email) throw new Error("Email is required");
+  if (!password || password.length < 6) throw new Error("Password must be at least 6 characters");
+
+  const exists = await User.findOne({ email }).select("_id").lean();
+  if (exists) throw new Error("Email already exists");
+
+  const publicId = await nextStaffPublicId(role);
+
+  const u = new User({
+    publicId,
+    name,
+    role,
+    email,
+    phone,
+    enabled,
+    forcePasswordChange: false, // per your requirement
+  });
+
+  if (role === "dentist") {
+    const c = Math.max(0, Math.min(100, Number(payload.commission ?? payload.commissionPercent ?? 0)));
+    u.commissionPercent = Number.isFinite(c) ? c : 0;
+  }
+
+  await u.setPassword(password);
+  await u.save();
+
+  return {
+    id: u.publicId,
+    name: u.name,
+    role: u.role,
+    email: u.email,
+    phone: u.phone,
+    enabled: !!u.enabled,
+    commission: u.role === "dentist" ? Number(u.commissionPercent || 0) : undefined,
+    createdAt: toISO(u.createdAt),
+  };
+}
+
+export async function ownerStaffUpdate(_ownerId, staffPublicId, patch = {}) {
+  const id = normalize(staffPublicId);
+  if (!id) throw new Error("Staff id is required");
+
+  const u = await User.findOne({ publicId: id, role: { $in: STAFF_ROLES } }).select("+passwordHash");
+  if (!u) throw new Error("Staff not found");
+
+  if (patch.name !== undefined) u.name = normalize(patch.name);
+  if (patch.email !== undefined) u.email = lower(patch.email);
+  if (patch.phone !== undefined) u.phone = normalize(patch.phone);
+  if (patch.enabled !== undefined) u.enabled = !!patch.enabled;
+
+  // password reset (optional on edit)
+  if (patch.password !== undefined && patch.password !== null && String(patch.password).trim()) {
+    const pw = String(patch.password);
+    if (pw.length < 6) throw new Error("Password must be at least 6 characters");
+    await u.setPassword(pw);
+  }
+
+  // commission only for dentist
+  if (u.role === "dentist" && (patch.commission !== undefined || patch.commissionPercent !== undefined)) {
+    const c = Math.max(0, Math.min(100, Number(patch.commission ?? patch.commissionPercent ?? 0)));
+    u.commissionPercent = Number.isFinite(c) ? c : 0;
+  }
+
+  if (!u.name) throw new Error("Name is required");
+  if (!u.email) throw new Error("Email is required");
+
+  // unique email check if changed
+  if (patch.email !== undefined) {
+    const clash = await User.findOne({ email: u.email, _id: { $ne: u._id } }).select("_id").lean();
+    if (clash) throw new Error("Email already exists");
+  }
+
+  await u.save();
+
+  return {
+    id: u.publicId,
+    name: u.name,
+    role: u.role,
+    email: u.email,
+    phone: u.phone,
+    enabled: !!u.enabled,
+    commission: u.role === "dentist" ? Number(u.commissionPercent || 0) : undefined,
+    createdAt: toISO(u.createdAt),
+  };
+}
+
+export async function ownerStaffDelete(_ownerId, staffPublicId) {
+  const id = normalize(staffPublicId);
+  if (!id) throw new Error("Staff id is required");
+
+  const u = await User.findOne({ publicId: id, role: { $in: STAFF_ROLES } }).select("_id role publicId").lean();
+  if (!u) throw new Error("Staff not found");
+
+  await User.deleteOne({ _id: u._id });
+
+  // nothing to cleanup in permissions now (role-based)
+  return { message: "Deleted", id };
+}
+
+export async function ownerStaffSetEnabled(_ownerId, staffPublicId, enabled) {
+  return ownerStaffUpdate(_ownerId, staffPublicId, { enabled: !!enabled });
+}
+
+export async function ownerPermissionsGet(_ownerId) {
+  const doc = await ensurePermissionDoc();
+  const raw = doc.permissions?.toObject ? doc.permissions.toObject() : doc.permissions || {};
+  return normalizePermissionDoc(raw);
+}
+
+export async function ownerPermissionsUpdate(_ownerId, payload = {}) {
+  const incoming = payload?.permissions || payload || {};
+  const sanitized = {};
+
+  OWNER_PERMISSION_KEYS.forEach((key) => {
+    const row = incoming?.[key] || {};
+    sanitized[key] = {
+      receptionist: !!row.receptionist,
+      dentist: !!row.dentist,
+    };
+  });
+
+  let doc = await Permissions.findById("PERMISSIONS");
+  if (!doc) doc = new Permissions({ _id: "PERMISSIONS", permissions: sanitized });
+  else doc.permissions = sanitized;
+
+  await doc.save();
+
+  const saved = await Permissions.findById("PERMISSIONS").lean();
+  const raw = saved?.permissions || {};
+  return normalizePermissionDoc(raw);
+}
+
+// =====================================================
+// ✅ YOUR EXISTING SERVICES (kept as-is from your snippet)
+// =====================================================
+
 // ----------------------------
-// ✅ OWNER APPOINTMENTS (already used by appointments tab)
+// ✅ OWNER APPOINTMENTS
 // ----------------------------
 export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentistId, status, q } = {}) {
   const filter = {};
 
-  // Date range on YYYY-MM-DD strings (works lexicographically)
   if (dateFrom && dateTo) filter.date = { $gte: normalize(dateFrom), $lte: normalize(dateTo) };
   else if (dateFrom) filter.date = { $gte: normalize(dateFrom) };
   else if (dateTo) filter.date = { $lte: normalize(dateTo) };
 
-  // Status
   if (status && status !== "all") {
     const st = lower(status);
     const allowed = ["scheduled", "checked_in", "completed", "cancelled", "no_show"];
     if (allowed.includes(st)) filter.status = st;
   }
 
-  // Dentist (publicId -> ObjectId)
   if (dentistId && dentistId !== "all") {
     const d = await User.findOne({ role: "dentist", publicId: normalize(dentistId) }).select("_id");
-    if (!d) return []; // invalid dentist => empty results
+    if (!d) return [];
     filter.dentist = d._id;
   }
 
@@ -62,19 +298,15 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
     id: a.publicId,
     date: a.date,
     time: a.time,
-
     patientName: a.patient?.name || "",
     patientPhone: a.patient?.phone || "",
-
     dentistId: a.dentist?.publicId || "",
     dentistName: a.dentist?.name || "",
-
     status: a.status,
     reason: a.reason || "",
     notes: a.notes || "",
   }));
 
-  // Search (q)
   const needle = lower(q);
   if (needle) {
     mapped = mapped.filter((x) =>
@@ -100,14 +332,12 @@ export async function ownerPatientsList(_ownerId) {
 
   const patientIds = patients.map((p) => p._id);
 
-  // Pending labs per patient (statuses that are not finished)
   const pendingLabAgg = await LabCase.aggregate([
     { $match: { patient: { $in: patientIds }, status: { $in: ["sent", "received", "in_progress", "ready"] } } },
     { $group: { _id: "$patient", count: { $sum: 1 } } },
   ]);
   const pendingLabMap = new Map(pendingLabAgg.map((x) => [String(x._id), Number(x.count || 0)]));
 
-  // Total spent + last invoice amount per patient (Invoice.totalAmount)
   const invoiceAgg = await Invoice.aggregate([
     { $match: { patient: { $in: patientIds } } },
     { $sort: { date: -1, createdAt: -1 } },
@@ -151,7 +381,7 @@ export async function ownerPatientsList(_ownerId) {
 }
 
 // ----------------------------
-// ✅ OWNER PATIENT PROFILE (history + invoices + labs + treatments)
+// ✅ OWNER PATIENT PROFILE
 // ----------------------------
 export async function ownerPatientProfile(_ownerId, patientPublicId) {
   const pid = normalize(patientPublicId);
@@ -163,28 +393,23 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
 
   if (!patient) throw new Error("Patient not found");
 
-  // appointments (latest 10)
   const appts = await Appointment.find({ patient: patient._id })
     .populate("dentist", "name publicId")
     .sort({ date: -1, createdAt: -1 })
     .limit(10)
     .lean();
 
-  // invoices (latest 10)
   const invoices = await Invoice.find({ patient: patient._id })
     .sort({ date: -1, createdAt: -1 })
     .limit(10)
     .lean({ virtuals: true });
 
-  // labs (latest 10)
   const labs = await LabCase.find({ patient: patient._id })
     .populate("sampleType", "name publicId")
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();
 
-  // treatments: use Prescription as “treatments” (latest 10)
-  // (no patient ObjectId link exists; we use patientId string field in Prescription)
   const rx = await Prescription.find({ patientId: pid })
     .sort({ createdAt: -1 })
     .limit(10)
@@ -194,7 +419,7 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
     id: inv.publicId,
     date: inv.date,
     amount: money(inv.totalAmount),
-    status: String(inv.status || "").toLowerCase(), // "paid" | "partial" | "pending"
+    status: String(inv.status || "").toLowerCase(),
   }));
 
   const mappedLabs = labs.map((c) => ({
@@ -212,7 +437,6 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
       title: r.treatment || r.diagnosis || "Treatment",
     }));
 
-  // history (merge of appointments/invoices/labs/treatments)
   const history = [];
 
   appts.forEach((a) => {
@@ -247,8 +471,7 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
     });
   });
 
-  // sort newest first (date strings)
-  history.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  history.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "").toString()));
 
   return {
     patient: {
@@ -271,9 +494,7 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
 }
 
 // ----------------------------
-// ✅ OWNER PATIENT DELETE (safe “soft delete”)
-// - We DO NOT delete the record to avoid breaking other dashboards.
-// - We mark inactive + tag it as deleted.
+// ✅ OWNER PATIENT DELETE
 // ----------------------------
 export async function ownerPatientDelete(_ownerId, patientPublicId) {
   const pid = normalize(patientPublicId);
@@ -290,10 +511,6 @@ export async function ownerPatientDelete(_ownerId, patientPublicId) {
 
   return { message: "Deleted", id: pid };
 }
-
-// helpers
-const pad = (n, w = 4) => String(n).padStart(w, "0");
-const randPassword = () => Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
 
 // ---------- LAB ACCOUNTS ----------
 export async function ownerListLabAccounts(_ownerId) {
@@ -313,6 +530,7 @@ export async function ownerListLabAccounts(_ownerId) {
   }));
 }
 
+// (Keep your existing lab/sample/billing exports below unchanged…)
 export async function ownerCreateLabAccount(_ownerId, payload = {}) {
   const name = normalize(payload.name);
   const email = lower(payload.email);
@@ -323,7 +541,6 @@ export async function ownerCreateLabAccount(_ownerId, payload = {}) {
   if (!name) throw new Error("Lab name is required");
   if (!email) throw new Error("Email is required");
 
-  // generate next LAB-USER-####
   const last = await User.findOne({ role: "lab", publicId: { $regex: /^LAB-USER-\d+$/ } })
     .select("publicId")
     .sort({ createdAt: -1 })
@@ -346,8 +563,7 @@ export async function ownerCreateLabAccount(_ownerId, payload = {}) {
     forcePasswordChange,
   });
 
-  // set temporary password (lab will change on login if forcePasswordChange=true)
-  await u.setPassword(randPassword());
+  await u.setPassword(Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2));
   await u.save();
 
   return {
@@ -394,7 +610,7 @@ export async function ownerSetLabAccountEnabled(_ownerId, labPublicId, enabled) 
   return ownerUpdateLabAccount(_ownerId, labPublicId, { enabled: !!enabled });
 }
 
-// ---------- LAB CASES (read-only) ----------
+// ---------- LAB CASES ----------
 export async function ownerListLabCases(_ownerId) {
   const rows = await LabCase.find({})
     .populate("patient", "name publicId")
@@ -445,7 +661,6 @@ export async function ownerCreateSampleType(_ownerId, payload = {}) {
 
   if (!name) throw new Error("Name is required");
 
-  // next ST-#
   const last = await SampleType.findOne({ publicId: { $regex: /^ST-\d+$/ } })
     .select("publicId")
     .sort({ createdAt: -1 })
@@ -510,7 +725,6 @@ export async function ownerDeleteSampleType(_ownerId, sampleTypePublicId) {
   return { message: "Deleted", id };
 }
 
-// ✅ NEW: Owner dentists list (for filters)
 export async function ownerListDentists(_ownerId) {
   const rows = await User.find({ role: "dentist" })
     .select("publicId name")
@@ -523,7 +737,7 @@ export async function ownerListDentists(_ownerId) {
   }));
 }
 
-// --- BILLING & FINANCIALS (Owner) ---
+// --- BILLING & FINANCIALS ---
 export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentistId } = {}) {
   const filter = {};
 
@@ -542,7 +756,7 @@ export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentist
   return rows.map((p) => ({
     id: p._id || p.id || "",
     date: p.date || "",
-    method: String(p.method || "").toLowerCase(), // "cash" | "card"
+    method: String(p.method || "").toLowerCase(),
     amount: Number(p.amount || 0),
     dentistId: p.dentistId || "",
     dentistName: p.dentistName || "",
@@ -565,7 +779,7 @@ export async function ownerBillingLabBills(_ownerId, { month, labId } = {}) {
     labId: b.labId || "",
     labName: b.labName || "",
     amount: Number(b.amount || 0),
-    paid: !!b.paid, // optional
+    paid: !!b.paid,
   }));
 }
 
@@ -621,8 +835,6 @@ export async function ownerUpdateCommissionRules(_ownerId, payload = {}) {
   };
 }
 
-// NEW: Accounts Receivable summary from invoices
-// Uses invoice.date (YYYY-MM-DD) and sums payments.amount from embedded payments array.
 export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo } = {}) {
   const df = normalize(dateFrom);
   const dt = normalize(dateTo);
