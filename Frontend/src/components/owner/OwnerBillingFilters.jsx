@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
-const OwnerBillingFilters = ({ tab, filters, dentists, onChange, onReset }) => {
+const OwnerBillingFilters = ({ tab, filters, dentists, labs, onChange, onReset }) => {
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
@@ -46,9 +46,26 @@ const OwnerBillingFilters = ({ tab, filters, dentists, onChange, onReset }) => {
                 className={inputClass}
               >
                 <option value="all">All Dentists</option>
-                {dentists?.map((d) => (
+                {(dentists || []).map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {tab === "labDues" && (
+            <Field label="Lab">
+              <select
+                value={filters.labId || "all"}
+                onChange={(e) => onChange("labId", e.target.value)}
+                className={inputClass}
+              >
+                <option value="all">All Labs</option>
+                {(labs || []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
                   </option>
                 ))}
               </select>
@@ -66,7 +83,6 @@ const OwnerBillingFilters = ({ tab, filters, dentists, onChange, onReset }) => {
             </Field>
           )}
 
-          {/* Optional extra filter input to keep layout consistent */}
           <Field label=" ">
             <div className="hidden md:block" />
           </Field>

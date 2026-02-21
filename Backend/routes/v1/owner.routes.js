@@ -12,7 +12,13 @@ import { getOwnerAppointments,
   ownerCreateSampleTypeController,
   ownerUpdateSampleTypeController,
   ownerDeleteSampleTypeController,
-  ownerGetDentists
+  ownerGetDentists,
+  
+  ownerBillingListPayments,
+  ownerBillingListLabBills,
+  ownerBillingGetCommissionRules,
+  ownerBillingUpdateCommissionRules,
+  ownerBillingARSummary,
  } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -40,5 +46,15 @@ router.patch("/sample-types/:id", ownerUpdateSampleTypeController);
 router.delete("/sample-types/:id", ownerDeleteSampleTypeController);
 
 router.get("/dentists", ownerGetDentists);
+
+// --- BILLING & FINANCIALS (Owner) ---
+router.get("/billing/payments", ownerBillingListPayments);
+router.get("/billing/lab-bills", ownerBillingListLabBills);
+
+router.get("/billing/commission-rules", ownerBillingGetCommissionRules);
+router.patch("/billing/commission-rules", ownerBillingUpdateCommissionRules);
+
+// NEW: Accounts Receivable (Invoices) summary
+router.get("/billing/ar-summary", ownerBillingARSummary);
 
 export default router;

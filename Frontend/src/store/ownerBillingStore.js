@@ -1,6 +1,6 @@
+// src/store/ownerBillingStore.js
 import { create } from "zustand";
-
-const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+import { ownerApi } from "@/lib/ownerApi";
 
 // Default filters per tab
 const defaultFilters = {
@@ -10,69 +10,136 @@ const defaultFilters = {
   labDues: { month: "", labId: "all" },
 };
 
-const sum = (arr, fn) => arr.reduce((a, x) => a + (fn ? fn(x) : x), 0);
+const sum = (arr, fn) => (arr || []).reduce((a, x) => a + (fn ? fn(x) : x), 0);
 
 export const useOwnerBillingStore = create((set, get) => ({
   initialized: false,
+  loading: false,
+  error: null,
 
   // UI
   activeTab: "cashbook", // cashbook | revenue | commissions | labDues
   filters: { ...defaultFilters },
 
-  modal: {
-    open: false,
-    type: null, // "commissionRule"
-    payload: null,
+  modal: { open: false, type: null, payload: null }, // "commissionRule"
+
+  // ---------- DATA ----------
+  dentists: [], // [{id,name}] for dropdowns
+  labs: [], // [{id,name}] for dropdowns
+
+  payments: [], // {id, date, method:"cash"|"card", amount, dentistId, dentistName}
+  labBills: [], // {id, month:"YYYY-MM", labId, labName, amount, paid?}
+
+  // centralized A/R
+  arSummary: {
+    totalBilled: 0,
+    totalPaid: 0,
+    totalOutstanding: 0,
+    invoiceCount: 0,
+    outstandingCount: 0,
   },
 
-  // ---------- DATA (DEMO) ----------
-  // Payments are the source of truth to build reports
-  payments: [], // {id, date, method: "cash"|"card", amount, dentistId, dentistName}
-  labBills: [], // {id, month:"YYYY-MM", labId, labName, amount}
-
-  // Commission rules: configurable per dentist
+  // Commission rules
   commissionRules: {
     defaultPercent: 20,
-    byDentist: {
-      // dentistId: percent
-      1: 20,
-      2: 18,
-      3: 22,
-    },
+    byDentist: {}, // plain object (not Map)
   },
 
-  // ---------- SEED ----------
-  seed: () => ({
-    payments: [
-      // 2026-01-15
-      { id: uid(), date: "2026-01-15", method: "cash", amount: 9500, dentistId: 1, dentistName: "Dr. Ahmed" },
-      { id: uid(), date: "2026-01-15", method: "card", amount: 7200, dentistId: 2, dentistName: "Dr. Saif" },
-      { id: uid(), date: "2026-01-15", method: "cash", amount: 9000, dentistId: 1, dentistName: "Dr. Ahmed" },
-
-      // 2026-01-16
-      { id: uid(), date: "2026-01-16", method: "cash", amount: 12400, dentistId: 1, dentistName: "Dr. Ahmed" },
-      { id: uid(), date: "2026-01-16", method: "card", amount: 9300, dentistId: 3, dentistName: "Dr. Hina" },
-      { id: uid(), date: "2026-01-16", method: "cash", amount: 9000, dentistId: 1, dentistName: "Dr. Ahmed" },
-
-      // 2026-01-17
-      { id: uid(), date: "2026-01-17", method: "cash", amount: 7600, dentistId: 2, dentistName: "Dr. Saif" },
-      { id: uid(), date: "2026-01-17", method: "card", amount: 8100, dentistId: 1, dentistName: "Dr. Ahmed" },
-      { id: uid(), date: "2026-01-17", method: "cash", amount: 10000, dentistId: 3, dentistName: "Dr. Hina" },
-    ],
-    labBills: [
-      { id: uid(), month: "2026-01", labId: "LAB-1", labName: "Smile Lab", amount: 28000 },
-      { id: uid(), month: "2026-01", labId: "LAB-2", labName: "Precision Dental", amount: 19500 },
-      { id: uid(), month: "2026-02", labId: "LAB-1", labName: "Smile Lab", amount: 31000 },
-    ],
-  }),
-
-  init: () => {
+  // ---------- INIT ----------
+  init: async () => {
     if (get().initialized) return;
-    const demo = get().seed();
+
+    set({ initialized: true, loading: true, error: null });
+
+    try {
+      await Promise.all([
+        get().fetchDentists(),
+        get().fetchLabs(),
+        get().fetchPayments(),
+        get().fetchLabBills(),
+        get().fetchCommissionRules(),
+        get().fetchARSummary(),
+      ]);
+      set({ loading: false });
+    } catch (e) {
+      set({ loading: false, error: e?.message || "Failed to load billing data" });
+    }
+  },
+
+  // ---------- FETCHERS ----------
+  fetchDentists: async () => {
+    try {
+      const res = await ownerApi.getDentists();
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      // normalize keys
+      set({
+        dentists: rows.map((d) => ({
+          id: d.id ?? d.publicId ?? d._id ?? "",
+          name: d.name ?? d.fullName ?? "Dentist",
+        })),
+      });
+    } catch {
+      set({ dentists: [] });
+    }
+  },
+
+  fetchLabs: async () => {
+    try {
+      const res = await ownerApi.getLabs();
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      set({
+        labs: rows.map((l) => ({
+          id: l.id ?? l.publicId ?? l._id ?? "",
+          name: l.name ?? l.labName ?? "Lab",
+        })),
+      });
+    } catch {
+      set({ labs: [] });
+    }
+  },
+
+  fetchPayments: async () => {
+    const res = await ownerApi.getBillingPayments();
+    set({ payments: res?.data || [] });
+  },
+
+  fetchLabBills: async () => {
+    const res = await ownerApi.getBillingLabBills();
+    set({ labBills: res?.data || [] });
+  },
+
+  fetchCommissionRules: async () => {
+    const res = await ownerApi.getCommissionRules();
+    const data = res?.data || { defaultPercent: 20, byDentist: {} };
+
+    // ✅ make sure byDentist is a plain object (backend might send Map-ish)
+    const byDentist =
+      data?.byDentist && typeof data.byDentist === "object"
+        ? Array.isArray(data.byDentist)
+          ? {}
+          : data.byDentist
+        : {};
+
     set({
-      payments: demo.payments,
-      labBills: demo.labBills,
-      initialized: true,
+      commissionRules: {
+        defaultPercent: Number(data?.defaultPercent ?? 20),
+        byDentist,
+      },
+    });
+  },
+
+  fetchARSummary: async () => {
+    const { dateFrom, dateTo } = get().filters.cashbook || {};
+    const res = await ownerApi.getARSummary({ dateFrom, dateTo });
+
+    set({
+      arSummary: res?.data || {
+        totalBilled: 0,
+        totalPaid: 0,
+        totalOutstanding: 0,
+        invoiceCount: 0,
+        outstandingCount: 0,
+      },
     });
   },
 
@@ -81,10 +148,7 @@ export const useOwnerBillingStore = create((set, get) => ({
 
   setFilter: (tab, key, value) =>
     set((state) => ({
-      filters: {
-        ...state.filters,
-        [tab]: { ...state.filters[tab], [key]: value },
-      },
+      filters: { ...state.filters, [tab]: { ...state.filters[tab], [key]: value } },
     })),
 
   resetFilters: (tab) =>
@@ -93,31 +157,45 @@ export const useOwnerBillingStore = create((set, get) => ({
     })),
 
   openCommissionRuleModal: (dentist) =>
-    set({
-      modal: { open: true, type: "commissionRule", payload: dentist },
-    }),
+    set({ modal: { open: true, type: "commissionRule", payload: dentist } }),
 
-  closeModal: () =>
-    set({
-      modal: { open: false, type: null, payload: null },
-    }),
+  closeModal: () => set({ modal: { open: false, type: null, payload: null } }),
 
-  // ---------- COMMISSION RULES ----------
-  setCommissionPercentForDentist: (dentistId, percent) =>
+  // ---------- COMMISSION RULES (persisted) ----------
+  setCommissionPercentForDentist: async (dentistId, percent) => {
+    const did = String(dentistId ?? "").trim();
+    const p = Math.max(0, Math.min(100, Number(percent)));
+
+    // optimistic
     set((state) => ({
       commissionRules: {
         ...state.commissionRules,
-        byDentist: {
-          ...state.commissionRules.byDentist,
-          [dentistId]: Number(percent),
-        },
+        byDentist: { ...(state.commissionRules.byDentist || {}), [did]: p },
       },
-    })),
+    }));
 
-  setDefaultCommissionPercent: (percent) =>
+    try {
+      await ownerApi.updateCommissionRules({ dentistId: did, percent: p });
+    } catch (e) {
+      await get().fetchCommissionRules().catch(() => {});
+      throw e;
+    }
+  },
+
+  setDefaultCommissionPercent: async (percent) => {
+    const p = Math.max(0, Math.min(100, Number(percent)));
+
     set((state) => ({
-      commissionRules: { ...state.commissionRules, defaultPercent: Number(percent) },
-    })),
+      commissionRules: { ...state.commissionRules, defaultPercent: p },
+    }));
+
+    try {
+      await ownerApi.updateCommissionRules({ defaultPercent: p });
+    } catch (e) {
+      await get().fetchCommissionRules().catch(() => {});
+      throw e;
+    }
+  },
 
   // ---------- HELPERS ----------
   _dateInRange: (date, from, to) => {
@@ -129,7 +207,7 @@ export const useOwnerBillingStore = create((set, get) => ({
 
   _monthFromDate: (dateISO) => String(dateISO || "").slice(0, 7),
 
-  // ---------- DERIVED: CASHBOOK (table + chart) ----------
+  // ---------- DERIVED: CASHBOOK ----------
   getCashbookRows: () => {
     const { payments, filters } = get();
     const { dateFrom, dateTo } = filters.cashbook;
@@ -138,11 +216,12 @@ export const useOwnerBillingStore = create((set, get) => ({
     const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
 
     const map = new Map();
-    payments.forEach((p) => {
+    (payments || []).forEach((p) => {
       if (!get()._dateInRange(p.date, from, to)) return;
       if (!map.has(p.date)) map.set(p.date, { date: p.date, cash: 0, card: 0 });
+
       const row = map.get(p.date);
-      row[p.method] += p.amount;
+      row[p.method] = (row[p.method] || 0) + Number(p.amount || 0);
       map.set(p.date, row);
     });
 
@@ -159,7 +238,7 @@ export const useOwnerBillingStore = create((set, get) => ({
     }));
   },
 
-  // ---------- DERIVED: REVENUE (table + chart) ----------
+  // ---------- DERIVED: REVENUE ----------
   getRevenueRows: () => {
     const { payments, filters } = get();
     const { dateFrom, dateTo, dentistId } = filters.revenue;
@@ -167,23 +246,26 @@ export const useOwnerBillingStore = create((set, get) => ({
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
     const to = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
 
-    const filtered = payments.filter((p) => {
+    const filtered = (payments || []).filter((p) => {
       if (!get()._dateInRange(p.date, from, to)) return false;
       if (dentistId !== "all" && String(p.dentistId) !== String(dentistId)) return false;
       return true;
     });
 
-    // table: keep row-level payments (simple)
     return filtered
       .slice()
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((p) => ({
         id: p.id,
+        period: p.date,
+        dentistName: p.dentistName,
+        revenue: Number(p.amount || 0),
+
+        // export shape
         date: p.date,
         dentistId: p.dentistId,
-        dentistName: p.dentistName,
         method: p.method,
-        amount: p.amount,
+        amount: Number(p.amount || 0),
       }));
   },
 
@@ -191,30 +273,32 @@ export const useOwnerBillingStore = create((set, get) => ({
     const rows = get().getRevenueRows();
     const map = new Map();
     rows.forEach((r) => {
-      const key = String(r.dentistId);
+      const key = String(r.dentistId || r.dentistName || "");
       if (!map.has(key)) map.set(key, { dentistName: r.dentistName, revenue: 0 });
-      map.get(key).revenue += r.amount;
+      map.get(key).revenue += Number(r.amount || 0);
     });
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
   },
 
-  // ---------- DERIVED: COMMISSIONS (rules + payouts) ----------
+  // ---------- DERIVED: COMMISSIONS ----------
   getCommissionRows: () => {
     const { payments, filters, commissionRules } = get();
     const { month, dentistId } = filters.commissions;
 
-    const targetMonth = month || ""; // empty => all months
+    const targetMonth = month || "";
     const byDentist = new Map();
 
-    payments.forEach((p) => {
+    (payments || []).forEach((p) => {
       const m = get()._monthFromDate(p.date);
       if (targetMonth && m !== targetMonth) return;
       if (dentistId !== "all" && String(p.dentistId) !== String(dentistId)) return;
 
-      const key = String(p.dentistId);
+      const key = String(p.dentistId || "");
       if (!byDentist.has(key)) {
         const percent =
-          commissionRules.byDentist[p.dentistId] ?? commissionRules.defaultPercent;
+          (commissionRules?.byDentist || {})[key] ??
+          commissionRules?.defaultPercent ??
+          20;
 
         byDentist.set(key, {
           dentistId: p.dentistId,
@@ -225,12 +309,12 @@ export const useOwnerBillingStore = create((set, get) => ({
         });
       }
 
-      byDentist.get(key).revenue += p.amount;
+      byDentist.get(key).revenue += Number(p.amount || 0);
     });
 
     const rows = Array.from(byDentist.values()).map((r) => ({
       ...r,
-      commission: Math.round((r.revenue * r.percent) / 100),
+      commission: Math.round((Number(r.revenue || 0) * Number(r.percent || 0)) / 100),
     }));
 
     return rows.sort((a, b) => b.commission - a.commission);
@@ -246,30 +330,32 @@ export const useOwnerBillingStore = create((set, get) => ({
     }));
   },
 
-  // ---------- DERIVED: LAB DUES (table + chart) ----------
+  // ---------- DERIVED: LAB DUES ----------
   getLabDuesRows: () => {
     const { labBills, filters } = get();
     const { month, labId } = filters.labDues;
 
-    return labBills.filter((b) => {
-      if (month && b.month !== month) return false;
-      if (labId !== "all" && b.labId !== labId) return false;
-      return true;
-    });
+    return (labBills || [])
+      .filter((b) => {
+        if (month && b.month !== month) return false;
+        if (labId !== "all" && String(b.labId) !== String(labId)) return false;
+        return true;
+      })
+      .map((b) => ({ ...b, paid: !!b.paid }));
   },
 
   getLabDuesChart: () => {
     const rows = get().getLabDuesRows();
     const map = new Map();
     rows.forEach((r) => {
-      const key = r.labId;
+      const key = String(r.labId);
       if (!map.has(key)) map.set(key, { labName: r.labName, dues: 0 });
-      map.get(key).dues += r.amount;
+      map.get(key).dues += Number(r.amount || 0);
     });
     return Array.from(map.values()).sort((a, b) => b.dues - a.dues);
   },
 
-  // ---------- SUMMARY CARDS (optional) ----------
+  // ---------- SUMMARY ----------
   getSummaryForTab: () => {
     const tab = get().activeTab;
 
@@ -300,5 +386,40 @@ export const useOwnerBillingStore = create((set, get) => ({
     }
 
     return {};
+  },
+
+  // ---------- KPIs ----------
+  getFinancialKPIs: () => {
+    const cashbookRows = get().getCashbookRows();
+    const collectionsCash = sum(cashbookRows, (r) => r.cash);
+    const collectionsCard = sum(cashbookRows, (r) => r.card);
+    const collections = collectionsCash + collectionsCard;
+
+    const commissionsRows = get().getCommissionRows();
+    const commissionPayout = sum(commissionsRows, (r) => r.commission);
+
+    const labDuesRows = get().getLabDuesRows();
+    const labPayables = sum(labDuesRows, (r) => r.amount);
+
+    const ar = get().arSummary || {};
+    const totalBilled = Number(ar.totalBilled || 0);
+    const totalPaid = Number(ar.totalPaid || 0);
+    const totalOutstanding = Number(ar.totalOutstanding || 0);
+
+    const estimatedNet = Math.round(collections - commissionPayout - labPayables);
+
+    return {
+      collections,
+      collectionsCash,
+      collectionsCard,
+      totalBilled,
+      totalPaid,
+      totalOutstanding,
+      commissionPayout,
+      labPayables,
+      estimatedNet,
+      invoiceCount: Number(ar.invoiceCount || 0),
+      outstandingCount: Number(ar.outstandingCount || 0),
+    };
   },
 }));

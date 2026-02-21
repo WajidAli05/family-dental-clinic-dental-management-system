@@ -11,7 +11,13 @@ import { ownerListAppointments,
   ownerCreateSampleType,
   ownerUpdateSampleType,
   ownerDeleteSampleType,
-  ownerListDentists
+  ownerListDentists,
+
+    ownerBillingPayments,
+  ownerBillingLabBills,
+  ownerGetCommissionRules,
+  ownerUpdateCommissionRules,
+  ownerBillingARSummaryService,
  } from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
@@ -159,5 +165,56 @@ export const ownerGetDentists = async (req, res) => {
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// --- BILLING & FINANCIALS (Owner) ---
+
+export const ownerBillingListPayments = async (req, res) => {
+  try {
+    const { dateFrom, dateTo, dentistId } = req.query;
+    const data = await ownerBillingPayments(req.user?._id, { dateFrom, dateTo, dentistId });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerBillingListLabBills = async (req, res) => {
+  try {
+    const { month, labId } = req.query;
+    const data = await ownerBillingLabBills(req.user?._id, { month, labId });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerBillingGetCommissionRules = async (req, res) => {
+  try {
+    const data = await ownerGetCommissionRules(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerBillingUpdateCommissionRules = async (req, res) => {
+  try {
+    const data = await ownerUpdateCommissionRules(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// NEW: A/R summary
+export const ownerBillingARSummary = async (req, res) => {
+  try {
+    const { dateFrom, dateTo } = req.query;
+    const data = await ownerBillingARSummaryService(req.user?._id, { dateFrom, dateTo });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 };

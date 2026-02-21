@@ -8,6 +8,10 @@ import LabCase from "../models/LabCase.model.js";
 import Prescription from "../models/Prescription.model.js";
 import SampleType from "../models/SampleType.model.js";
 
+import OwnerPayment from "../models/OwnerPayment.model.js";
+import LabBill from "../models/LabBill.model.js";
+import CommissionRules from "../models/CommissionRules.model.js";
+
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
 
@@ -517,4 +521,162 @@ export async function ownerListDentists(_ownerId) {
     id: d.publicId,
     name: d.name || "",
   }));
+}
+
+// --- BILLING & FINANCIALS (Owner) ---
+export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentistId } = {}) {
+  const filter = {};
+
+  const df = normalize(dateFrom);
+  const dt = normalize(dateTo);
+
+  if (df && dt) filter.date = { $gte: df, $lte: dt };
+  else if (df) filter.date = { $gte: df };
+  else if (dt) filter.date = { $lte: dt };
+
+  const did = normalize(dentistId);
+  if (did && did !== "all") filter.dentistId = did;
+
+  const rows = await OwnerPayment.find(filter).sort({ date: 1, createdAt: 1 }).lean();
+
+  return rows.map((p) => ({
+    id: p._id || p.id || "",
+    date: p.date || "",
+    method: String(p.method || "").toLowerCase(), // "cash" | "card"
+    amount: Number(p.amount || 0),
+    dentistId: p.dentistId || "",
+    dentistName: p.dentistName || "",
+  }));
+}
+
+export async function ownerBillingLabBills(_ownerId, { month, labId } = {}) {
+  const filter = {};
+  const m = normalize(month);
+  const lid = normalize(labId);
+
+  if (m) filter.month = m;
+  if (lid && lid !== "all") filter.labId = lid;
+
+  const rows = await LabBill.find(filter).sort({ month: -1, createdAt: -1 }).lean();
+
+  return rows.map((b) => ({
+    id: b._id,
+    month: b.month || "",
+    labId: b.labId || "",
+    labName: b.labName || "",
+    amount: Number(b.amount || 0),
+    paid: !!b.paid, // optional
+  }));
+}
+
+export async function ownerGetCommissionRules(_ownerId) {
+  let doc = await CommissionRules.findById("COMMISSION-RULES").lean();
+
+  if (!doc) {
+    const created = await CommissionRules.create({
+      _id: "COMMISSION-RULES",
+      defaultPercent: 20,
+      byDentist: {},
+    });
+
+    const plain = created.toObject ? created.toObject() : created;
+    return {
+      defaultPercent: Number(plain.defaultPercent || 20),
+      byDentist: plain.byDentist || {},
+    };
+  }
+
+  return {
+    defaultPercent: Number(doc.defaultPercent || 20),
+    byDentist: doc.byDentist || {},
+  };
+}
+
+export async function ownerUpdateCommissionRules(_ownerId, payload = {}) {
+  const { defaultPercent, dentistId, percent } = payload || {};
+
+  let doc = await CommissionRules.findById("COMMISSION-RULES");
+  if (!doc) {
+    doc = new CommissionRules({ _id: "COMMISSION-RULES", defaultPercent: 20, byDentist: {} });
+  }
+
+  if (defaultPercent !== undefined && defaultPercent !== null && defaultPercent !== "") {
+    doc.defaultPercent = Math.max(0, Math.min(100, Number(defaultPercent)));
+  }
+
+  const did = normalize(dentistId);
+  if (did) {
+    const p = Math.max(0, Math.min(100, Number(percent)));
+    if (!doc.byDentist) doc.byDentist = new Map();
+    if (typeof doc.byDentist.set === "function") doc.byDentist.set(did, p);
+    else doc.byDentist[did] = p;
+  }
+
+  await doc.save();
+
+  const saved = await CommissionRules.findById("COMMISSION-RULES").lean();
+  return {
+    defaultPercent: Number(saved?.defaultPercent || 20),
+    byDentist: saved?.byDentist || {},
+  };
+}
+
+// NEW: Accounts Receivable summary from invoices
+// Uses invoice.date (YYYY-MM-DD) and sums payments.amount from embedded payments array.
+export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo } = {}) {
+  const df = normalize(dateFrom);
+  const dt = normalize(dateTo);
+
+  const match = {};
+  if (df && dt) match.date = { $gte: df, $lte: dt };
+  else if (df) match.date = { $gte: df };
+  else if (dt) match.date = { $lte: dt };
+
+  const pipeline = [
+    Object.keys(match).length ? { $match: match } : null,
+    {
+      $project: {
+        totalAmount: 1,
+        paidAmount: {
+          $sum: {
+            $map: {
+              input: { $ifNull: ["$payments", []] },
+              as: "p",
+              in: { $ifNull: ["$$p.amount", 0] },
+            },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        outstanding: {
+          $max: [0, { $subtract: ["$totalAmount", "$paidAmount"] }],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        invoiceCount: { $sum: 1 },
+        totalBilled: { $sum: "$totalAmount" },
+        totalPaid: { $sum: "$paidAmount" },
+        totalOutstanding: { $sum: "$outstanding" },
+        outstandingCount: {
+          $sum: { $cond: [{ $gt: ["$outstanding", 0] }, 1, 0] },
+        },
+      },
+    },
+  ].filter(Boolean);
+
+  const agg = await Invoice.aggregate(pipeline);
+  const row = agg?.[0] || {};
+
+  return {
+    invoiceCount: Number(row.invoiceCount || 0),
+    totalBilled: Number(row.totalBilled || 0),
+    totalPaid: Number(row.totalPaid || 0),
+    totalOutstanding: Number(row.totalOutstanding || 0),
+    outstandingCount: Number(row.outstandingCount || 0),
+  };
 }
