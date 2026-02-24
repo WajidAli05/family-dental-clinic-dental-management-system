@@ -98,9 +98,6 @@ router.delete("/staff/:id", ownerDeleteStaff);
 router.get("/permissions", ownerGetPermissions);
 router.patch("/permissions", ownerUpdatePermissions);
 
-//=================================================
-// Invetory related routes
-//=================================================
 // =====================================================
 // ✅ INVENTORY (OWNER)
 // =====================================================

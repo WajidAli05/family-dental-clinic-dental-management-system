@@ -36,18 +36,6 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
               </select>
             </Field>
 
-            {/* ✅ keep supplier filter */}
-            <Field label="Supplier">
-              <select value={filters.supplierId} onChange={(e) => onChange("supplierId", e.target.value)} className={inputClass}>
-                <option value="all">All</option>
-                {supplierOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Search">
               <input
                 value={filters.query}
