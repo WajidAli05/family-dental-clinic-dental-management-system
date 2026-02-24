@@ -13,6 +13,11 @@ import LabBill from "../models/LabBill.model.js";
 import CommissionRules from "../models/CommissionRules.model.js";
 import Permissions from "../models/Permissions.model.js";
 
+import InventoryItem from "../models/InventoryItem.model.js";
+import Supplier from "../models/Supplier.model.js";
+import PurchaseOrder from "../models/PurchaseOrder.model.js";
+import InventoryConsumption from "../models/InventoryConsumption.model.js";
+
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
 
@@ -952,4 +957,347 @@ export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo 
     totalOutstanding: Number(row.totalOutstanding || 0),
     outstandingCount: Number(row.outstandingCount || 0),
   };
+}
+
+// =====================================================
+// ✅ INVENTORY (OWNER) — Add-only, does not break shared dashboards
+// =====================================================
+
+const SKU_PREFIX = "SKU";
+
+const skuPad = (n, w = 6) => String(n).padStart(w, "0");
+
+async function nextSku() {
+  // Find last SKU like SKU-000001
+  const last = await InventoryItem.findOne({
+    sku: { $regex: new RegExp(`^${SKU_PREFIX}-\\d+$`) },
+  })
+    .select("sku")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let n = 1;
+  if (last?.sku) {
+    const m = String(last.sku).match(new RegExp(`^${SKU_PREFIX}-(\\d+)$`));
+    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  }
+
+  // ensure uniqueness even if old data has holes
+  // retry a few times
+  for (let i = 0; i < 20; i++) {
+    const candidate = `${SKU_PREFIX}-${skuPad(n + i)}`;
+    // sku isn't unique in schema, so ensure manually
+    const exists = await InventoryItem.findOne({ sku: candidate }).select("_id").lean();
+    if (!exists) return candidate;
+  }
+
+  // fallback — very unlikely to hit
+  return `${SKU_PREFIX}-${Date.now()}`;
+}
+
+const mapItem = (doc) => ({
+  id: doc.publicId,
+  sku: doc.sku || "",
+  name: doc.name || "",
+  category: doc.category || "",
+  unit: doc.unit || "",
+  qty: Number(doc.qty || 0),
+  reorderLevel: Number(doc.reorderLevel || 0),
+  unitCost: Number(doc.unitCost || 0),
+  supplier: doc.supplier || "",
+  location: doc.location || "",
+  expiryDate: doc.expiryDate || "",
+  usedIn: Array.isArray(doc.usedIn) ? doc.usedIn : [],
+  createdAt: toISO(doc.createdAt),
+});
+
+export async function ownerInventoryListItems(_ownerId) {
+  const rows = await InventoryItem.find({}).sort({ createdAt: -1 }).lean();
+  return rows.map(mapItem);
+}
+
+export async function ownerInventoryCreateItem(_ownerId, payload = {}) {
+  const name = normalize(payload.name);
+  if (!name) throw new Error("Item name is required");
+
+  // ------------------------------------------------------------------//
+
+  // ✅ SKU must NOT be accepted from frontend
+  async function nextSku() {
+  // Pattern: SKU-0001
+  const last = await InventoryItem.findOne({ sku: { $regex: /^SKU-\d+$/ } })
+    .select("sku")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let n = 1;
+  if (last?.sku) {
+    const m = String(last.sku).match(/^SKU-(\d+)$/);
+    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  }
+  return `SKU-${pad(n)}`;
+}
+
+  const sku = await nextSku();
+
+  const item = await InventoryItem.create({
+    sku,
+    name,
+    category: normalize(payload.category),
+    unit: normalize(payload.unit),
+    qty: Math.max(0, Number(payload.qty || 0)),
+    reorderLevel: Math.max(0, Number(payload.reorderLevel || 0)),
+    unitCost: Math.max(0, Number(payload.unitCost || 0)),
+    supplier: normalize(payload.supplier),
+    location: normalize(payload.location),
+    expiryDate: normalize(payload.expiryDate),
+    usedIn: Array.isArray(payload.usedIn) ? payload.usedIn.map(normalize).filter(Boolean) : [],
+  });
+
+  const saved = await InventoryItem.findById(item._id).lean();
+  return mapItem(saved);
+}
+
+export async function ownerInventoryUpdateItem(_ownerId, itemPublicId, patch = {}) {
+  const id = normalize(itemPublicId);
+  if (!id) throw new Error("Item id is required");
+
+  const doc = await InventoryItem.findOne({ publicId: id });
+  if (!doc) throw new Error("Item not found");
+
+  // Do not allow SKU updates from frontend (SKU is backend-controlled)
+  if (patch.name !== undefined) doc.name = normalize(patch.name);
+  if (patch.category !== undefined) doc.category = normalize(patch.category);
+  if (patch.unit !== undefined) doc.unit = normalize(patch.unit);
+  if (patch.reorderLevel !== undefined) doc.reorderLevel = Math.max(0, Number(patch.reorderLevel || 0));
+  if (patch.unitCost !== undefined) doc.unitCost = Math.max(0, Number(patch.unitCost || 0));
+  if (patch.supplier !== undefined) doc.supplier = normalize(patch.supplier);
+  if (patch.location !== undefined) doc.location = normalize(patch.location);
+  if (patch.expiryDate !== undefined) doc.expiryDate = normalize(patch.expiryDate);
+
+  if (patch.usedIn !== undefined) {
+    doc.usedIn = Array.isArray(patch.usedIn) ? patch.usedIn.map(normalize).filter(Boolean) : [];
+  }
+
+  if (!doc.name) throw new Error("Item name is required");
+
+  await doc.save();
+  const saved = await InventoryItem.findById(doc._id).lean();
+  return mapItem(saved);
+}
+
+export async function ownerInventoryUpdateStock(_ownerId, itemPublicId, payload = {}) {
+  const id = normalize(itemPublicId);
+  if (!id) throw new Error("Item id is required");
+
+  const mode = String(payload.mode || "set").toLowerCase(); // set | add | subtract
+  const qty = Number(payload.qty);
+
+  if (!Number.isFinite(qty)) throw new Error("qty is required");
+
+  const doc = await InventoryItem.findOne({ publicId: id });
+  if (!doc) throw new Error("Item not found");
+
+  const current = Number(doc.qty || 0);
+  let next = current;
+
+  if (mode === "add") next = current + qty;
+  else if (mode === "subtract") next = current - qty;
+  else next = qty;
+
+  doc.qty = Math.max(0, next);
+
+  await doc.save();
+  const saved = await InventoryItem.findById(doc._id).lean();
+  return mapItem(saved);
+}
+
+export async function ownerInventoryDeleteItem(_ownerId, itemPublicId) {
+  const id = normalize(itemPublicId);
+  if (!id) throw new Error("Item id is required");
+
+  const doc = await InventoryItem.findOne({ publicId: id }).select("_id publicId").lean();
+  if (!doc) throw new Error("Item not found");
+
+  await InventoryItem.deleteOne({ _id: doc._id });
+  return { message: "Deleted", id };
+}
+
+// Suppliers list (for filters/columns; do NOT remove even if tab removed)
+export async function ownerInventoryListSuppliers(_ownerId) {
+  const rows = await Supplier.find({}).sort({ name: 1 }).lean();
+  return rows.map((s) => ({
+    id: s.publicId,
+    name: s.name || "",
+    phone: s.phone || "",
+    email: s.email || "",
+    address: s.address || "",
+  }));
+}
+
+// Purchases list
+export async function ownerInventoryListPurchases(_ownerId) {
+  const rows = await PurchaseOrder.find({})
+    .populate("supplier", "publicId name")
+    .sort({ date: -1, createdAt: -1 })
+    .lean();
+
+  return rows.map((p) => ({
+    id: p.publicId,
+    date: p.date,
+    supplierId: p.supplier?.publicId || "",
+    supplierName: p.supplier?.name || "",
+    invoiceNo: p.invoiceNo || "",
+    total: Number(p.total || 0),
+    notes: p.notes || "",
+  }));
+}
+
+// Purchase details (modal)
+export async function ownerInventoryGetPurchase(_ownerId, purchasePublicId) {
+  const id = normalize(purchasePublicId);
+  if (!id) throw new Error("Purchase id is required");
+
+  const p = await PurchaseOrder.findOne({ publicId: id })
+    .populate("supplier", "publicId name phone email address")
+    .populate("items.item", "publicId sku name unit")
+    .lean();
+
+  if (!p) throw new Error("Purchase not found");
+
+  return {
+    id: p.publicId,
+    date: p.date,
+    supplier: p.supplier
+      ? {
+          id: p.supplier.publicId,
+          name: p.supplier.name || "",
+          phone: p.supplier.phone || "",
+          email: p.supplier.email || "",
+          address: p.supplier.address || "",
+        }
+      : null,
+    invoiceNo: p.invoiceNo || "",
+    total: Number(p.total || 0),
+    notes: p.notes || "",
+    items: Array.isArray(p.items)
+      ? p.items.map((it) => ({
+          itemId: it.item?.publicId || it.itemPublicId || "",
+          sku: it.item?.sku || it.sku || "",
+          name: it.item?.name || it.name || "",
+          unit: it.item?.unit || it.unit || "",
+          qty: Number(it.qty || 0),
+          unitCost: Number(it.unitCost || 0),
+          lineTotal: Number(it.lineTotal || 0),
+        }))
+      : [],
+  };
+}
+
+// Consumption list
+export async function ownerInventoryListConsumption(_ownerId) {
+  const rows = await InventoryConsumption.find({})
+    .populate("item", "publicId name unit")
+    .sort({ date: -1, createdAt: -1 })
+    .lean();
+
+  return rows.map((c) => ({
+    id: c.publicId,
+    date: c.date,
+    itemId: c.item?.publicId || "",
+    itemName: c.item?.name || "",
+    unit: c.item?.unit || "",
+    qtyUsed: Number(c.qtyUsed || 0),
+    treatmentName: c.treatmentName || "",
+  }));
+}
+
+// =====================================================
+// ✅ INVENTORY PURCHASE CREATE (stores items + updates stock)
+// =====================================================
+
+function normalizeStr(v) {
+  return String(v || "").trim();
+}
+
+export async function ownerInventoryCreatePurchase(_ownerId, payload = {}) {
+  const date = normalizeStr(payload.date);
+  const supplierId = normalizeStr(payload.supplierId);
+  const invoiceNo = normalizeStr(payload.invoiceNo);
+  const notes = normalizeStr(payload.notes);
+  const itemsIn = Array.isArray(payload.items) ? payload.items : [];
+
+  if (!date) throw new Error("date is required");
+  if (!supplierId) throw new Error("supplierId is required");
+  if (!itemsIn.length) throw new Error("items are required");
+
+  const supplier = await Supplier.findOne({ publicId: supplierId }).select("_id publicId name").lean();
+  if (!supplier) throw new Error("Supplier not found");
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const purchaseItems = [];
+
+    for (const row of itemsIn) {
+      const itemId = normalizeStr(row.itemId);
+      const qty = Number(row.qty);
+      const unitCost = Number(row.unitCost || 0);
+
+      if (!itemId) throw new Error("Each item requires itemId");
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("Each item requires qty > 0");
+
+      const itemDoc = await InventoryItem.findOne({ publicId: itemId }).session(session);
+      if (!itemDoc) throw new Error(`Inventory item not found: ${itemId}`);
+
+      purchaseItems.push({
+        item: itemDoc._id,
+        itemPublicId: itemDoc.publicId,
+        sku: itemDoc.sku || "",
+        name: itemDoc.name || "",
+        unit: itemDoc.unit || "",
+        qty,
+        unitCost: Math.max(0, unitCost),
+        lineTotal: Math.max(0, qty * Math.max(0, unitCost)),
+      });
+
+      itemDoc.qty = Math.max(0, Number(itemDoc.qty || 0) + qty);
+      if (Number.isFinite(unitCost) && unitCost > 0) itemDoc.unitCost = unitCost;
+
+      await itemDoc.save({ session });
+    }
+
+    const po = await PurchaseOrder.create(
+      [
+        {
+          date,
+          supplier: supplier._id,
+          invoiceNo,
+          notes,
+          items: purchaseItems,
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const saved = await PurchaseOrder.findById(po[0]._id).populate("supplier", "publicId name").lean();
+
+    return {
+      id: saved.publicId,
+      date: saved.date,
+      supplierId: saved.supplier?.publicId || "",
+      supplierName: saved.supplier?.name || "",
+      invoiceNo: saved.invoiceNo || "",
+      total: Number(saved.total || 0),
+      notes: saved.notes || "",
+    };
+  } catch (e) {
+    await session.abortTransaction();
+    session.endSession();
+    throw e;
+  }
 }

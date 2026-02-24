@@ -1,6 +1,6 @@
+// src/components/owner/OwnerInventoryTabs.jsx
 const tabs = [
   { id: "items", label: "Items" },
-  { id: "suppliers", label: "Suppliers" },
   { id: "purchases", label: "Purchases" },
   { id: "consumption", label: "Consumption" },
 ];

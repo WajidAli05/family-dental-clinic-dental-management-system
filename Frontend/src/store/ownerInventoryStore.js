@@ -1,16 +1,19 @@
+// src/store/ownerInventoryStore.js
 import { create } from "zustand";
+import { ownerApi } from "@/lib/ownerApi";
 
 const defaultFilters = {
-  items: { category: "all", stock: "all", query: "" },
-  suppliers: { query: "" },
+  items: { category: "all", stock: "all", supplierId: "all", query: "" },
+  suppliers: { query: "" }, // keep (shared), even if owner UI hides tab
   purchases: { dateFrom: "", dateTo: "", supplierId: "all", query: "" },
   consumption: { dateFrom: "", dateTo: "", mode: "byPeriod", query: "" },
 };
 
 export const useOwnerInventoryStore = create((set, get) => ({
   initialized: false,
-  activeTab: "items",
+  loading: false,
 
+  activeTab: "items",
   filters: { ...defaultFilters },
 
   items: [],
@@ -18,54 +21,134 @@ export const useOwnerInventoryStore = create((set, get) => ({
   purchases: [],
   consumption: [],
 
-  seed: () => ({
-    items: [
-      { id: "IT-1", sku: "GLV-S", name: "Gloves (Small)", category: "consumables", unit: "box", qty: 4, reorderLevel: 5, unitCost: 900 },
-      { id: "IT-2", sku: "MSK", name: "Surgical Masks", category: "consumables", unit: "box", qty: 0, reorderLevel: 6, unitCost: 650 },
-      { id: "IT-3", sku: "CMP-F", name: "Composite (Filtek)", category: "materials", unit: "tube", qty: 7, reorderLevel: 3, unitCost: 2200 },
-      { id: "IT-4", sku: "ANES", name: "Local Anesthetic", category: "materials", unit: "vial", qty: 2, reorderLevel: 4, unitCost: 1200 },
-      { id: "IT-5", sku: "SCAL-TIP", name: "Scaler Tips", category: "equipment", unit: "piece", qty: 10, reorderLevel: 3, unitCost: 800 },
-    ],
-    suppliers: [
-      { id: "SUP-1", name: "Dental Traders PK", phone: "051-8888888", email: "sales@dentaltraders.pk", address: "Saddar, Rawalpindi" },
-      { id: "SUP-2", name: "Med Supplies", phone: "051-7777777", email: "info@medsupplies.pk", address: "6th Road, Rawalpindi" },
-    ],
-    purchases: [
-      { id: "PO-1001", date: "2026-01-05", supplierId: "SUP-1", supplierName: "Dental Traders PK", invoiceNo: "INV-7788", total: 24500, notes: "Monthly consumables stock" },
-      { id: "PO-1002", date: "2026-01-12", supplierId: "SUP-2", supplierName: "Med Supplies", invoiceNo: "INV-8812", total: 12900, notes: "Anesthetic + gloves" },
-    ],
-    consumption: [
-      { id: "C-1", date: "2026-01-10", itemName: "Gloves (Small)", unit: "box", qtyUsed: 1, treatmentName: "Scaling & Polishing" },
-      { id: "C-2", date: "2026-01-10", itemName: "Surgical Masks", unit: "box", qtyUsed: 1, treatmentName: "" },
-      { id: "C-3", date: "2026-01-14", itemName: "Composite (Filtek)", unit: "tube", qtyUsed: 1, treatmentName: "Filling" },
-      { id: "C-4", date: "2026-01-16", itemName: "Local Anesthetic", unit: "vial", qtyUsed: 1, treatmentName: "Extraction" },
-    ],
-  }),
+  // modal state
+  itemModal: { open: false, mode: "create", payload: null }, // create/edit item
+  stockModal: { open: false, payload: null }, // update stock
+  purchaseModal: { open: false, purchaseId: null, data: null, loading: false },
 
-  init: () => {
+  // ---------------- init & fetch ----------------
+  init: async () => {
     if (get().initialized) return;
-    const demo = get().seed();
-    set({
-      items: demo.items,
-      suppliers: demo.suppliers,
-      purchases: demo.purchases,
-      consumption: demo.consumption,
-      initialized: true,
-    });
+    set({ initialized: true });
+    await get().refreshAll();
   },
 
+  refreshAll: async () => {
+    set({ loading: true });
+    try {
+      const [itemsRes, suppliersRes, purchasesRes, consumptionRes] = await Promise.all([
+        ownerApi.listInventoryItems(),
+        ownerApi.listSuppliers(), // needed for supplier filter + column
+        ownerApi.listPurchases(),
+        ownerApi.listConsumption(),
+      ]);
+
+      set({
+        items: Array.isArray(itemsRes?.data) ? itemsRes.data : [],
+        suppliers: Array.isArray(suppliersRes?.data) ? suppliersRes.data : [],
+        purchases: Array.isArray(purchasesRes?.data) ? purchasesRes.data : [],
+        consumption: Array.isArray(consumptionRes?.data) ? consumptionRes.data : [],
+      });
+    } catch (e) {
+      console.error("inventory refreshAll failed:", e);
+      set({ items: [], suppliers: [], purchases: [], consumption: [] });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchItems: async () => {
+    try {
+      const res = await ownerApi.listInventoryItems();
+      set({ items: Array.isArray(res?.data) ? res.data : [] });
+    } catch (e) {
+      console.error("fetchItems failed", e);
+      set({ items: [] });
+    }
+  },
+
+  fetchPurchases: async () => {
+    try {
+      const res = await ownerApi.listPurchases();
+      set({ purchases: Array.isArray(res?.data) ? res.data : [] });
+    } catch (e) {
+      console.error("fetchPurchases failed", e);
+      set({ purchases: [] });
+    }
+  },
+
+  // ---------------- ui ----------------
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   setFilter: (section, key, value) =>
     set((state) => ({
-      filters: {
-        ...state.filters,
-        [section]: { ...state.filters[section], [key]: value },
-      },
+      filters: { ...state.filters, [section]: { ...state.filters[section], [key]: value } },
     })),
 
   resetFilters: (section) =>
     set((state) => ({
       filters: { ...state.filters, [section]: { ...defaultFilters[section] } },
     })),
+
+  // ---------------- item modals ----------------
+  openCreateItem: () => set({ itemModal: { open: true, mode: "create", payload: null } }),
+  openEditItem: (item) => set({ itemModal: { open: true, mode: "edit", payload: item } }),
+  closeItemModal: () => set({ itemModal: { open: false, mode: "create", payload: null } }),
+
+  openStockModal: (item) => set({ stockModal: { open: true, payload: item } }),
+  closeStockModal: () => set({ stockModal: { open: false, payload: null } }),
+
+  // ---------------- purchase modal ----------------
+  openPurchaseModal: async (purchaseId) => {
+    set({ purchaseModal: { open: true, purchaseId, data: null, loading: true } });
+    try {
+      const res = await ownerApi.getPurchaseDetails(purchaseId);
+      set((s) => ({
+        purchaseModal: { ...s.purchaseModal, data: res?.data || null, loading: false },
+      }));
+    } catch (e) {
+      console.error("getPurchaseDetails failed", e);
+      set((s) => ({
+        purchaseModal: { ...s.purchaseModal, data: null, loading: false },
+      }));
+    }
+  },
+  closePurchaseModal: () => set({ purchaseModal: { open: false, purchaseId: null, data: null, loading: false } }),
+
+  // ---------------- CRUD ----------------
+  createItem: async (form) => {
+    // ✅ DO NOT send sku
+    const payload = {
+      name: form.name,
+      category: form.category,
+      unit: form.unit,
+      qty: Number(form.qty || 0),
+      reorderLevel: Number(form.reorderLevel || 0),
+      unitCost: Number(form.unitCost || 0),
+      supplier: form.supplier || "",
+      location: form.location || "",
+      expiryDate: form.expiryDate || "",
+      usedIn: Array.isArray(form.usedIn) ? form.usedIn : [],
+    };
+    await ownerApi.createInventoryItem(payload);
+    await get().fetchItems();
+  },
+
+  updateItem: async (id, patch) => {
+    // ✅ never send sku updates
+    const payload = { ...patch };
+    delete payload.sku;
+    await ownerApi.updateInventoryItem(id, payload);
+    await get().fetchItems();
+  },
+
+  deleteItem: async (id) => {
+    await ownerApi.deleteInventoryItem(id);
+    await get().fetchItems();
+  },
+
+  updateStock: async (id, { mode = "set", qty }) => {
+    await ownerApi.updateInventoryStock(id, { mode, qty });
+    await get().fetchItems();
+  },
 }));

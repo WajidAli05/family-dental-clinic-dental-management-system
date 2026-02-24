@@ -31,6 +31,17 @@ import {
   ownerStaffSetEnabled,
   ownerPermissionsGet,
   ownerPermissionsUpdate,
+
+    ownerInventoryListItems,
+  ownerInventoryCreateItem,
+  ownerInventoryUpdateItem,
+  ownerInventoryUpdateStock,
+  ownerInventoryDeleteItem,
+  ownerInventoryListSuppliers,
+  ownerInventoryListPurchases,
+  ownerInventoryGetPurchase,
+  ownerInventoryListConsumption,
+  ownerInventoryCreatePurchase
 } from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
@@ -279,6 +290,100 @@ export const ownerGetPermissions = async (req, res) => {
 export const ownerUpdatePermissions = async (req, res) => {
   try {
     const data = await ownerPermissionsUpdate(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// -----------------------------------------------------------------//
+// =====================================================
+// ✅ INVENTORY (OWNER) — Add-only
+// =====================================================
+export const ownerInventoryGetItems = async (req, res) => {
+  try {
+    const data = await ownerInventoryListItems(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryCreateItemController = async (req, res) => {
+  try {
+    const data = await ownerInventoryCreateItem(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryUpdateItemController = async (req, res) => {
+  try {
+    const data = await ownerInventoryUpdateItem(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryUpdateStockController = async (req, res) => {
+  try {
+    const data = await ownerInventoryUpdateStock(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryDeleteItemController = async (req, res) => {
+  try {
+    const data = await ownerInventoryDeleteItem(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryGetSuppliers = async (req, res) => {
+  try {
+    const data = await ownerInventoryListSuppliers(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryGetPurchases = async (req, res) => {
+  try {
+    const data = await ownerInventoryListPurchases(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryGetPurchaseDetails = async (req, res) => {
+  try {
+    const data = await ownerInventoryGetPurchase(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryGetConsumption = async (req, res) => {
+  try {
+    const data = await ownerInventoryListConsumption(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerInventoryCreatePurchaseController = async (req, res) => {
+  try {
+    const data = await ownerInventoryCreatePurchase(req.user?._id, req.body || {});
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

@@ -1,8 +1,7 @@
 // src/lib/ownerApi.js
 import { useUserStore } from "@/store/userStore";
 
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
+const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
 
 function buildUrl(path, params) {
   const url = new URL(baseURL + path);
@@ -16,9 +15,7 @@ function buildUrl(path, params) {
 }
 
 async function request(path, { method = "GET", params, body } = {}) {
-  // ✅ use Zustand store as source of truth
-  const token =
-    useUserStore.getState().token || localStorage.getItem("token");
+  const token = useUserStore.getState().token || localStorage.getItem("token");
 
   const res = await fetch(buildUrl(path, params), {
     method,
@@ -30,16 +27,17 @@ async function request(path, { method = "GET", params, body } = {}) {
   });
 
   const json = await res.json().catch(() => ({}));
-
   if (!res.ok || json?.success === false) {
     throw new Error(json?.message || `Request failed: ${res.status}`);
   }
-
-  // normalize: some endpoints return {success:true,data:...}
-  return json;
+  return json; // { success, data }
 }
 
 export const ownerApi = {
+  // =====================================================
+  // ✅ Existing Owner APIs (UNCHANGED)
+  // =====================================================
+
   // appointments
   getAppointments: (params) => request("/owner/appointments", { params }),
 
@@ -56,11 +54,10 @@ export const ownerApi = {
   getBillingPayments: (params) => request("/owner/billing/payments", { params }),
   getBillingLabBills: (params) => request("/owner/billing/lab-bills", { params }),
   getCommissionRules: () => request("/owner/billing/commission-rules"),
-  updateCommissionRules: (body) =>
-    request("/owner/billing/commission-rules", { method: "PATCH", body }),
+  updateCommissionRules: (body) => request("/owner/billing/commission-rules", { method: "PATCH", body }),
   getARSummary: (params) => request("/owner/billing/ar-summary", { params }),
 
-  // ✅ STAFF MANAGEMENT (these must exist on backend)
+  // staff management
   listStaff: () => request("/owner/staff"),
   createStaff: (body) => request("/owner/staff", { method: "POST", body }),
   updateStaff: (id, body) => request(`/owner/staff/${id}`, { method: "PATCH", body }),
@@ -68,8 +65,25 @@ export const ownerApi = {
   toggleStaffEnabled: (id, enabled) =>
     request(`/owner/staff/${id}/enabled`, { method: "PATCH", body: { enabled: !!enabled } }),
 
-  // ✅ Permissions (role-based matrix)
+  // permissions (role-based matrix)
   getPermissions: () => request("/owner/permissions"),
-  updatePermissions: (body) =>
-    request("/owner/permissions", { method: "PATCH", body }),
+  updatePermissions: (body) => request("/owner/permissions", { method: "PATCH", body }),
+
+  // =====================================================
+  // ✅ Inventory APIs (NEW — additive only)
+  // =====================================================
+
+  // inventory
+listInventoryItems: (params) => request("/owner/inventory/items", { params }),
+createInventoryItem: (body) => request("/owner/inventory/items", { method: "POST", body }),
+updateInventoryItem: (id, body) => request(`/owner/inventory/items/${id}`, { method: "PATCH", body }),
+deleteInventoryItem: (id) => request(`/owner/inventory/items/${id}`, { method: "DELETE" }),
+updateInventoryStock: (id, body) => request(`/owner/inventory/items/${id}/stock`, { method: "PATCH", body }),
+
+listSuppliers: () => request("/owner/inventory/suppliers"),
+listPurchases: () => request("/owner/inventory/purchases"),
+getPurchaseDetails: (purchaseId) => request(`/owner/inventory/purchases/${purchaseId}`),
+createPurchase: (body) => request("/owner/inventory/purchases", { method: "POST", body }),
+
+listConsumption: () => request("/owner/inventory/consumption"),
 };

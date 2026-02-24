@@ -1,16 +1,11 @@
+// src/components/owner/OwnerInventoryFilters.jsx
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
-const OwnerInventoryFilters = ({
-  tab,
-  filters,
-  supplierOptions = [],
-  onChange,
-  onReset,
-}) => {
+const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, onReset }) => {
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
@@ -23,13 +18,9 @@ const OwnerInventoryFilters = ({
 
         {/* ITEMS */}
         {tab === "items" ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <Field label="Category">
-              <select
-                value={filters.category}
-                onChange={(e) => onChange("category", e.target.value)}
-                className={inputClass}
-              >
+              <select value={filters.category} onChange={(e) => onChange("category", e.target.value)} className={inputClass}>
                 <option value="all">All</option>
                 <option value="consumables">Consumables</option>
                 <option value="materials">Materials</option>
@@ -38,14 +29,22 @@ const OwnerInventoryFilters = ({
             </Field>
 
             <Field label="Stock">
-              <select
-                value={filters.stock}
-                onChange={(e) => onChange("stock", e.target.value)}
-                className={inputClass}
-              >
+              <select value={filters.stock} onChange={(e) => onChange("stock", e.target.value)} className={inputClass}>
                 <option value="all">All</option>
                 <option value="low">Low Stock</option>
                 <option value="out">Out of Stock</option>
+              </select>
+            </Field>
+
+            {/* ✅ keep supplier filter */}
+            <Field label="Supplier">
+              <select value={filters.supplierId} onChange={(e) => onChange("supplierId", e.target.value)} className={inputClass}>
+                <option value="all">All</option>
+                {supplierOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </Field>
 
@@ -60,47 +59,19 @@ const OwnerInventoryFilters = ({
           </div>
         ) : null}
 
-        {/* SUPPLIERS */}
-        {tab === "suppliers" ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Field label="Search">
-              <input
-                value={filters.query}
-                onChange={(e) => onChange("query", e.target.value)}
-                placeholder="Supplier name, phone..."
-                className={inputClass}
-              />
-            </Field>
-          </div>
-        ) : null}
-
         {/* PURCHASES */}
         {tab === "purchases" ? (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <Field label="From">
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => onChange("dateFrom", e.target.value)}
-                className={inputClass}
-              />
+              <input type="date" value={filters.dateFrom} onChange={(e) => onChange("dateFrom", e.target.value)} className={inputClass} />
             </Field>
 
             <Field label="To">
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => onChange("dateTo", e.target.value)}
-                className={inputClass}
-              />
+              <input type="date" value={filters.dateTo} onChange={(e) => onChange("dateTo", e.target.value)} className={inputClass} />
             </Field>
 
             <Field label="Supplier">
-              <select
-                value={filters.supplierId}
-                onChange={(e) => onChange("supplierId", e.target.value)}
-                className={inputClass}
-              >
+              <select value={filters.supplierId} onChange={(e) => onChange("supplierId", e.target.value)} className={inputClass}>
                 <option value="all">All</option>
                 {supplierOptions.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -125,29 +96,15 @@ const OwnerInventoryFilters = ({
         {tab === "consumption" ? (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <Field label="From">
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => onChange("dateFrom", e.target.value)}
-                className={inputClass}
-              />
+              <input type="date" value={filters.dateFrom} onChange={(e) => onChange("dateFrom", e.target.value)} className={inputClass} />
             </Field>
 
             <Field label="To">
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => onChange("dateTo", e.target.value)}
-                className={inputClass}
-              />
+              <input type="date" value={filters.dateTo} onChange={(e) => onChange("dateTo", e.target.value)} className={inputClass} />
             </Field>
 
             <Field label="Mode">
-              <select
-                value={filters.mode}
-                onChange={(e) => onChange("mode", e.target.value)}
-                className={inputClass}
-              >
+              <select value={filters.mode} onChange={(e) => onChange("mode", e.target.value)} className={inputClass}>
                 <option value="byPeriod">By Period</option>
                 <option value="byTreatment">By Procedure</option>
               </select>

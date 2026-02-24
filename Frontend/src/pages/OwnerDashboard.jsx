@@ -12,8 +12,8 @@ const OwnerDashboard = () => {
     { title: "Lab Management", url: "/owner-dashboard/lab-management", icon: FlaskConical },
     {title: "Billing & Financials", url: "/owner-dashboard/billing", icon: CreditCard,},
     { title: "Staff & Permissions", url: "/owner-dashboard/staff", icon: Shield },
-    { title: "Settings", url: "/owner-dashboard/settings", icon: Settings },
     { title: "Inventory", url: "/owner-dashboard/inventory", icon: Boxes },
+    { title: "Settings", url: "/owner-dashboard/settings", icon: Settings },
     { title: "Logout", url: "/login", icon: LogOut },
   ];
 

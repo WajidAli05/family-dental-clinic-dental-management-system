@@ -35,6 +35,17 @@ import {
   ownerDeleteStaff,
   ownerGetPermissions,
   ownerUpdatePermissions,
+
+    ownerInventoryGetItems,
+  ownerInventoryCreateItemController,
+  ownerInventoryUpdateItemController,
+  ownerInventoryUpdateStockController,
+  ownerInventoryDeleteItemController,
+  ownerInventoryGetSuppliers,
+  ownerInventoryGetPurchases,
+  ownerInventoryGetPurchaseDetails,
+  ownerInventoryGetConsumption,
+    ownerInventoryCreatePurchaseController,
 } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -86,5 +97,23 @@ router.delete("/staff/:id", ownerDeleteStaff);
 // =====================================================
 router.get("/permissions", ownerGetPermissions);
 router.patch("/permissions", ownerUpdatePermissions);
+
+//=================================================
+// Invetory related routes
+//=================================================
+// =====================================================
+// ✅ INVENTORY (OWNER)
+// =====================================================
+router.get("/inventory/items", ownerInventoryGetItems);
+router.post("/inventory/items", ownerInventoryCreateItemController);
+router.patch("/inventory/items/:id", ownerInventoryUpdateItemController);
+router.patch("/inventory/items/:id/stock", ownerInventoryUpdateStockController);
+router.delete("/inventory/items/:id", ownerInventoryDeleteItemController);
+
+router.get("/inventory/suppliers", ownerInventoryGetSuppliers); // keep for filters/columns
+router.get("/inventory/purchases", ownerInventoryGetPurchases);
+router.get("/inventory/purchases/:id", ownerInventoryGetPurchaseDetails);
+router.get("/inventory/consumption", ownerInventoryGetConsumption);
+router.post("/inventory/purchases", ownerInventoryCreatePurchaseController);
 
 export default router;
