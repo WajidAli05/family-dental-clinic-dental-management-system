@@ -46,6 +46,21 @@ import {
   ownerInventoryGetPurchaseDetails,
   ownerInventoryGetConsumption,
     ownerInventoryCreatePurchaseController,
+
+      ownerClinicalMasterGetAllController,
+
+  ownerClinicalCreateTreatmentController,
+  ownerClinicalUpdateTreatmentController,
+  ownerClinicalToggleTreatmentActiveController,
+  ownerClinicalDeleteTreatmentController,
+
+  ownerClinicalCreateDiagnosisController,
+  ownerClinicalUpdateDiagnosisController,
+  ownerClinicalDeleteDiagnosisController,
+
+  ownerClinicalCreateFindingController,
+  ownerClinicalUpdateFindingController,
+  ownerClinicalDeleteFindingController,
 } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -112,5 +127,26 @@ router.get("/inventory/purchases", ownerInventoryGetPurchases);
 router.get("/inventory/purchases/:id", ownerInventoryGetPurchaseDetails);
 router.get("/inventory/consumption", ownerInventoryGetConsumption);
 router.post("/inventory/purchases", ownerInventoryCreatePurchaseController);
+
+// ==============================
+// ✅ CLINICAL MASTER (OWNER)
+// ==============================
+router.get("/clinical-master", ownerClinicalMasterGetAllController);
+
+// Treatments
+router.post("/clinical-master/treatments", ownerClinicalCreateTreatmentController);
+router.patch("/clinical-master/treatments/:id", ownerClinicalUpdateTreatmentController);
+router.patch("/clinical-master/treatments/:id/toggle", ownerClinicalToggleTreatmentActiveController);
+router.delete("/clinical-master/treatments/:id", ownerClinicalDeleteTreatmentController);
+
+// Diagnosis templates
+router.post("/clinical-master/diagnosis", ownerClinicalCreateDiagnosisController);
+router.patch("/clinical-master/diagnosis/:id", ownerClinicalUpdateDiagnosisController);
+router.delete("/clinical-master/diagnosis/:id", ownerClinicalDeleteDiagnosisController);
+
+// Clinical findings
+router.post("/clinical-master/findings", ownerClinicalCreateFindingController);
+router.patch("/clinical-master/findings/:id", ownerClinicalUpdateFindingController);
+router.delete("/clinical-master/findings/:id", ownerClinicalDeleteFindingController);
 
 export default router;

@@ -41,7 +41,22 @@ import {
   ownerInventoryListPurchases,
   ownerInventoryGetPurchase,
   ownerInventoryListConsumption,
-  ownerInventoryCreatePurchase
+  ownerInventoryCreatePurchase,
+
+    ownerClinicalMasterGetAll,
+
+  ownerClinicalCreateTreatment,
+  ownerClinicalUpdateTreatment,
+  ownerClinicalToggleTreatmentActive,
+  ownerClinicalDeleteTreatment,
+
+  ownerClinicalCreateDiagnosis,
+  ownerClinicalUpdateDiagnosis,
+  ownerClinicalDeleteDiagnosis,
+
+  ownerClinicalCreateFinding,
+  ownerClinicalUpdateFinding,
+  ownerClinicalDeleteFinding,
 } from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
@@ -384,6 +399,112 @@ export const ownerInventoryGetConsumption = async (req, res) => {
 export const ownerInventoryCreatePurchaseController = async (req, res) => {
   try {
     const data = await ownerInventoryCreatePurchase(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+
+// ==============================
+// ✅ CLINICAL MASTER (OWNER)
+// ==============================
+export const ownerClinicalMasterGetAllController = async (req, res) => {
+  try {
+    const data = await ownerClinicalMasterGetAll(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// ---------- Treatments ----------
+export const ownerClinicalCreateTreatmentController = async (req, res) => {
+  try {
+    const data = await ownerClinicalCreateTreatment(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalUpdateTreatmentController = async (req, res) => {
+  try {
+    const data = await ownerClinicalUpdateTreatment(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalToggleTreatmentActiveController = async (req, res) => {
+  try {
+    const data = await ownerClinicalToggleTreatmentActive(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalDeleteTreatmentController = async (req, res) => {
+  try {
+    const data = await ownerClinicalDeleteTreatment(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// ---------- Diagnosis ----------
+export const ownerClinicalCreateDiagnosisController = async (req, res) => {
+  try {
+    const data = await ownerClinicalCreateDiagnosis(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalUpdateDiagnosisController = async (req, res) => {
+  try {
+    const data = await ownerClinicalUpdateDiagnosis(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalDeleteDiagnosisController = async (req, res) => {
+  try {
+    const data = await ownerClinicalDeleteDiagnosis(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// ---------- Findings ----------
+export const ownerClinicalCreateFindingController = async (req, res) => {
+  try {
+    const data = await ownerClinicalCreateFinding(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalUpdateFindingController = async (req, res) => {
+  try {
+    const data = await ownerClinicalUpdateFinding(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerClinicalDeleteFindingController = async (req, res) => {
+  try {
+    const data = await ownerClinicalDeleteFinding(req.user?._id, req.params.id);
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

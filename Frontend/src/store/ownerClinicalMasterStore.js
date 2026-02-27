@@ -1,25 +1,24 @@
+// src/store/ownerClinicalMasterStore.js
 import { create } from "zustand";
-
-const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+import { ownerApi } from "@/lib/ownerApi";
 
 const defaultFilters = {
   query: "",
-  status: "all", // all | active | inactive | enabled | disabled (category-based)
+  status: "all", // all | active | inactive
 };
 
 export const useOwnerClinicalMasterStore = create((set, get) => ({
   initialized: false,
+  loading: false,
+  error: "",
 
   // ---------- MASTER DATA ----------
   treatments: [],
-  diagnosisTemplates: [],
+  diagnosisTemplates: [], // ✅ keep key for compatibility; UI label will be "Clinical Diagnosis"
   clinicalFindingTemplates: [],
-  documentationTemplates: [],
 
   // ---------- UI STATE ----------
-  activeCategory: "treatments", // treatments | diagnosis | findings | docs
-
-  // ✅ Search & Filters
+  activeCategory: "treatments", // treatments | diagnosis | findings
   filters: { ...defaultFilters },
 
   modal: {
@@ -37,398 +36,154 @@ export const useOwnerClinicalMasterStore = create((set, get) => ({
     onConfirmPayload: null,
   },
 
-  // ---------- DEMO SEED ----------
-  seed: () => ({
-    treatments: [
-      {
-        id: "TRM-1",
-        name: "Scaling & Polishing",
-        code: "SP",
-        fee: 3500,
-        active: true,
-        notes: "Full mouth scaling",
-      },
-      {
-        id: "TRM-2",
-        name: "Root Canal Treatment",
-        code: "RCT",
-        fee: 18000,
-        active: true,
-        notes: "Per canal (adjust as needed)",
-      },
-      { id: "TRM-3", name: "Composite Filling", code: "FILL", fee: 5000, active: true, notes: "" },
-      { id: "TRM-4", name: "Extraction", code: "EXT", fee: 4500, active: false, notes: "Inactive example" },
-    ],
-    diagnosisTemplates: [
-      { id: "DX-1", title: "Dental Caries", description: "Caries noted in molar region", active: true },
-      { id: "DX-2", title: "Gingivitis", description: "Generalized gingival inflammation", active: true },
-      { id: "DX-3", title: "Pulpitis", description: "Irreversible pulpitis symptoms", active: true },
-    ],
-    clinicalFindingTemplates: [
-      { id: "CF-1", title: "Bleeding on Probing", description: "BOP present in posterior sextants", active: true },
-      { id: "CF-2", title: "Calculus", description: "Moderate calculus deposits", active: true },
-    ],
-    documentationTemplates: [
-      {
-        id: "DOC-1",
-        name: "Initial Consultation",
-        enabled: true,
-        sections: [
-          {
-            id: "SEC-1",
-            title: "Vitals",
-            fields: [
-              { id: "F-1", label: "BP", type: "text", required: false },
-              { id: "F-2", label: "Pulse", type: "number", required: false },
-            ],
-          },
-          {
-            id: "SEC-2",
-            title: "Chief Complaint",
-            fields: [{ id: "F-3", label: "Complaint", type: "textarea", required: true }],
-          },
-        ],
-      },
-      {
-        id: "DOC-2",
-        name: "RCT Follow-up",
-        enabled: false,
-        sections: [
-          {
-            id: "SEC-3",
-            title: "Pain Assessment",
-            fields: [
-              { id: "F-4", label: "Pain Score (0-10)", type: "number", required: true },
-              { id: "F-5", label: "Notes", type: "textarea", required: false },
-            ],
-          },
-        ],
-      },
-    ],
-  }),
-
-  init: () => {
+  // ---------- init ----------
+  init: async () => {
     if (get().initialized) return;
-    const demo = get().seed();
-    set({
-      treatments: demo.treatments,
-      diagnosisTemplates: demo.diagnosisTemplates,
-      clinicalFindingTemplates: demo.clinicalFindingTemplates,
-      documentationTemplates: demo.documentationTemplates,
-      initialized: true,
-    });
+    set({ initialized: true });
+    await get().refreshAll();
+  },
+
+  refreshAll: async () => {
+    set({ loading: true, error: "" });
+    try {
+      const res = await ownerApi.getClinicalMaster();
+      const data = res?.data || {};
+
+      set({
+        treatments: Array.isArray(data.treatments) ? data.treatments : [],
+        diagnosisTemplates: Array.isArray(data.diagnosisTemplates) ? data.diagnosisTemplates : [],
+        clinicalFindingTemplates: Array.isArray(data.clinicalFindingTemplates) ? data.clinicalFindingTemplates : [],
+      });
+    } catch (e) {
+      console.error("Clinical master refreshAll failed:", e);
+      set({
+        treatments: [],
+        diagnosisTemplates: [],
+        clinicalFindingTemplates: [],
+        error: e?.message || "Failed to load Clinical Master",
+      });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   // ---------- CATEGORY ----------
   setActiveCategory: (category) =>
     set(() => ({
       activeCategory: category,
-      // ✅ optional: reset status when switching categories so you don't land on invalid value
       filters: { ...get().filters, status: "all" },
     })),
 
-  // ✅ Filters actions
-  setFilter: (key, value) =>
-    set((state) => ({
-      filters: { ...state.filters, [key]: value },
-    })),
-
+  // ---------- Filters ----------
+  setFilter: (key, value) => set((s) => ({ filters: { ...s.filters, [key]: value } })),
   resetFilters: () => set({ filters: { ...defaultFilters } }),
 
-  // ✅ Derived list (filtered by activeCategory)
-  getFilteredList: () => {
-    const { activeCategory, filters } = get();
-    const q = String(filters.query || "").trim().toLowerCase();
-    const status = filters.status;
-
-    const includesQ = (text) => {
-      if (!q) return true;
-      return String(text || "").toLowerCase().includes(q);
-    };
-
-    if (activeCategory === "treatments") {
-      return get().treatments.filter((t) => {
-        const okQuery = includesQ(`${t.id} ${t.name} ${t.code} ${t.notes} ${t.fee}`);
-        if (!okQuery) return false;
-        if (status === "active" && !t.active) return false;
-        if (status === "inactive" && t.active) return false;
-        return true;
-      });
-    }
-
-    if (activeCategory === "diagnosis") {
-      return get().diagnosisTemplates.filter((d) => {
-        const okQuery = includesQ(`${d.id} ${d.title} ${d.description}`);
-        if (!okQuery) return false;
-        if (status === "active" && !d.active) return false;
-        if (status === "inactive" && d.active) return false;
-        return true;
-      });
-    }
-
-    if (activeCategory === "findings") {
-      return get().clinicalFindingTemplates.filter((f) => {
-        const okQuery = includesQ(`${f.id} ${f.title} ${f.description}`);
-        if (!okQuery) return false;
-        if (status === "active" && !f.active) return false;
-        if (status === "inactive" && f.active) return false;
-        return true;
-      });
-    }
-
-    // docs
-    return get().documentationTemplates.filter((t) => {
-      const sectionsCount = t.sections?.length || 0;
-      const fieldsCount = (t.sections || []).reduce((sum, s) => sum + (s.fields?.length || 0), 0);
-
-      const okQuery = includesQ(`${t.id} ${t.name} ${sectionsCount} ${fieldsCount}`);
-      if (!okQuery) return false;
-
-      if (status === "enabled" && !t.enabled) return false;
-      if (status === "disabled" && t.enabled) return false;
-
-      return true;
-    });
-  },
-
   // ---------- MODAL ----------
-  openCreate: (category) =>
-    set({
-      modal: { open: true, mode: "create", category, payload: null },
-    }),
-
-  openEdit: (category, payload) =>
-    set({
-      modal: { open: true, mode: "edit", category, payload },
-    }),
-
-  closeModal: () =>
-    set({
-      modal: { open: false, mode: "create", category: "treatments", payload: null },
-    }),
+  openCreate: (category) => set({ modal: { open: true, mode: "create", category, payload: null } }),
+  openEdit: (category, payload) => set({ modal: { open: true, mode: "edit", category, payload } }),
+  closeModal: () => set({ modal: { open: false, mode: "create", category: "treatments", payload: null } }),
 
   // ---------- CONFIRM ----------
   openConfirm: ({ title, message, onConfirmKey, onConfirmPayload }) =>
-    set({
-      confirm: { open: true, title, message, onConfirmKey, onConfirmPayload },
-    }),
+    set({ confirm: { open: true, title, message, onConfirmKey, onConfirmPayload } }),
 
   closeConfirm: () =>
-    set({
-      confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null },
-    }),
+    set({ confirm: { open: false, title: "", message: "", onConfirmKey: null, onConfirmPayload: null } }),
 
-  runConfirm: () => {
+  runConfirm: async () => {
     const { confirm } = get();
     if (!confirm.onConfirmKey) return;
 
     const actionMap = {
-      deleteTreatment: (id) => get().deleteTreatment(id),
-      deleteDiagnosis: (id) => get().deleteDiagnosis(id),
-      deleteFinding: (id) => get().deleteFinding(id),
-      deleteDocTemplate: (id) => get().deleteDocTemplate(id),
+      deleteTreatment: async (id) => get().deleteTreatment(id),
+      deleteDiagnosis: async (id) => get().deleteDiagnosis(id),
+      deleteFinding: async (id) => get().deleteFinding(id),
     };
 
     const fn = actionMap[confirm.onConfirmKey];
-    if (fn) fn(confirm.onConfirmPayload);
-    get().closeConfirm();
+    try {
+      if (fn) await fn(confirm.onConfirmPayload);
+    } finally {
+      get().closeConfirm();
+    }
   },
 
-  // ---------- CRUD: TREATMENTS ----------
-  addTreatment: (data) =>
-    set((state) => ({
-      treatments: [
-        ...state.treatments,
-        {
-          id: `TRM-${uid()}`,
-          name: data.name.trim(),
-          code: (data.code || "").trim(),
-          fee: Number(data.fee || 0),
-          active: data.active ?? true,
-          notes: data.notes || "",
-        },
-      ],
-    })),
+  // ==========================
+  // ✅ CRUD: TREATMENTS
+  // ==========================
+  addTreatment: async (form) => {
+    const payload = {
+      name: form.name,
+      code: form.code || "",
+      fee: Number(form.fee || 0),
+      active: form.active !== undefined ? !!form.active : true,
+      notes: form.notes || "",
+    };
+    await ownerApi.createClinicalTreatment(payload);
+    await get().refreshAll();
+  },
 
-  updateTreatment: (id, patch) =>
-    set((state) => ({
-      treatments: state.treatments.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    })),
+  updateTreatment: async (id, patch) => {
+    const payload = { ...patch };
+    await ownerApi.updateClinicalTreatment(id, payload);
+    await get().refreshAll();
+  },
 
-  deleteTreatment: (id) =>
-    set((state) => ({
-      treatments: state.treatments.filter((t) => t.id !== id),
-    })),
+  toggleTreatmentActive: async (id) => {
+    await ownerApi.toggleClinicalTreatment(id);
+    await get().refreshAll();
+  },
 
-  toggleTreatmentActive: (id) =>
-    set((state) => ({
-      treatments: state.treatments.map((t) => (t.id === id ? { ...t, active: !t.active } : t)),
-    })),
+  deleteTreatment: async (id) => {
+    await ownerApi.deleteClinicalTreatment(id);
+    await get().refreshAll();
+  },
 
-  // ---------- CRUD: DIAGNOSIS ----------
-  addDiagnosis: (data) =>
-    set((state) => ({
-      diagnosisTemplates: [
-        ...state.diagnosisTemplates,
-        {
-          id: `DX-${uid()}`,
-          title: data.title.trim(),
-          description: data.description || "",
-          active: data.active ?? true,
-        },
-      ],
-    })),
+  // ==========================
+  // ✅ CRUD: CLINICAL DIAGNOSIS
+  // ==========================
+  addDiagnosis: async (form) => {
+    const payload = {
+      title: form.title,
+      description: form.description || "",
+      active: form.active !== undefined ? !!form.active : true,
+    };
+    await ownerApi.createClinicalDiagnosis(payload);
+    await get().refreshAll();
+  },
 
-  updateDiagnosis: (id, patch) =>
-    set((state) => ({
-      diagnosisTemplates: state.diagnosisTemplates.map((d) => (d.id === id ? { ...d, ...patch } : d)),
-    })),
+  updateDiagnosis: async (id, patch) => {
+    const payload = { ...patch };
+    await ownerApi.updateClinicalDiagnosis(id, payload);
+    await get().refreshAll();
+  },
 
-  deleteDiagnosis: (id) =>
-    set((state) => ({
-      diagnosisTemplates: state.diagnosisTemplates.filter((d) => d.id !== id),
-    })),
+  deleteDiagnosis: async (id) => {
+    await ownerApi.deleteClinicalDiagnosis(id);
+    await get().refreshAll();
+  },
 
-  // ---------- CRUD: FINDINGS ----------
-  addFinding: (data) =>
-    set((state) => ({
-      clinicalFindingTemplates: [
-        ...state.clinicalFindingTemplates,
-        {
-          id: `CF-${uid()}`,
-          title: data.title.trim(),
-          description: data.description || "",
-          active: data.active ?? true,
-        },
-      ],
-    })),
+  // ==========================
+  // ✅ CRUD: CLINICAL FINDINGS
+  // ==========================
+  addFinding: async (form) => {
+    const payload = {
+      title: form.title,
+      description: form.description || "",
+      active: form.active !== undefined ? !!form.active : true,
+    };
+    await ownerApi.createClinicalFinding(payload);
+    await get().refreshAll();
+  },
 
-  updateFinding: (id, patch) =>
-    set((state) => ({
-      clinicalFindingTemplates: state.clinicalFindingTemplates.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-    })),
+  updateFinding: async (id, patch) => {
+    const payload = { ...patch };
+    await ownerApi.updateClinicalFinding(id, payload);
+    await get().refreshAll();
+  },
 
-  deleteFinding: (id) =>
-    set((state) => ({
-      clinicalFindingTemplates: state.clinicalFindingTemplates.filter((f) => f.id !== id),
-    })),
-
-  // ---------- CRUD: DOC TEMPLATES ----------
-  addDocTemplate: (data) =>
-    set((state) => ({
-      documentationTemplates: [
-        ...state.documentationTemplates,
-        {
-          id: `DOC-${uid()}`,
-          name: data.name.trim(),
-          enabled: data.enabled ?? true,
-          sections: data.sections || [],
-        },
-      ],
-    })),
-
-  updateDocTemplate: (id, patch) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    })),
-
-  deleteDocTemplate: (id) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.filter((t) => t.id !== id),
-    })),
-
-  toggleDocTemplateEnabled: (id) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) =>
-        t.id === id ? { ...t, enabled: !t.enabled } : t
-      ),
-    })),
-
-  // Builder helpers (unchanged)
-  addDocSection: (templateId, title) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return {
-          ...t,
-          sections: [...t.sections, { id: `SEC-${uid()}`, title: title.trim() || "New Section", fields: [] }],
-        };
-      }),
-    })),
-
-  updateDocSection: (templateId, sectionId, patch) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return {
-          ...t,
-          sections: t.sections.map((s) => (s.id === sectionId ? { ...s, ...patch } : s)),
-        };
-      }),
-    })),
-
-  deleteDocSection: (templateId, sectionId) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return { ...t, sections: t.sections.filter((s) => s.id !== sectionId) };
-      }),
-    })),
-
-  addDocField: (templateId, sectionId, field) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return {
-          ...t,
-          sections: t.sections.map((s) => {
-            if (s.id !== sectionId) return s;
-            return {
-              ...s,
-              fields: [
-                ...s.fields,
-                {
-                  id: `F-${uid()}`,
-                  label: (field.label || "New Field").trim(),
-                  type: field.type || "text",
-                  required: !!field.required,
-                  options: field.options || [],
-                },
-              ],
-            };
-          }),
-        };
-      }),
-    })),
-
-  updateDocField: (templateId, sectionId, fieldId, patch) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return {
-          ...t,
-          sections: t.sections.map((s) => {
-            if (s.id !== sectionId) return s;
-            return {
-              ...s,
-              fields: s.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)),
-            };
-          }),
-        };
-      }),
-    })),
-
-  deleteDocField: (templateId, sectionId, fieldId) =>
-    set((state) => ({
-      documentationTemplates: state.documentationTemplates.map((t) => {
-        if (t.id !== templateId) return t;
-        return {
-          ...t,
-          sections: t.sections.map((s) => {
-            if (s.id !== sectionId) return s;
-            return { ...s, fields: s.fields.filter((f) => f.id !== fieldId) };
-          }),
-        };
-      }),
-    })),
+  deleteFinding: async (id) => {
+    await ownerApi.deleteClinicalFinding(id);
+    await get().refreshAll();
+  },
 }));

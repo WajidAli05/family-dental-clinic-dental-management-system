@@ -1,8 +1,8 @@
+// src/components/owner/OwnerClinicalTabs.jsx
 const tabs = [
   { key: "treatments", label: "Treatments" },
-  { key: "diagnosis", label: "Diagnosis Templates" },
+  { key: "diagnosis", label: "Clinical Diagnosis" }, // ✅ renamed
   { key: "findings", label: "Clinical Findings" },
-  { key: "docs", label: "Documentation Templates" },
 ];
 
 const OwnerClinicalTabs = ({ value, onChange }) => {
@@ -13,6 +13,7 @@ const OwnerClinicalTabs = ({ value, onChange }) => {
         return (
           <button
             key={t.key}
+            type="button"
             onClick={() => onChange(t.key)}
             className={`px-4 py-2 rounded-full text-sm font-semibold border transition
               ${

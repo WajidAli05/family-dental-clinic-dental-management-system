@@ -17,6 +17,7 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import Supplier from "../models/Supplier.model.js";
 import PurchaseOrder from "../models/PurchaseOrder.model.js";
 import InventoryConsumption from "../models/InventoryConsumption.model.js";
+import ClinicalMaster from "../models/ClinicalMaster.model.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -1300,4 +1301,234 @@ export async function ownerInventoryCreatePurchase(_ownerId, payload = {}) {
     session.endSession();
     throw e;
   }
+}
+
+// ==============================
+// ✅ CLINICAL MASTER (OWNER)
+// ==============================
+const CLINICAL_MASTER_ID = "CLINICAL-MASTER";
+
+async function ensureClinicalMasterDoc() {
+  let doc = await ClinicalMaster.findById(CLINICAL_MASTER_ID);
+  if (!doc) {
+    doc = await ClinicalMaster.create({ _id: CLINICAL_MASTER_ID });
+  }
+  return doc;
+}
+
+function nextIdFromList(prefix, list = []) {
+  // list items have .id like "TRM-1"
+  let max = 0;
+  for (const row of list || []) {
+    const m = String(row?.id || "").match(new RegExp(`^${prefix}-(\\d+)$`));
+    if (m?.[1]) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${prefix}-${max + 1}`;
+}
+
+// ---------- GET ALL ----------
+export async function ownerClinicalMasterGetAll(_ownerId) {
+  const doc = await ensureClinicalMasterDoc();
+  const plain = doc.toObject ? doc.toObject() : doc;
+
+  return {
+    treatments: Array.isArray(plain.treatments) ? plain.treatments : [],
+    diagnosisTemplates: Array.isArray(plain.diagnosisTemplates) ? plain.diagnosisTemplates : [],
+    clinicalFindingTemplates: Array.isArray(plain.clinicalFindingTemplates) ? plain.clinicalFindingTemplates : [],
+    documentationTemplates: Array.isArray(plain.documentationTemplates) ? plain.documentationTemplates : [],
+  };
+}
+
+// ==============================
+// ✅ TREATMENTS CRUD
+// ==============================
+export async function ownerClinicalCreateTreatment(_ownerId, payload = {}) {
+  const doc = await ensureClinicalMasterDoc();
+
+  const name = normalize(payload.name);
+  if (!name) throw new Error("Treatment name is required");
+
+  const id = nextIdFromList("TRM", doc.treatments);
+
+  const row = {
+    id,
+    name,
+    code: normalize(payload.code),
+    fee: Math.max(0, money(payload.fee)),
+    active: payload.active !== undefined ? !!payload.active : true,
+    notes: normalize(payload.notes),
+  };
+
+  doc.treatments = Array.isArray(doc.treatments) ? doc.treatments : [];
+  doc.treatments.push(row);
+
+  await doc.save();
+  return row;
+}
+
+export async function ownerClinicalUpdateTreatment(_ownerId, treatmentId, patch = {}) {
+  const id = normalize(treatmentId);
+  if (!id) throw new Error("Treatment id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const idx = (doc.treatments || []).findIndex((t) => String(t.id) === id);
+  if (idx === -1) throw new Error("Treatment not found");
+
+  if (patch.name !== undefined) doc.treatments[idx].name = normalize(patch.name);
+  if (patch.code !== undefined) doc.treatments[idx].code = normalize(patch.code);
+  if (patch.fee !== undefined) doc.treatments[idx].fee = Math.max(0, money(patch.fee));
+  if (patch.active !== undefined) doc.treatments[idx].active = !!patch.active;
+  if (patch.notes !== undefined) doc.treatments[idx].notes = normalize(patch.notes);
+
+  if (!normalize(doc.treatments[idx].name)) throw new Error("Treatment name is required");
+
+  await doc.save();
+  return doc.treatments[idx].toObject ? doc.treatments[idx].toObject() : doc.treatments[idx];
+}
+
+export async function ownerClinicalToggleTreatmentActive(_ownerId, treatmentId) {
+  const id = normalize(treatmentId);
+  if (!id) throw new Error("Treatment id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const idx = (doc.treatments || []).findIndex((t) => String(t.id) === id);
+  if (idx === -1) throw new Error("Treatment not found");
+
+  doc.treatments[idx].active = !doc.treatments[idx].active;
+  await doc.save();
+
+  return doc.treatments[idx].toObject ? doc.treatments[idx].toObject() : doc.treatments[idx];
+}
+
+export async function ownerClinicalDeleteTreatment(_ownerId, treatmentId) {
+  const id = normalize(treatmentId);
+  if (!id) throw new Error("Treatment id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const before = (doc.treatments || []).length;
+
+  doc.treatments = (doc.treatments || []).filter((t) => String(t.id) !== id);
+
+  if ((doc.treatments || []).length === before) throw new Error("Treatment not found");
+
+  await doc.save();
+  return { message: "Deleted", id };
+}
+
+// ==============================
+// ✅ DIAGNOSIS TEMPLATES CRUD
+// ==============================
+export async function ownerClinicalCreateDiagnosis(_ownerId, payload = {}) {
+  const doc = await ensureClinicalMasterDoc();
+
+  const title = normalize(payload.title);
+  if (!title) throw new Error("Title is required");
+
+  const id = nextIdFromList("DX", doc.diagnosisTemplates);
+
+  const row = {
+    id,
+    title,
+    description: normalize(payload.description),
+    active: payload.active !== undefined ? !!payload.active : true,
+  };
+
+  doc.diagnosisTemplates = Array.isArray(doc.diagnosisTemplates) ? doc.diagnosisTemplates : [];
+  doc.diagnosisTemplates.push(row);
+
+  await doc.save();
+  return row;
+}
+
+export async function ownerClinicalUpdateDiagnosis(_ownerId, diagnosisId, patch = {}) {
+  const id = normalize(diagnosisId);
+  if (!id) throw new Error("Diagnosis id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const idx = (doc.diagnosisTemplates || []).findIndex((d) => String(d.id) === id);
+  if (idx === -1) throw new Error("Diagnosis not found");
+
+  if (patch.title !== undefined) doc.diagnosisTemplates[idx].title = normalize(patch.title);
+  if (patch.description !== undefined) doc.diagnosisTemplates[idx].description = normalize(patch.description);
+  if (patch.active !== undefined) doc.diagnosisTemplates[idx].active = !!patch.active;
+
+  if (!normalize(doc.diagnosisTemplates[idx].title)) throw new Error("Title is required");
+
+  await doc.save();
+  return doc.diagnosisTemplates[idx].toObject ? doc.diagnosisTemplates[idx].toObject() : doc.diagnosisTemplates[idx];
+}
+
+export async function ownerClinicalDeleteDiagnosis(_ownerId, diagnosisId) {
+  const id = normalize(diagnosisId);
+  if (!id) throw new Error("Diagnosis id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const before = (doc.diagnosisTemplates || []).length;
+
+  doc.diagnosisTemplates = (doc.diagnosisTemplates || []).filter((d) => String(d.id) !== id);
+
+  if ((doc.diagnosisTemplates || []).length === before) throw new Error("Diagnosis not found");
+
+  await doc.save();
+  return { message: "Deleted", id };
+}
+
+// ==============================
+// ✅ CLINICAL FINDINGS CRUD
+// ==============================
+export async function ownerClinicalCreateFinding(_ownerId, payload = {}) {
+  const doc = await ensureClinicalMasterDoc();
+
+  const title = normalize(payload.title);
+  if (!title) throw new Error("Title is required");
+
+  const id = nextIdFromList("CF", doc.clinicalFindingTemplates);
+
+  const row = {
+    id,
+    title,
+    description: normalize(payload.description),
+    active: payload.active !== undefined ? !!payload.active : true,
+  };
+
+  doc.clinicalFindingTemplates = Array.isArray(doc.clinicalFindingTemplates) ? doc.clinicalFindingTemplates : [];
+  doc.clinicalFindingTemplates.push(row);
+
+  await doc.save();
+  return row;
+}
+
+export async function ownerClinicalUpdateFinding(_ownerId, findingId, patch = {}) {
+  const id = normalize(findingId);
+  if (!id) throw new Error("Finding id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const idx = (doc.clinicalFindingTemplates || []).findIndex((f) => String(f.id) === id);
+  if (idx === -1) throw new Error("Finding not found");
+
+  if (patch.title !== undefined) doc.clinicalFindingTemplates[idx].title = normalize(patch.title);
+  if (patch.description !== undefined) doc.clinicalFindingTemplates[idx].description = normalize(patch.description);
+  if (patch.active !== undefined) doc.clinicalFindingTemplates[idx].active = !!patch.active;
+
+  if (!normalize(doc.clinicalFindingTemplates[idx].title)) throw new Error("Title is required");
+
+  await doc.save();
+  return doc.clinicalFindingTemplates[idx].toObject
+    ? doc.clinicalFindingTemplates[idx].toObject()
+    : doc.clinicalFindingTemplates[idx];
+}
+
+export async function ownerClinicalDeleteFinding(_ownerId, findingId) {
+  const id = normalize(findingId);
+  if (!id) throw new Error("Finding id is required");
+
+  const doc = await ensureClinicalMasterDoc();
+  const before = (doc.clinicalFindingTemplates || []).length;
+
+  doc.clinicalFindingTemplates = (doc.clinicalFindingTemplates || []).filter((f) => String(f.id) !== id);
+
+  if ((doc.clinicalFindingTemplates || []).length === before) throw new Error("Finding not found");
+
+  await doc.save();
+  return { message: "Deleted", id };
 }

@@ -72,18 +72,39 @@ export const ownerApi = {
   // =====================================================
   // ✅ Inventory APIs (NEW — additive only)
   // =====================================================
+  listInventoryItems: (params) => request("/owner/inventory/items", { params }),
+  createInventoryItem: (body) => request("/owner/inventory/items", { method: "POST", body }),
+  updateInventoryItem: (id, body) => request(`/owner/inventory/items/${id}`, { method: "PATCH", body }),
+  deleteInventoryItem: (id) => request(`/owner/inventory/items/${id}`, { method: "DELETE" }),
+  updateInventoryStock: (id, body) => request(`/owner/inventory/items/${id}/stock`, { method: "PATCH", body }),
 
-  // inventory
-listInventoryItems: (params) => request("/owner/inventory/items", { params }),
-createInventoryItem: (body) => request("/owner/inventory/items", { method: "POST", body }),
-updateInventoryItem: (id, body) => request(`/owner/inventory/items/${id}`, { method: "PATCH", body }),
-deleteInventoryItem: (id) => request(`/owner/inventory/items/${id}`, { method: "DELETE" }),
-updateInventoryStock: (id, body) => request(`/owner/inventory/items/${id}/stock`, { method: "PATCH", body }),
+  listSuppliers: () => request("/owner/inventory/suppliers"),
+  listPurchases: () => request("/owner/inventory/purchases"),
+  getPurchaseDetails: (purchaseId) => request(`/owner/inventory/purchases/${purchaseId}`),
+  createPurchase: (body) => request("/owner/inventory/purchases", { method: "POST", body }),
 
-listSuppliers: () => request("/owner/inventory/suppliers"),
-listPurchases: () => request("/owner/inventory/purchases"),
-getPurchaseDetails: (purchaseId) => request(`/owner/inventory/purchases/${purchaseId}`),
-createPurchase: (body) => request("/owner/inventory/purchases", { method: "POST", body }),
+  listConsumption: () => request("/owner/inventory/consumption"),
 
-listConsumption: () => request("/owner/inventory/consumption"),
+  // =====================================================
+  // ✅ Clinical Master APIs (NEW — additive only)
+  // =====================================================
+
+  // get whole clinical master (single doc)
+  getClinicalMaster: () => request("/owner/clinical-master"),
+
+  // treatments
+  createClinicalTreatment: (body) => request("/owner/clinical-master/treatments", { method: "POST", body }),
+  updateClinicalTreatment: (id, body) => request(`/owner/clinical-master/treatments/${id}`, { method: "PATCH", body }),
+  toggleClinicalTreatment: (id) => request(`/owner/clinical-master/treatments/${id}/toggle`, { method: "PATCH" }),
+  deleteClinicalTreatment: (id) => request(`/owner/clinical-master/treatments/${id}`, { method: "DELETE" }),
+
+  // clinical diagnosis
+  createClinicalDiagnosis: (body) => request("/owner/clinical-master/diagnosis", { method: "POST", body }),
+  updateClinicalDiagnosis: (id, body) => request(`/owner/clinical-master/diagnosis/${id}`, { method: "PATCH", body }),
+  deleteClinicalDiagnosis: (id) => request(`/owner/clinical-master/diagnosis/${id}`, { method: "DELETE" }),
+
+  // clinical findings
+  createClinicalFinding: (body) => request("/owner/clinical-master/findings", { method: "POST", body }),
+  updateClinicalFinding: (id, body) => request(`/owner/clinical-master/findings/${id}`, { method: "PATCH", body }),
+  deleteClinicalFinding: (id) => request(`/owner/clinical-master/findings/${id}`, { method: "DELETE" }),
 };

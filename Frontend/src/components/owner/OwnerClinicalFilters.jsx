@@ -1,3 +1,4 @@
+// src/components/owner/OwnerClinicalFilters.jsx
 import { Button } from "@/components/ui/button";
 
 const inputClass =
@@ -11,25 +12,18 @@ const Field = ({ label, children }) => (
 );
 
 const OwnerClinicalFilters = ({ category, filters, onChange, onReset }) => {
-  const statusOptions =
-    category === "docs"
-      ? [
-          { value: "all", label: "All" },
-          { value: "enabled", label: "Enabled" },
-          { value: "disabled", label: "Disabled" },
-        ]
-      : [
-          { value: "all", label: "All" },
-          { value: "active", label: "Active" },
-          { value: "inactive", label: "Inactive" },
-        ];
+  const statusOptions = [
+    { value: "all", label: "All" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+  ];
 
   const placeholder =
     category === "treatments"
       ? "Search: name, code, fee, notes..."
-      : category === "docs"
-      ? "Search: template name, id..."
-      : "Search: title, description...";
+      : category === "diagnosis"
+      ? "Search: diagnosis title, description..."
+      : "Search: finding title, description...";
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 md:p-5">
@@ -50,7 +44,7 @@ const OwnerClinicalFilters = ({ category, filters, onChange, onReset }) => {
           />
         </Field>
 
-        <Field label={category === "docs" ? "Enabled Status" : "Active Status"}>
+        <Field label="Active Status">
           <select
             value={filters.status}
             onChange={(e) => onChange("status", e.target.value)}
@@ -65,9 +59,7 @@ const OwnerClinicalFilters = ({ category, filters, onChange, onReset }) => {
         </Field>
 
         <div className="flex items-end">
-          <p className="text-xs text-gray-500">
-            Tip: Use templates to keep dentist input consistent.
-          </p>
+          <p className="text-xs text-gray-500">Tip: Keep templates consistent to help dentists chart faster.</p>
         </div>
       </div>
     </div>
