@@ -18,6 +18,7 @@ import Supplier from "../models/Supplier.model.js";
 import PurchaseOrder from "../models/PurchaseOrder.model.js";
 import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
+import ClinicSettings from "../models/ClinicSettings.model.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -1531,4 +1532,125 @@ export async function ownerClinicalDeleteFinding(_ownerId, findingId) {
 
   await doc.save();
   return { message: "Deleted", id };
+}
+
+// =========================
+// OWNER SETTINGS (BASIC CLINIC INFO + PASSWORD CHANGE)
+// =========================
+const CLINIC_SETTINGS_ID = "CLINIC-SETTINGS";
+
+async function ensureClinicSettingsDoc() {
+  let doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID);
+  if (!doc) {
+    doc = await ClinicSettings.create({
+      _id: CLINIC_SETTINGS_ID,
+      clinic: {
+        name: "Clinic",
+        logoUrl: "",
+        phone: "",
+        whatsapp: "",
+        address: "",
+      },
+    });
+  }
+
+  // Backfill clinic object if missing
+  if (!doc.clinic || typeof doc.clinic !== "object") {
+    doc.clinic = {
+      name: "Clinic",
+      logoUrl: "",
+      phone: "",
+      whatsapp: "",
+      address: "",
+    };
+    await doc.save();
+  }
+
+  return doc;
+}
+
+function sanitizeClinicPayload(payload = {}) {
+  // supports both:
+  // A) { clinic: {...} }
+  // B) { name, logoUrl, phone, ... }
+  const c =
+    payload?.clinic && typeof payload.clinic === "object"
+      ? payload.clinic
+      : payload;
+
+  return {
+    name: normalizeStr(c.name),
+    logoUrl: normalizeStr(c.logoUrl),
+    phone: normalizeStr(c.phone),
+    whatsapp: normalizeStr(c.whatsapp),
+    address: normalizeStr(c.address),
+  };
+}
+
+export async function ownerSettingsGet(_ownerId) {
+  await ensureClinicSettingsDoc();
+  const doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
+  const clinic = doc?.clinic || {};
+
+  return {
+    clinic: {
+      name: clinic.name || "",
+      logoUrl: clinic.logoUrl || "",
+      phone: clinic.phone || "",
+      whatsapp: clinic.whatsapp || "",
+      address: clinic.address || "",
+    },
+  };
+}
+
+export async function ownerSettingsUpdate(_ownerId, payload = {}) {
+  const doc = await ensureClinicSettingsDoc();
+
+  const next = sanitizeClinicPayload(payload);
+
+  if (!next.name) throw new Error("Clinic name is required");
+
+  // ✅ Update clinic safely
+  doc.clinic = {
+    ...(doc.clinic || {}),
+    ...next,
+  };
+
+  // ✅ If an old document still has timings inside clinic from previous schema,
+  // delete it so it never causes issues in mixed deployments.
+  if (doc.clinic && "timings" in doc.clinic) {
+    delete doc.clinic.timings;
+  }
+
+  await doc.save();
+
+  const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
+  const clinic = saved?.clinic || {};
+
+  return {
+    clinic: {
+      name: clinic.name || "",
+      logoUrl: clinic.logoUrl || "",
+      phone: clinic.phone || "",
+      whatsapp: clinic.whatsapp || "",
+      address: clinic.address || "",
+    },
+  };
+}
+
+export async function ownerSettingsChangePassword(ownerId, payload = {}) {
+  const newPassword = String(payload.newPassword || "");
+  const confirmPassword = String(payload.confirmPassword || "");
+
+  if (!ownerId) throw new Error("Unauthorized");
+  if (!newPassword || newPassword.length < 6) throw new Error("Password must be at least 6 characters");
+  if (newPassword !== confirmPassword) throw new Error("Passwords do not match");
+
+  const u = await User.findById(ownerId).select("+passwordHash");
+  if (!u) throw new Error("User not found");
+
+  await u.setPassword(newPassword);
+  await u.save();
+
+  return { message: "Password updated" };
 }

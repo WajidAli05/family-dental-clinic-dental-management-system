@@ -1,108 +1,62 @@
+// src/store/ownerSettingsStore.js
 import { create } from "zustand";
+import { ownerApi } from "@/lib/ownerApi";
 
-const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const normalizeClinic = (c) => ({
+  name: c?.name || "",
+  logoUrl: c?.logoUrl || "",
+  phone: c?.phone || "",
+  whatsapp: c?.whatsapp || "",
+  address: c?.address || "",
+});
 
 export const useOwnerSettingsStore = create((set, get) => ({
   initialized: false,
-  activeTab: "clinic",
+  loading: false,
 
-  clinic: {
-    name: "Family Dental Clinic",
-    logoUrl: "",
-    phone: "051-1234567",
-    whatsapp: "0301-1234567",
-    address: "Harley Street, Saddar, Rawalpindi",
-    timings: {
-      monToSat: "10:00 AM – 09:00 PM",
-      sunday: "Closed",
-    },
-  },
+  clinic: normalizeClinic(null),
 
-  paymentModes: [],
-  labSettings: {
-    defaultTurnaroundDays: 3,
-    allowUrgent: true,
-    urgentFee: 500,
-    defaultStatus: "created",
-  },
-
-  commissionSettings: {
-    defaultDentistCommissionPercent: 30,
-    allowCustomOverrides: true,
-    rounding: "nearest", // nearest | floor | ceil
-  },
-
-  seed: () => ({
-    paymentModes: [
-      { id: "PM-1", key: "cash", label: "Cash", active: true },
-      { id: "PM-2", key: "card", label: "Card", active: true },
-      { id: "PM-3", key: "online", label: "Online Transfer", active: true },
-    ],
-  }),
-
-  init: () => {
+  init: async () => {
     if (get().initialized) return;
-    const demo = get().seed();
-    set({
-      paymentModes: demo.paymentModes,
-      initialized: true,
-    });
+    set({ initialized: true });
+    await get().fetchSettings();
   },
 
-  setActiveTab: (tab) => set({ activeTab: tab }),
-
-  // ---- Clinic Info
-  updateClinic: (patch) =>
-    set((state) => ({
-      clinic: { ...state.clinic, ...patch },
-    })),
-
-  // ---- Payment Modes
-  upsertPaymentMode: (mode) => {
-    const m = {
-      id: mode.id || `PM-${uid()}`,
-      key: String(mode.key || "").trim(),
-      label: String(mode.label || "").trim(),
-      active: mode.active ?? true,
-    };
-
-    if (!m.key || !m.label) return;
-
-    set((state) => {
-      const exists = state.paymentModes.some((x) => x.id === m.id);
-      if (exists) {
-        return {
-          paymentModes: state.paymentModes.map((x) => (x.id === m.id ? { ...x, ...m } : x)),
-        };
-      }
-      // prevent duplicate keys
-      if (state.paymentModes.some((x) => x.key === m.key)) return state;
-
-      return { paymentModes: [...state.paymentModes, m] };
-    });
+  fetchSettings: async () => {
+    set({ loading: true });
+    try {
+      const res = await ownerApi.getOwnerSettings();
+      const data = res?.data || {};
+      set({
+        clinic: normalizeClinic(data.clinic),
+      });
+    } catch (e) {
+      console.error("fetchSettings failed", e);
+    } finally {
+      set({ loading: false });
+    }
   },
 
-  deletePaymentMode: (id) =>
-    set((state) => ({
-      paymentModes: state.paymentModes.filter((x) => x.id !== id),
-    })),
+  updateClinic: async (clinicPatch) => {
+    set({ loading: true });
+    try {
+      const payload = { clinic: normalizeClinic(clinicPatch) };
+      const res = await ownerApi.updateOwnerSettings(payload);
+      const data = res?.data || {};
+      set({ clinic: normalizeClinic(data.clinic) });
+      return true;
+    } finally {
+      set({ loading: false });
+    }
+  },
 
-  togglePaymentMode: (id) =>
-    set((state) => ({
-      paymentModes: state.paymentModes.map((x) =>
-        x.id === id ? { ...x, active: !x.active } : x
-      ),
-    })),
-
-  // ---- Lab settings
-  updateLabSettings: (patch) =>
-    set((state) => ({
-      labSettings: { ...state.labSettings, ...patch },
-    })),
-
-  // ---- Commission settings
-  updateCommissionSettings: (patch) =>
-    set((state) => ({
-      commissionSettings: { ...state.commissionSettings, ...patch },
-    })),
+  changePassword: async ({ newPassword, confirmPassword }) => {
+    set({ loading: true });
+    try {
+      await ownerApi.changeOwnerPassword({ newPassword, confirmPassword });
+      return true;
+    } finally {
+      set({ loading: false });
+    }
+  },
 }));

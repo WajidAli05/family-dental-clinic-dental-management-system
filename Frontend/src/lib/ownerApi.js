@@ -107,4 +107,11 @@ export const ownerApi = {
   createClinicalFinding: (body) => request("/owner/clinical-master/findings", { method: "POST", body }),
   updateClinicalFinding: (id, body) => request(`/owner/clinical-master/findings/${id}`, { method: "PATCH", body }),
   deleteClinicalFinding: (id) => request(`/owner/clinical-master/findings/${id}`, { method: "DELETE" }),
+
+    // =====================================================
+  // ✅ Settings APIs (NEW)
+  // =====================================================
+  getOwnerSettings: () => request("/owner/settings"),
+  updateOwnerSettings: (body) => request("/owner/settings", { method: "PATCH", body }),
+  changeOwnerPassword: (body) => request("/owner/settings/password", { method: "PATCH", body }),
 };

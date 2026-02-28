@@ -57,6 +57,10 @@ import {
   ownerClinicalCreateFinding,
   ownerClinicalUpdateFinding,
   ownerClinicalDeleteFinding,
+
+    ownerSettingsGet,
+  ownerSettingsUpdate,
+  ownerSettingsChangePassword,
 } from "../services/owner.service.js";
 
 export const getOwnerAppointments = async (req, res) => {
@@ -505,6 +509,36 @@ export const ownerClinicalUpdateFindingController = async (req, res) => {
 export const ownerClinicalDeleteFindingController = async (req, res) => {
   try {
     const data = await ownerClinicalDeleteFinding(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =========================
+// OWNER SETTINGS CONTROLLERS
+// =========================
+export const ownerGetSettingsController = async (req, res) => {
+  try {
+    const data = await ownerSettingsGet(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateSettingsController = async (req, res) => {
+  try {
+    const data = await ownerSettingsUpdate(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerChangePasswordController = async (req, res) => {
+  try {
+    const data = await ownerSettingsChangePassword(req.user?._id, req.body || {});
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
