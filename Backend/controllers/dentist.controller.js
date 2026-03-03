@@ -10,6 +10,7 @@ import {
   dentistUpdatePrescription,
   dentistGetPrescriptions,
   dentistGetPrescriptionById,
+  dentistGetClinicalMaster
 } from "../services/dentist.service.js";
 
 export const getDentistMe = async (req, res) => {
@@ -113,5 +114,14 @@ export const getDentistPrescriptionById = async (req, res) => {
     res.json({ success: true, data: row });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistClinicalMaster = async (req, res) => {
+  try {
+    const data = await dentistGetClinicalMaster();
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
   }
 };

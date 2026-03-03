@@ -11,6 +11,7 @@ import {
   updateDentistPrescription,
   getDentistPrescriptions,
   getDentistPrescriptionById,
+  getDentistClinicalMaster
 } from "../../controllers/dentist.controller.js";
 
 const router = express.Router();
@@ -19,6 +20,8 @@ const router = express.Router();
 router.get("/me", getDentistMe);
 router.patch("/me", updateDentistMe);
 router.patch("/me/password", changeDentistPassword);
+
+router.get("/clinical-master", getDentistClinicalMaster)
 
 // dashboard
 router.get("/stats", getDentistStats);

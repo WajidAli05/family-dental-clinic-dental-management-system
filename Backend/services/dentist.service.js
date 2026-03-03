@@ -2,6 +2,7 @@ import User from "../models/User.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
 import Prescription from "../models/Prescription.model.js";
+import ClinicalMaster from "../models/ClinicalMaster.model.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -284,4 +285,23 @@ export async function dentistGetPrescriptions(user, query = {}) {
 
   // return raw rows to FE (keep _id as prescriptionId)
   return rows;
+}
+
+// -------------------- CLINICAL MASTER (for dentist) --------------------
+export async function dentistGetClinicalMaster() {
+  const doc = await ClinicalMaster.findById("CLINICAL-MASTER").lean();
+
+  if (!doc) {
+    return {
+      treatments: [],
+      diagnosisTemplates: [],
+      clinicalFindingTemplates: [],
+    };
+  }
+
+  return {
+    treatments: (doc.treatments || []).filter((t) => t.active !== false),
+    diagnosisTemplates: (doc.diagnosisTemplates || []).filter((d) => d.active !== false),
+    clinicalFindingTemplates: (doc.clinicalFindingTemplates || []).filter((f) => f.active !== false),
+  };
 }

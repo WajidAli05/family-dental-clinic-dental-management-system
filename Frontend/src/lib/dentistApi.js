@@ -155,4 +155,7 @@ export const dentistApi = {
   },
 
   getPrescriptionById: (id) => req(`/prescriptions/${id}`),
+
+  getClinicalMaster: () =>
+  req("/clinical-master"),
 };
