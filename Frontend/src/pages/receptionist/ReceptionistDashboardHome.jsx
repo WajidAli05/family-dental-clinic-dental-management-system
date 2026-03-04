@@ -41,11 +41,11 @@ const OwnerDashboardHome = () => {
       </div>
 
       {/* Error / Loading */}
-      {error ? (
+      {/* {error ? (
         <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
           {error}
         </div>
-      ) : null}
+      ) : null} */}
 
       {loading ? (
         <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
