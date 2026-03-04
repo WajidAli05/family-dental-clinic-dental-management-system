@@ -13,27 +13,32 @@ import {
   getDentistPrescriptionById,
   getDentistClinicalMaster
 } from "../../controllers/dentist.controller.js";
+import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
 const router = express.Router();
 
 // profile
-router.get("/me", getDentistMe);
-router.patch("/me", updateDentistMe);
-router.patch("/me/password", changeDentistPassword);
+router.get("/me", requirePermission("tab_dentist_profile"), getDentistMe);
+router.patch("/me", requirePermission("tab_dentist_profile"), updateDentistMe);
+router.patch("/me/password", requirePermission("tab_dentist_profile"), changeDentistPassword);
 
-router.get("/clinical-master", getDentistClinicalMaster)
+// clinical master (used inside appointments/prescriptions flow)
+router.get("/clinical-master", requirePermission("tab_dentist_appointments"), getDentistClinicalMaster);
 
 // dashboard
-router.get("/stats", getDentistStats);
-router.get("/appointments", getDentistAppointments);
+router.get("/stats", requirePermission("tab_dentist_dashboard"), getDentistStats);
 
-// lab cases for dentist
-router.get("/cases", getDentistCases);
-router.patch("/cases/:id/approve", approveDentistCase);
+// appointments
+router.get("/appointments", requirePermission("tab_dentist_appointments"), getDentistAppointments);
 
-router.post("/prescriptions", createDentistPrescription);
-router.get("/prescriptions", getDentistPrescriptions);
-router.get("/prescriptions/:id", getDentistPrescriptionById);
-router.patch("/prescriptions/:id", updateDentistPrescription);
+// lab samples (cases)
+router.get("/cases", requirePermission("tab_dentist_lab_samples"), getDentistCases);
+router.patch("/cases/:id/approve", requirePermission("tab_dentist_lab_samples"), approveDentistCase);
+
+// prescriptions (part of appointments workflow)
+router.post("/prescriptions", requirePermission("tab_dentist_appointments"), createDentistPrescription);
+router.get("/prescriptions", requirePermission("tab_dentist_appointments"), getDentistPrescriptions);
+router.get("/prescriptions/:id", requirePermission("tab_dentist_appointments"), getDentistPrescriptionById);
+router.patch("/prescriptions/:id", requirePermission("tab_dentist_appointments"), updateDentistPrescription);
 
 export default router;

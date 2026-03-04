@@ -1,4 +1,6 @@
+// src/pages/DentistDashboard.jsx
 import { Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useMemo } from "react";
 
 // Layout
 import SideBar from "@/components/SideBar";
@@ -9,23 +11,48 @@ import { Home, Calendar, FlaskConical, User, LogOut } from "lucide-react";
 
 // Store
 import { useUserStore } from "@/store/userStore";
+import { usePermissionsStore } from "@/store/permissionsStore";
 
 const DentistDashboard = () => {
   const navigate = useNavigate();
   const logout = useUserStore((s) => s.logout);
+
+  // ✅ permissions
+  const fetchMyPermissions = usePermissionsStore((s) => s.fetchMyPermissions);
+  const canAccessTab = usePermissionsStore((s) => s.canAccessTab);
+
+  useEffect(() => {
+    // load permissions once for this dashboard session (fail-open store keeps app stable)
+    fetchMyPermissions?.();
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
   };
 
-  const dentistMenu = [
-    { title: "Dashboard", url: "/dentist-dashboard/dashboard", icon: Home },
-    { title: "Appointments", url: "/dentist-dashboard/appointments", icon: Calendar },
-    { title: "Lab Samples", url: "/dentist-dashboard/lab-samples", icon: FlaskConical },
-    { title: "Profile", url: "/dentist-dashboard/profile", icon: User },
-    { title: "Logout", icon: LogOut, onClick: handleLogout }, // ✅ action item (no url)
-  ];
+  const permMapDentist = {
+    Dashboard: "tab_dentist_dashboard",
+    Appointments: "tab_dentist_appointments",
+    "Lab Samples": "tab_dentist_lab_samples",
+    Profile: "tab_dentist_profile",
+  };
+
+  const dentistMenu = useMemo(() => {
+    const base = [
+      { title: "Dashboard", url: "/dentist-dashboard/dashboard", icon: Home },
+      { title: "Appointments", url: "/dentist-dashboard/appointments", icon: Calendar },
+      { title: "Lab Samples", url: "/dentist-dashboard/lab-samples", icon: FlaskConical },
+      { title: "Profile", url: "/dentist-dashboard/profile", icon: User },
+      { title: "Logout", icon: LogOut, onClick: handleLogout }, // ✅ action item (no url)
+    ];
+
+    return base.filter((item) => {
+      if (item.title === "Logout") return true;
+      const key = permMapDentist[item.title];
+      return canAccessTab?.(key);
+    });
+  }, [canAccessTab]);
 
   return (
     <SidebarProvider>

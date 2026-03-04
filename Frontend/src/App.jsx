@@ -1,3 +1,4 @@
+// src/App.jsx
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
@@ -31,6 +32,7 @@ import LabSamples from "./pages/receptionist/LabSamples";
 import LabDashboard from "./pages/LabDashboard";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PermissionRoute from "./components/PermissionRoute";
 import { Toaster } from "sonner";
 
 function App() {
@@ -38,7 +40,6 @@ function App() {
     <Router>
       <Toaster richColors position="top-right" />
       <Routes>
-
         {/* AUTH */}
         <Route path="/login" element={<LoginPage />} />
 
@@ -62,10 +63,50 @@ function App() {
         <Route element={<ProtectedRoute role="dentist" />}>
           <Route path="/dentist-dashboard" element={<DentistDashboard />}>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<DentistDashboardHome />} />
-            <Route path="appointments" element={<DentistAppointments />} />
-            <Route path="lab-samples" element={<DentistLabSamples />} />
-            <Route path="profile" element={<DentistProfile />} />
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_dentist_dashboard"
+                  fallback="/dentist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="dashboard" element={<DentistDashboardHome />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_dentist_appointments"
+                  fallback="/dentist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="appointments" element={<DentistAppointments />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_dentist_lab_samples"
+                  fallback="/dentist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="lab-samples" element={<DentistLabSamples />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_dentist_profile"
+                  fallback="/login"
+                />
+              }
+            >
+              <Route path="profile" element={<DentistProfile />} />
+            </Route>
           </Route>
         </Route>
 
@@ -73,13 +114,83 @@ function App() {
         <Route element={<ProtectedRoute role="receptionist" />}>
           <Route path="/receptionist-dashboard" element={<ReceptionistDashboard />}>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<ReceptionististDashboardHome />} />
-            <Route path="patients" element={<Patients />} />
-            <Route path="appointments" element={<Appointments />} />
-            <Route path="billing" element={<Billing />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="lab-samples" element={<LabSamples />} />
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_dashboard"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="dashboard" element={<ReceptionististDashboardHome />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_patients"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="patients" element={<Patients />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_appointments"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="appointments" element={<Appointments />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_lab_samples"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="lab-samples" element={<LabSamples />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_billing"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="billing" element={<Billing />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_inventory"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="inventory" element={<Inventory />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_profile"
+                  fallback="/login"
+                />
+              }
+            >
+              <Route path="profile" element={<Profile />} />
+            </Route>
           </Route>
         </Route>
 
@@ -90,7 +201,6 @@ function App() {
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
-
       </Routes>
     </Router>
   );
