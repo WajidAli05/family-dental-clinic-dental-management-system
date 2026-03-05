@@ -86,12 +86,39 @@ export async function dentistGetStats(dentistId) {
 }
 
 // -------------------- APPOINTMENTS --------------------
-export async function dentistGetAppointments(dentistId, { date } = {}) {
-  const d = date || todayISO();
+// export async function dentistGetAppointments(dentistId, { date } = {}) {
+//   const d = date || todayISO();
 
-  const rows = await Appointment.find({ dentist: dentistId, date: d })
+//   const rows = await Appointment.find({ dentist: dentistId, date: d })
+//     .populate("patient", "name publicId mr")
+//     .sort({ time: 1 })
+//     .lean();
+
+//   // ✅ frontend friendly + required patientId for prescriptions
+//   return rows.map((a) => ({
+//     id: a.publicId,
+//     patientId: a.patient?.publicId || "", // ✅ used by FE to fetch prescriptions
+//     mr: a.patient?.mr || null,
+//     patientName: a.patient?.name || "",
+//     date: a.date,
+//     time: a.time,
+//     reason: a.reason,
+//     status: a.status,
+//   }));
+// }
+
+// -------------------- APPOINTMENTS --------------------
+export async function dentistGetAppointments(dentistId, { date } = {}) {
+  // ✅ If date is provided => filter by date
+  // ✅ If date is NOT provided => return ALL appointments for this dentist
+  const query = { dentist: dentistId };
+
+  const d = String(date || "").trim();
+  if (d) query.date = d;
+
+  const rows = await Appointment.find(query)
     .populate("patient", "name publicId mr")
-    .sort({ time: 1 })
+    .sort({ date: 1, time: 1 }) // ✅ stable order for all appointments
     .lean();
 
   // ✅ frontend friendly + required patientId for prescriptions
@@ -104,6 +131,8 @@ export async function dentistGetAppointments(dentistId, { date } = {}) {
     time: a.time,
     reason: a.reason,
     status: a.status,
+    // keep original if your FE/store expects it anywhere
+    original: a,
   }));
 }
 
