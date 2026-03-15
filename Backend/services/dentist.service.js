@@ -1,3 +1,4 @@
+//dentist services
 import User from "../models/User.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
