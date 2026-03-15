@@ -1,3 +1,4 @@
+// src/store/dentistDashboardStore.js
 import { create } from "zustand";
 import { dentistApi } from "@/lib/dentistApi";
 
@@ -22,16 +23,35 @@ export const useDentistDashboardStore = create((set) => ({
 
       const [statsRes, apptRes] = await Promise.all([
         dentistApi.getStats(),
-        dentistApi.getAppointments({ date: today, status: "scheduled" }),
+        // ✅ only date is guaranteed; backend may ignore others
+        dentistApi.getAppointments({ date: today }),
       ]);
 
-      const appointments = (apptRes.data || []).map((a) => ({
-        id: a.id,
-        time: a.time,
-        patient: a.patientName,
-        type: a.reason || "Consultation",
-        original: a,
-      }));
+      const appointments = (apptRes.data || []).map((a) => {
+        const original = a?.original || a;
+
+        return {
+          // existing keys (keep)
+          id: a?.id || original?.publicId || original?._id || "",
+          time: a?.time || original?.time || "",
+          patient: a?.patient || a?.patientName || original?.patientName || "",
+          type: a?.type || a?.reason || original?.reason || "Consultation",
+
+          // ✅ add extra keys (tables often expect these)
+          patientName: a?.patientName || original?.patientName || "",
+          reason: a?.reason || original?.reason || "",
+          date: a?.date || original?.date || "",
+          status: a?.status || original?.status || "",
+          mr: a?.mr ?? original?.mr ?? null,
+          patientId:
+            a?.patientId ||
+            original?.patientId ||
+            original?.patient?.publicId ||
+            "",
+
+          original,
+        };
+      });
 
       set({
         stats: statsRes.data,

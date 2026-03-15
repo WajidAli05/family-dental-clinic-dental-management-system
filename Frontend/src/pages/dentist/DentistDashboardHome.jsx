@@ -30,27 +30,70 @@ const DentistDashboardHome = () => {
    * We normalize into the SAME shape used in DentistAppointments page:
    * { id, time, patient, type, original, patientId, prescription }
    */
+  // const apptRows = useMemo(() => {
+  //   return (appointments || []).map((a) => {
+  //     const original = a?.original || a;
+
+  //     const patientId =
+  //       a?.patientId ||
+  //       original?.patientId ||
+  //       original?.patient?.publicId ||
+  //       "";
+
+  //     return {
+  //       id: a?.id || original?.id || original?.publicId || original?._id || "",
+  //       time: a?.time || original?.time || "",
+  //       patient: a?.patient || original?.patientName || original?.patient?.name || "",
+  //       type: a?.type || original?.reason || "Consultation",
+  //       original,
+  //       patientId,
+  //       prescription: null, // dashboard doesn't fetch prescriptions here
+  //     };
+  //   });
+  // }, [appointments]);
+
   const apptRows = useMemo(() => {
-    return (appointments || []).map((a) => {
-      const original = a?.original || a;
+  return (appointments || []).map((a) => {
+    const original = a?.original || a;
 
-      const patientId =
-        a?.patientId ||
-        original?.patientId ||
-        original?.patient?.publicId ||
-        "";
+    const patientId =
+      a?.patientId ||
+      original?.patientId ||
+      original?.patient?.publicId ||
+      "";
 
-      return {
-        id: a?.id || original?.id || original?.publicId || original?._id || "",
-        time: a?.time || original?.time || "",
-        patient: a?.patient || original?.patientName || original?.patient?.name || "",
-        type: a?.type || original?.reason || "Consultation",
-        original,
-        patientId,
-        prescription: null, // dashboard doesn't fetch prescriptions here
-      };
-    });
-  }, [appointments]);
+    const patientName =
+      a?.patientName ||
+      a?.patient ||
+      original?.patientName ||
+      original?.patient?.name ||
+      "";
+
+    const reason =
+      a?.reason ||
+      a?.type ||
+      original?.reason ||
+      "Consultation";
+
+    return {
+      // ✅ keep existing keys
+      id: a?.id || original?.id || original?.publicId || original?._id || "",
+      time: a?.time || original?.time || "",
+      patient: patientName,      // existing UI key
+      type: reason,              // existing UI key
+      original,
+      patientId,
+      prescription: null,
+
+      // ✅ ADD keys for table components that expect them
+      patientName,
+      reason: a?.reason || original?.reason || "",
+      date: a?.date || original?.date || "",
+      status: a?.status || original?.status || "",
+      mr: a?.mr ?? original?.patient?.mr ?? null,
+    };
+  });
+}, [appointments]);
 
   const handleStartPrescription = (row) => {
     const apt = row?.original || null;
