@@ -7,6 +7,7 @@ import LabBill from "../models/LabBill.model.js";
 import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
+import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -157,11 +158,11 @@ export async function receptionistGetStats(_receptionistId, { date } = {}) {
   const [appointmentsToday, activePatients, pendingLabSamples, todayRevenue] =
     await Promise.all([
       Appointment.countDocuments({ date: d }),
-      Patient.countDocuments({}), // if you have an "active" flag, we can use it later
+      Patient.countDocuments({ status: "active" }),
       LabCase.countDocuments({
         status: { $in: ["sent", "in_progress", "ready"] },
       }),
-      sumRevenueForDate(d),
+      revenueCollected(d, d),
     ]);
 
   return {
@@ -170,31 +171,6 @@ export async function receptionistGetStats(_receptionistId, { date } = {}) {
     pendingLabSamples,
     todayRevenue,
   };
-}
-
-async function sumRevenueForDate(dateISO) {
-  // Defensive: if billing module differs, return 0 instead of breaking dashboard
-  try {
-    const start = new Date(dateISO);
-    const end = new Date(dateISO);
-    end.setDate(end.getDate() + 1);
-
-    // common patterns: createdAt or date field
-    const rows = await LabBill.find({
-      createdAt: { $gte: start, $lt: end },
-    }).lean();
-
-    // if your bill has "total"/"grandTotal"/"amountPaid" etc, this handles most
-    const total = rows.reduce((sum, r) => {
-      const v =
-        Number(r.total ?? r.grandTotal ?? r.amount ?? r.amountPaid ?? 0) || 0;
-      return sum + v;
-    }, 0);
-
-    return total;
-  } catch {
-    return 0;
-  }
 }
 
 // -------------------- APPOINTMENTS --------------------
@@ -957,7 +933,7 @@ const toUiInvoice = (inv) => {
   const totalAmount = Number(inv.totalAmount || 0);
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
   const paidAmount = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const status = paidAmount >= totalAmount ? "Paid" : paidAmount > 0 ? "Partial" : "Pending";
+  const status = invoiceStatus(totalAmount, paidAmount);
 
   return {
     id: inv.publicId,
@@ -1088,24 +1064,25 @@ export async function receptionistListInvoices(_receptionistId, { q, status } = 
 // ✅ BILLING STATS (Invoices + LabBills merged)
 export async function receptionistBillingStats(_receptionistId, { month } = {}) {
   const m = String(month || monthISO()).trim(); // "YYYY-MM"
+  const dateFrom = `${m}-01`;
+  const dateTo = `${m}-31`;
 
-  // invoice stats for month
-  const invRows = await Invoice.find({ date: { $regex: `^${m}` } })
+  // invoice status counts for month
+  const invRows = await Invoice.find({ date: { $gte: dateFrom, $lte: dateTo } })
     .lean({ virtuals: true });
 
-  const invMapped = invRows.map((inv) => {
+  const statuses = invRows.map((inv) => {
     const total = Number(inv.totalAmount || 0);
     const payments = Array.isArray(inv.payments) ? inv.payments : [];
-    const paid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const status = paid >= total ? "Paid" : paid > 0 ? "Partial" : "Pending";
-    const outstanding = Math.max(0, total - paid);
-    return { status, outstanding };
+    const paidAmount = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    return invoiceStatus(total, paidAmount);
   });
 
-  const pending = invMapped.filter((x) => x.status === "Pending").length;
-  const partial = invMapped.filter((x) => x.status === "Partial").length;
-  const paid = invMapped.filter((x) => x.status === "Paid").length;
-  const outstanding = invMapped.reduce((s, x) => s + x.outstanding, 0);
+  const pending = statuses.filter((s) => s === "Pending").length;
+  const partial = statuses.filter((s) => s === "Partial").length;
+  const paid = statuses.filter((s) => s === "Paid").length;
+
+  const outstandingTotal = await outstanding(dateFrom, dateTo);
 
   // lab bills for month
   const labRows = await LabBill.find({ month: m }).lean();
@@ -1116,9 +1093,9 @@ export async function receptionistBillingStats(_receptionistId, { month } = {}) 
     pending,
     partial,
     paid,
-    outstanding,
+    outstanding: outstandingTotal,
     labTotal,
-    grandOutstanding: outstanding + labTotal,
+    grandOutstanding: outstandingTotal + labTotal,
   };
 }
 

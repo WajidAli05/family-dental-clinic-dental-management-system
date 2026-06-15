@@ -19,6 +19,7 @@ import PurchaseOrder from "../models/PurchaseOrder.model.js";
 import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
+import { revenueCollected, outstanding } from "./shared/billing.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -930,7 +931,7 @@ export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo 
     },
     {
       $addFields: {
-        outstanding: {
+        invoiceOutstanding: {
           $max: [0, { $subtract: ["$totalAmount", "$paidAmount"] }],
         },
       },
@@ -940,23 +941,26 @@ export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo 
         _id: null,
         invoiceCount: { $sum: 1 },
         totalBilled: { $sum: "$totalAmount" },
-        totalPaid: { $sum: "$paidAmount" },
-        totalOutstanding: { $sum: "$outstanding" },
         outstandingCount: {
-          $sum: { $cond: [{ $gt: ["$outstanding", 0] }, 1, 0] },
+          $sum: { $cond: [{ $gt: ["$invoiceOutstanding", 0] }, 1, 0] },
         },
       },
     },
   ].filter(Boolean);
 
-  const agg = await Invoice.aggregate(pipeline);
+  const [agg, totalPaid, totalOutstanding] = await Promise.all([
+    Invoice.aggregate(pipeline),
+    revenueCollected(df || undefined, dt || undefined),
+    outstanding(df || undefined, dt || undefined),
+  ]);
+
   const row = agg?.[0] || {};
 
   return {
     invoiceCount: Number(row.invoiceCount || 0),
     totalBilled: Number(row.totalBilled || 0),
-    totalPaid: Number(row.totalPaid || 0),
-    totalOutstanding: Number(row.totalOutstanding || 0),
+    totalPaid,
+    totalOutstanding,
     outstandingCount: Number(row.outstandingCount || 0),
   };
 }
