@@ -40,6 +40,7 @@ function App() {
     <Router>
       <Toaster richColors position="top-right" />
       <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
         {/* AUTH */}
         <Route path="/login" element={<LoginPage />} />
 
