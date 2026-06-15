@@ -160,6 +160,7 @@ const Appointments = () => {
               data={filteredAppointments}
               onComplete={(id) => updateAppointmentStatus(id, "Completed")}
               onCancel={(id) => updateAppointmentStatus(id, "Cancelled")}
+              onReopen={(id) => updateAppointmentStatus(id, "Scheduled")}
             />
           </CardContent>
         </Card>

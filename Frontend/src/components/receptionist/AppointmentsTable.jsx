@@ -9,6 +9,7 @@ export default function AppointmentManagementTable({
   data,
   onComplete,
   onCancel,
+  onReopen,
 }) {
   const statusColor = {
     Scheduled: "bg-blue-100 text-blue-700",
@@ -55,6 +56,15 @@ export default function AppointmentManagementTable({
                     Cancel
                   </Button>
                 </>
+              )}
+              {(a.status === "Completed" || a.status === "Cancelled") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReopen(a.id)}
+                >
+                  Reopen
+                </Button>
               )}
             </TableCell>
           </TableRow>

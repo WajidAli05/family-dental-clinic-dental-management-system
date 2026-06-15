@@ -773,6 +773,13 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
 }
 
 // ✅ Update status by publicId
+// Allowed receptionist-driven appointment status transitions (db statuses).
+const ALLOWED_APPOINTMENT_TRANSITIONS = {
+  scheduled: ["completed", "cancelled"],
+  completed: ["scheduled"],
+  cancelled: ["scheduled"],
+};
+
 export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
   const uiStatus = String(status || "").trim();
   if (!uiStatus) throw new Error("status is required");
@@ -781,6 +788,14 @@ export async function receptionistUpdateAppointmentStatus(_receptionistId, apptP
 
   const appt = await Appointment.findOne({ publicId: apptPublicId });
   if (!appt) throw new Error("Appointment not found");
+
+  const currentStatus = appt.status;
+  const allowedNext = ALLOWED_APPOINTMENT_TRANSITIONS[currentStatus] || [];
+  if (currentStatus !== dbStatus && !allowedNext.includes(dbStatus)) {
+    throw new Error(
+      `Cannot move appointment from ${toUiAppointmentStatus(currentStatus)} to ${toUiAppointmentStatus(dbStatus)}`
+    );
+  }
 
   appt.status = dbStatus;
   await appt.save();
