@@ -71,11 +71,14 @@ const AddPatientModal = ({ open, onOpenChange }) => {
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required";
     } else {
-      const pakistaniPhoneRegex = /^(\+92|0)?3[0-9]{2}[\s-]?[0-9]{7}$/;
-      const cleanPhone = formData.phone.replace(/[\s()-]/g, "");
-      if (!pakistaniPhoneRegex.test(cleanPhone)) {
-        newErrors.phone =
-          "Invalid Pakistani phone number (e.g., 03XX XXXXXXX or +92 3XX XXXXXXX)";
+      const internationalPhoneRegex = /^\+?[\d\s\-()]+$/;
+      const digitsOnly = formData.phone.replace(/\D/g, "");
+      if (
+        !internationalPhoneRegex.test(formData.phone) ||
+        digitsOnly.length < 6 ||
+        digitsOnly.length > 15
+      ) {
+        newErrors.phone = "Enter a valid phone number (6-15 digits)";
       }
     }
 
