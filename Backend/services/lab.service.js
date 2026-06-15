@@ -7,7 +7,7 @@ const pick = (obj, keys) =>
     return acc;
   }, {});
 
-const allowedStatuses = ["sent", "in-process", "ready", "delivered", "approved", "rejected"];
+const allowedStatuses = ["sent", "in_progress", "ready", "delivered", "approved", "rejected"];
 
 const formatTooth = (teeth = []) => teeth.map((t) => `#${t}`).join(", ");
 
@@ -75,7 +75,7 @@ export async function labGetStats(publicId) {
 
   const [total, inProcess, ready, recent] = await Promise.all([
     LabCase.countDocuments({ lab: labUser._id }),
-    LabCase.countDocuments({ lab: labUser._id, status: "in-process" }), // ✅ fixed
+    LabCase.countDocuments({ lab: labUser._id, status: "in_progress" }), // ✅ fixed
     LabCase.countDocuments({ lab: labUser._id, status: "ready" }),
     LabCase.countDocuments({ lab: labUser._id, updatedAt: { $gte: sevenDaysAgo } }), // ✅ "recently updated" matches UI
   ]);

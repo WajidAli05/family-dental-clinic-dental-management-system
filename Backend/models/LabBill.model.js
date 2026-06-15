@@ -10,6 +10,7 @@ const labBillSchema = new Schema(
     labId: { type: String, required: true, index: true },
     labName: { type: String, required: true },
     amount: { type: Number, min: 0, required: true },
+    paid: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

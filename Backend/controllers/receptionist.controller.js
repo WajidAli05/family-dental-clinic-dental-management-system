@@ -166,7 +166,7 @@ export const getReceptionistAppointments = async (req, res) => {
 
 export const updateReceptionistAppointmentStatus = async (req, res) => {
   try {
-    const { id } = req.params; // publicId e.g. AP-0001
+    const { id } = req.params; // publicId e.g. APT-0001
     const { status } = req.body; // "Completed" | "Cancelled" | "Scheduled"
     const updated = await receptionistUpdateAppointmentStatus(req.user._id, id, { status });
     return res.json({ success: true, data: updated });

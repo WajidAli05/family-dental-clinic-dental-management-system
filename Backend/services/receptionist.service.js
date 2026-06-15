@@ -105,7 +105,7 @@ async function generateAppointmentPublicId() {
   let n = (await Appointment.countDocuments({})) + 1;
 
   while (true) {
-    const publicId = `AP-${pad(n)}`;
+    const publicId = `APT-${pad(n)}`;
     const exists = await Appointment.exists({ publicId });
     if (!exists) return publicId;
     n += 1;

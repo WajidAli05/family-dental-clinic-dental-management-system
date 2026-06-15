@@ -11,6 +11,7 @@ const patientSchema = new Schema(
 
     name: { type: String, required: true, trim: true, maxlength: 120 },
     phone: { type: String, required: true, trim: true, index: true },
+    email: { type: String, default: "", trim: true, lowercase: true },
     age: { type: Number, min: 0 },
     gender: { type: String, default: "Other" }, // keep to match UI strings
     address: { type: String, default: "" },

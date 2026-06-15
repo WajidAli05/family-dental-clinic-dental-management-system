@@ -157,7 +157,7 @@ async function seedPatients(dentists) {
 
 async function seedLabCases({ labs, dentists, patients, sampleTypes }) {
   // ✅ These must match your LabCase schema enum EXACTLY
-  const statuses = ["received", "in-process", "ready", "delivered", "approved", "rejected"];
+  const statuses = ["received", "in_progress", "ready", "delivered", "approved", "rejected"];
 
   // ✅ dentist1@fdc.com is DENT-1 -> dentists[0] in your seedUsers()
   const dentist1 = dentists[0];
