@@ -6,6 +6,7 @@ import {
   receptionistGetAppointments,
   receptionistGetLabSamples,
   receptionistCreatePatient,
+  receptionistUpdatePatient,
   receptionistCreateAppointment,
     receptionistGetPatients,
   receptionistGetPatientStats,
@@ -98,6 +99,16 @@ export const createReceptionistPatient = async (req, res) => {
     return res.json({ success: true, data: created });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateReceptionistPatient = async (req, res) => {
+  try {
+    const updated = await receptionistUpdatePatient(req.user, req.params.id, req.body);
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    const status = e.message === "Patient not found" ? 404 : 400;
+    return res.status(status).json({ success: false, message: e.message });
   }
 };
 

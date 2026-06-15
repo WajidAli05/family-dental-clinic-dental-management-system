@@ -339,6 +339,23 @@ createPatient: async (payload) => {
   }
 },
 
+updatePatient: async (id, payload) => {
+  try {
+    set({ loading: true, error: null });
+    const res = await receptionistApi.updatePatient(id, payload); // { success, data }
+
+    set((state) => ({
+      patients: state.patients.map((p) => (p.id === id ? res.data : p)),
+      loading: false,
+    }));
+
+    return res.data;
+  } catch (e) {
+    set({ loading: false, error: e.message });
+    throw e;
+  }
+},
+
 fetchPatients: async ({ q } = {}) => {
   try {
     set({ loading: true, error: null });

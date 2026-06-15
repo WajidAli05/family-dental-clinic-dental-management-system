@@ -274,8 +274,8 @@ export async function receptionistCreatePatient(_user, body) {
     throw new Error("Valid age is required (1-120)");
   }
 
-  // prevent duplicates by phone (optional but recommended)
-  const existing = await Patient.findOne({ phone });
+  // prevent duplicates by phone (compare digits-only so "+92 300..." and "0300..." don't both slip in)
+  const existing = await findPatientByPhoneDigits(phone);
   if (existing) throw new Error("Patient with this phone already exists");
 
   const { publicId, mr } = await generatePatientPublicId();
@@ -304,6 +304,125 @@ export async function receptionistCreatePatient(_user, body) {
     lastVisit: created.lastVisit || "",
     status: "Active",
     original: created.toJSON(),
+  };
+}
+
+// Find a patient whose phone matches by digits-only comparison (so
+// "+92 300 1234567" and "03001234567" are treated as the same number).
+async function findPatientByPhoneDigits(phone, excludeId) {
+  const target = cleanPhone(phone);
+  if (!target) return null;
+
+  const query = excludeId ? { _id: { $ne: excludeId } } : {};
+  const candidates = await Patient.find(query).select("phone").lean();
+
+  return candidates.find((p) => cleanPhone(p.phone) === target) || null;
+}
+
+// ---------- UPDATE ----------
+const PATIENT_EDITABLE_FIELDS = [
+  "name",
+  "phone",
+  "email",
+  "age",
+  "gender",
+  "address",
+  "city",
+  "status",
+  "primaryDentist",
+  "tags",
+  "lastVisit",
+];
+
+export async function receptionistUpdatePatient(_user, patientPublicId, body) {
+  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() });
+  if (!patient) throw new Error("Patient not found");
+
+  const updates = pick(body, PATIENT_EDITABLE_FIELDS);
+
+  if (updates.name !== undefined) {
+    const name = String(updates.name).trim();
+    if (!name) throw new Error("name is required");
+    updates.name = name;
+  }
+
+  if (updates.phone !== undefined) {
+    const phone = String(updates.phone).trim();
+    if (!phone) throw new Error("phone is required");
+
+    const duplicate = await findPatientByPhoneDigits(phone, patient._id);
+    if (duplicate) throw new Error("Patient with this phone already exists");
+
+    updates.phone = phone;
+  }
+
+  if (updates.age !== undefined) {
+    const ageNum = Number(updates.age);
+    if (Number.isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+      throw new Error("Valid age is required (1-120)");
+    }
+    updates.age = ageNum;
+  }
+
+  if (updates.email !== undefined) {
+    updates.email = String(updates.email || "").trim();
+  }
+
+  if (updates.address !== undefined) {
+    updates.address = String(updates.address || "").trim();
+  }
+
+  if (updates.city !== undefined) {
+    updates.city = String(updates.city || "").trim();
+  }
+
+  if (updates.gender !== undefined) {
+    updates.gender = String(updates.gender || "").trim();
+  }
+
+  if (updates.status !== undefined) {
+    const status = String(updates.status || "").trim().toLowerCase();
+    if (!["active", "inactive"].includes(status)) {
+      throw new Error("status must be 'active' or 'inactive'");
+    }
+    updates.status = status;
+  }
+
+  if (updates.tags !== undefined) {
+    updates.tags = Array.isArray(updates.tags)
+      ? updates.tags.map((t) => String(t).trim()).filter(Boolean)
+      : [];
+  }
+
+  if (updates.lastVisit !== undefined) {
+    updates.lastVisit = String(updates.lastVisit || "").trim();
+  }
+
+  if (updates.primaryDentist !== undefined) {
+    const key = String(updates.primaryDentist || "").trim();
+    if (!key) {
+      updates.primaryDentist = null;
+    } else {
+      const dentist = await User.findOne({
+        role: "dentist",
+        $or: [{ publicId: key }, { name: key }],
+      }).select("_id");
+      if (!dentist) throw new Error("Dentist not found");
+      updates.primaryDentist = dentist._id;
+    }
+  }
+
+  Object.assign(patient, updates);
+  await patient.save();
+
+  return {
+    id: patient.publicId,
+    name: patient.name || "",
+    phone: patient.phone || "",
+    age: patient.age ?? "",
+    lastVisit: patient.lastVisit || "",
+    status: computeStatus(patient.lastVisit || null),
+    original: patient.toJSON(),
   };
 }
 

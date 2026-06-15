@@ -6,6 +6,7 @@ import {
   getReceptionistStats,
   getReceptionistAppointments,
   createReceptionistPatient,
+  updateReceptionistPatient,
   createReceptionistAppointment,
     getReceptionistPatients,
   getReceptionistPatientStats,
@@ -58,6 +59,7 @@ router.get("/patients", requirePermission("tab_receptionist_patients"), getRecep
 router.get("/patients/stats", requirePermission("tab_receptionist_patients"), getReceptionistPatientStats);
 router.get("/patients/lookup", requirePermission("tab_receptionist_patients"), lookupReceptionistPatient);
 router.post("/patients", requirePermission("tab_receptionist_patients"), createReceptionistPatient);
+router.patch("/patients/:id", requirePermission("tab_receptionist_patients"), updateReceptionistPatient);
 
 // dentists list (used in appointments tab)
 router.get("/dentists", requirePermission("tab_receptionist_appointments"), getReceptionistDentists);

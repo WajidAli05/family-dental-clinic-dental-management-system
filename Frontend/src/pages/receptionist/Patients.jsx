@@ -5,6 +5,7 @@ import PatientStats from "@/components/receptionist/PatientStats";
 import PatientSearch from "@/components/receptionist/PatientSearch";
 import PatientTable from "@/components/receptionist/PatientTable";
 import AddPatientModal from "@/components/receptionist/AddPatientModal";
+import EditPatientModal from "@/components/receptionist/EditPatientModal";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const Patients = () => {
 
   const [filteredPatients, setFilteredPatients] = useState(patients);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
 
   useEffect(() => {
     // initial load
@@ -111,12 +113,24 @@ const Patients = () => {
             </div>
           </div>
 
-          <PatientTable patients={filteredPatients || []} />
+          <PatientTable
+            patients={filteredPatients || []}
+            onEdit={(patient) => setEditingPatient(patient)}
+          />
         </CardContent>
       </Card>
 
       {/* Add Patient Modal */}
       <AddPatientModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+
+      {/* Edit Patient Modal */}
+      <EditPatientModal
+        open={!!editingPatient}
+        onOpenChange={(open) => {
+          if (!open) setEditingPatient(null);
+        }}
+        patient={editingPatient}
+      />
     </div>
   );
 };

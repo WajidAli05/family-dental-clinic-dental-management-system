@@ -7,8 +7,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 
-export default function PatientTable({ patients }) {
+export default function PatientTable({ patients, onEdit }) {
   return (
     <Table>
       <TableHeader>
@@ -19,6 +21,7 @@ export default function PatientTable({ patients }) {
           <TableHead>Age</TableHead>
           <TableHead>Last Visit</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
 
@@ -40,6 +43,16 @@ export default function PatientTable({ patients }) {
               >
                 {patient.status}
               </Badge>
+            </TableCell>
+            <TableCell>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit?.(patient)}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
             </TableCell>
           </TableRow>
         ))}
