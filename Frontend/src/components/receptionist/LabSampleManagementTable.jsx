@@ -8,25 +8,34 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Pencil, Trash2 } from "lucide-react";
+
+const ALL_STATUSES = ["Sent", "In Process", "Ready", "Delivered", "Approved", "Rejected"];
 
 const statusStyles = {
   Sent: "bg-blue-100 text-blue-700",
   "In Process": "bg-yellow-100 text-yellow-700",
   Ready: "bg-green-100 text-green-700",
   Delivered: "bg-gray-200 text-gray-700",
+  Approved: "bg-emerald-100 text-emerald-700",
+  Rejected: "bg-red-100 text-red-700",
 };
 
 export default function LabSampleManagementTable({
   data = [],
   onStatusChange,
-  onDeliver,
   onEdit,
   onDelete,
 }) {
   return (
     <Table>
-      {console.log(data)}
       <TableHeader>
         <TableRow>
           <TableHead>Sample ID</TableHead>
@@ -41,10 +50,7 @@ export default function LabSampleManagementTable({
       <TableBody>
         {data.length === 0 && (
           <TableRow>
-            <TableCell
-              colSpan={6}
-              className="text-center text-gray-500 py-6"
-            >
+            <TableCell colSpan={6} className="text-center text-gray-500 py-6">
               No lab samples found
             </TableCell>
           </TableRow>
@@ -57,74 +63,51 @@ export default function LabSampleManagementTable({
 
           return (
             <TableRow key={sample.id}>
-              <TableCell className="font-medium">
-                {sample.id}
-              </TableCell>
-
+              <TableCell className="font-medium">{sample.id}</TableCell>
               <TableCell>{sample.patientName}</TableCell>
-
               <TableCell>{sample.lab}</TableCell>
-
-              {/* 🛡️ CRASH-PROOF */}
               <TableCell>{teethDisplay || "—"}</TableCell>
 
+              {/* Badge shows current status */}
               <TableCell>
-                <Badge className={statusStyles[sample.status]}>
+                <Badge className={statusStyles[sample.status] || "bg-gray-100 text-gray-600"}>
                   {sample.status}
                 </Badge>
               </TableCell>
 
-              <TableCell className="text-right space-x-2">
-                {/* ✏️ EDIT */}
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => onEdit(sample)}
-                >
-                  <Pencil size={16} />
-                </Button>
-
-                {/* 🗑️ DELETE */}
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => onDelete(sample.id)}
-                >
-                  <Trash2 size={16} />
-                </Button>
-
-                {/* STATUS ACTIONS */}
-                {sample.status !== "Delivered" && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        onStatusChange(sample.id, "In Process")
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  {/* Status Select — any ↔ any */}
+                  <Select
+                    value={sample.status}
+                    onValueChange={(newStatus) => {
+                      if (newStatus !== sample.status) {
+                        onStatusChange(sample.id, newStatus);
                       }
-                    >
-                      In Process
-                    </Button>
+                    }}
+                  >
+                    <SelectTrigger className="w-[130px] h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        onStatusChange(sample.id, "Ready")
-                      }
-                    >
-                      Ready
-                    </Button>
+                  {/* Edit */}
+                  <Button size="icon" variant="outline" onClick={() => onEdit(sample)}>
+                    <Pencil size={16} />
+                  </Button>
 
-                    <Button
-                      size="sm"
-                      className="bg-[#2ec4b6] hover:bg-[#26a699]"
-                      onClick={() => onDeliver(sample.id)}
-                    >
-                      Deliver
-                    </Button>
-                  </>
-                )}
+                  {/* Delete */}
+                  <Button size="icon" variant="outline" onClick={() => onDelete(sample.id)}>
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );
