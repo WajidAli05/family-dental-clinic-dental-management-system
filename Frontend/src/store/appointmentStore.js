@@ -167,8 +167,15 @@ export const useAppointmentStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
       const res = await receptionistApi.createAppointment(payload);
+      const row = {
+        ...res.data,
+        // defensive: ensure status is Title-case so AppointmentsTable renders buttons
+        status: res.data?.status
+          ? res.data.status.charAt(0).toUpperCase() + res.data.status.slice(1).toLowerCase()
+          : "Scheduled",
+      };
       set((state) => ({
-        appointments: [res.data, ...state.appointments],
+        appointments: [row, ...state.appointments],
         loading: false,
       }));
       return res.data;

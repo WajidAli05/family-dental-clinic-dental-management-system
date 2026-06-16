@@ -570,7 +570,7 @@ const created = await Appointment.create({
     date: populated.date,
     time: populated.time,
     reason: populated.reason || "",
-    status: populated.status,
+    status: toUiAppointmentStatus(populated.status),
     original: populated,
   };
 }
