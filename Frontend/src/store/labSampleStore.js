@@ -1,7 +1,5 @@
 import { create } from "zustand";
 import { receptionistApi } from "@/lib/receptionistApi";
-// keep dentistApi if other parts still reference it
-import { dentistApi } from "@/lib/dentistApi";
 
 const toUiSampleStatus = (s) => {
   const v = String(s || "").toLowerCase();
@@ -38,29 +36,13 @@ export const useLabSampleStore = create((set, get) => ({
   error: null,
   samples: [],
 
-  // ✅ fetch for receptionist (DB)
   fetchSamples: async (params = {}) => {
     try {
       set({ loading: true, error: null });
-
-      // Prefer receptionist endpoint
       const res = await receptionistApi.getLabSamples(params);
-
-      set({
-        samples: (res.data || []).map(mapRow),
-        loading: false,
-      });
+      set({ samples: (res.data || []).map(mapRow), loading: false });
     } catch (e) {
-      // fallback (if you still want dentist behavior somewhere)
-      try {
-        const res2 = await dentistApi.getLabSamples(params);
-        set({
-          samples: (res2.data || []).map(mapRow),
-          loading: false,
-        });
-      } catch (e2) {
-        set({ error: e.message || e2.message, loading: false });
-      }
+      set({ error: e.message, loading: false });
     }
   },
 
@@ -150,26 +132,6 @@ export const useLabSampleStore = create((set, get) => ({
       set({ error: e.message });
       throw e;
     }
-  },
-
-  // ✅ keep your existing updateSample (don’t remove)
-  updateSample: async (id, updates) => {
-    // Dentist approves path (keep)
-    if (String(updates?.status || "").toLowerCase() === "approved") {
-      try {
-        set({ error: null });
-        await dentistApi.approveLabSample(id);
-        await get().fetchSamples();
-      } catch (e) {
-        set({ error: e.message });
-      }
-      return;
-    }
-
-    // fallback local update
-    set((state) => ({
-      samples: state.samples.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-    }));
   },
 
   getStats: () => {

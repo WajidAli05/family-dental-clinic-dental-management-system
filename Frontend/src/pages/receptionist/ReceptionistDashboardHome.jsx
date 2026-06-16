@@ -12,7 +12,19 @@ const ReceptionistDashboardHome = () => {
   const { stats, fetchDashboard, loading } = useReceptionistStore();
 
   useEffect(() => {
-    if (typeof fetchDashboard === "function") fetchDashboard({ date: localISODate() });
+    const refresh = () => {
+      if (typeof fetchDashboard === "function") fetchDashboard({ date: localISODate() });
+    };
+
+    refresh(); // initial load
+
+    // Refetch when the user returns to this tab/window so numbers are fresh
+    // after booking an appointment on another page.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchDashboard]);
 
   const breakdown = stats?.todayBreakdown || { total: 0, scheduled: 0, completed: 0, cancelled: 0 };

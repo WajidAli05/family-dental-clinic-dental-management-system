@@ -253,31 +253,31 @@ export const useReceptionistStore = create((set, get) => ({
         receptionistApi.getLabSamples({ date: d }),
       ]);
 
-      let appts = Array.isArray(apptRes?.data)
+      const appts = Array.isArray(apptRes?.data)
         ? apptRes.data.map(normalizeAppt)
         : [];
 
-      // ✅ fallback fetch if date filtering fails
-      if (!appts.length) {
-        try {
-          const apptResNoDate = await receptionistApi.getAppointments();
-          const all = Array.isArray(apptResNoDate?.data)
-            ? apptResNoDate.data.map(normalizeAppt)
-            : [];
-          appts = all.filter((x) => x.date === d);
-        } catch {
-          // ignore
-        }
-      }
-
       set({
-        stats: statsRes?.data || get().stats,
+        stats: statsRes?.data || {
+          appointmentsToday: 0, activePatients: 0,
+          pendingLabSamples: 0, todayRevenue: 0,
+          revenueThisMonth: 0, todayBreakdown: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+        },
         appointments: appts,
         labSamples: labRes?.data || [],
         loading: false,
+        error: null,
       });
     } catch (e) {
+      // On error reset stats to zeros — never show stale or fabricated numbers.
       set({
+        stats: {
+          appointmentsToday: 0, activePatients: 0,
+          pendingLabSamples: 0, todayRevenue: 0,
+          revenueThisMonth: 0, todayBreakdown: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+        },
+        appointments: [],
+        labSamples: [],
         loading: false,
         error: e?.message || "Failed to load dashboard",
       });
