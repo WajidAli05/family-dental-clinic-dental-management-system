@@ -120,43 +120,54 @@ const Appointments = () => {
       {/* STATS — counts reflect the current filtered view */}
       <AppointmentStats appointments={filteredAppointments} />
 
-      {/* FILTERS + ACTIONS */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-        <div className="flex flex-col sm:flex-row gap-3 flex-1">
-          <div className="relative self-start h-10 w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input
-              className="h-10 pl-9 w-full"
-              placeholder="Search patient name or APT-id…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <AppointmentFilters filters={filters} onChange={setFilters} />
+      {/* FILTERS + ACTIONS — single inline row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative h-9 w-48 shrink-0">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <Input
+            className="h-9 pl-8 text-sm w-full"
+            placeholder="Search name or APT-id…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
-        <div className="flex gap-2">
+        {/* Date filter */}
+        <Input
+          type="date"
+          className="h-9 text-sm w-36 shrink-0"
+          value={filters.date}
+          onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+        />
+
+        {/* Dentist filter */}
+        <AppointmentFilters filters={filters} onChange={setFilters} />
+
+        {/* View toggles + Book */}
+        <div className="flex items-center gap-2 ml-auto">
           <Button
+            size="sm"
             variant={view === "list" ? "default" : "outline"}
             onClick={() => setView("list")}
           >
             <List className="w-4 h-4 mr-1" />
             List
           </Button>
-
           <Button
+            size="sm"
             variant={view === "calendar" ? "default" : "outline"}
             onClick={() => setView("calendar")}
           >
             <LayoutGrid className="w-4 h-4 mr-1" />
             Calendar
           </Button>
-
           <Button
+            size="sm"
             onClick={() => setIsModalOpen(true)}
             className="bg-[#2ec4b6] hover:bg-[#26a699]"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1" />
             Book Appointment
           </Button>
         </div>
