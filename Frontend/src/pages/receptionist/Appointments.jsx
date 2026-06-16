@@ -123,10 +123,10 @@ const Appointments = () => {
       {/* FILTERS + ACTIONS */}
       <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="relative self-start h-10 w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input
-              className="pl-9"
+              className="h-10 pl-9 w-full"
               placeholder="Search patient name or APT-id…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
