@@ -152,8 +152,11 @@ export async function receptionistChangePassword(
 }
 
 // -------------------- STATS --------------------
+// IMPORTANT: callers MUST pass the client's local date ("YYYY-MM-DD").
+// Appointments are stored with the user's local date, so using UTC (todayISO())
+// as a fallback would miss same-day appointments in UTC+ timezones.
 export async function receptionistGetStats(_receptionistId, { date } = {}) {
-  const d = date || todayISO();
+  const d = date || todayISO(); // fallback only for non-browser callers
   const firstOfMonth = d.slice(0, 7) + "-01";
 
   const [appointmentsToday, activePatients, pendingLabSamples, todayRevenue, revenueThisMonth, breakdownAgg] =
@@ -187,8 +190,9 @@ export async function receptionistGetStats(_receptionistId, { date } = {}) {
 }
 
 // -------------------- APPOINTMENTS --------------------
+// NOTE: callers should pass client local date. UTC fallback may miss today's appts in UTC+ zones.
 export async function receptionistGetAppointments(_receptionistId, { date } = {}) {
-  const d = date || todayISO();
+  const d = date || todayISO(); // prefer passing local date from browser
 
   const rows = await Appointment.find({ date: d })
     .populate("patient", "name publicId mr")

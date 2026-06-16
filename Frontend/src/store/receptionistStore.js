@@ -203,14 +203,7 @@
 
 import { create } from "zustand";
 import { receptionistApi } from "@/lib/receptionistApi";
-
-// ✅ LOCAL date (fixes timezone issues caused by toISOString() UTC)
-const localISODate = (d = new Date()) => {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
+import { localISODate } from "@/utils/localISODate";
 
 // ✅ normalize appointment row for dashboard usage
 const normalizeAppt = (a) => ({

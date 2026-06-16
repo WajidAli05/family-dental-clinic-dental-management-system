@@ -6,12 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useReceptionistStore } from "@/store/receptionistStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import { formatPKR } from "@/utils/formatPKR";
+import { localISODate } from "@/utils/localISODate";
 
 const ReceptionistDashboardHome = () => {
   const { stats, fetchDashboard, loading } = useReceptionistStore();
 
   useEffect(() => {
-    if (typeof fetchDashboard === "function") fetchDashboard();
+    if (typeof fetchDashboard === "function") fetchDashboard({ date: localISODate() });
   }, [fetchDashboard]);
 
   const breakdown = stats?.todayBreakdown || { total: 0, scheduled: 0, completed: 0, cancelled: 0 };
