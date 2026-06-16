@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, LayoutGrid, List, Search } from "lucide-react";
 
 import Wavify from "react-wavify";
 
@@ -33,6 +34,8 @@ const Appointments = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [view, setView] = useState("list"); // list | calendar
 
+  const [search, setSearch] = useState("");
+
   const [filters, setFilters] = useState({
     date: "",
     dentist: "All",
@@ -60,18 +63,21 @@ const Appointments = () => {
 
   /* -------------------- FILTER LOGIC (keep) -------------------- */
   const filteredAppointments = useMemo(() => {
+    const needle = search.trim().toLowerCase();
     return (appointments || []).filter((a) => {
       const matchDate = !filters.date || a.date === filters.date;
-
       const matchDentist =
         filters.dentist === "All" || a.dentist === filters.dentist;
-
       const matchStatus =
         filters.status === "All" || a.status === filters.status;
-
-      return matchDate && matchDentist && matchStatus;
+      const matchSearch =
+        !needle ||
+        String(a.patientName || "").toLowerCase().includes(needle) ||
+        String(a.id || "").toLowerCase().includes(needle) ||
+        String(a.patientId || "").toLowerCase().includes(needle);
+      return matchDate && matchDentist && matchStatus && matchSearch;
     });
-  }, [appointments, filters]);
+  }, [appointments, filters, search]);
 
   /* Dentist-wise appointments */
   const dentistAppointments = useMemo(() => {
@@ -116,7 +122,18 @@ const Appointments = () => {
 
       {/* FILTERS + ACTIONS */}
       <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-        <AppointmentFilters filters={filters} onChange={setFilters} />
+        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              className="pl-9"
+              placeholder="Search patient name or APT-id…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <AppointmentFilters filters={filters} onChange={setFilters} />
+        </div>
 
         <div className="flex gap-2">
           <Button
@@ -144,6 +161,7 @@ const Appointments = () => {
           </Button>
         </div>
       </div>
+
 
       {/* CONTENT */}
       {view === "list" ? (
