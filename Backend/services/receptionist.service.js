@@ -154,22 +154,35 @@ export async function receptionistChangePassword(
 // -------------------- STATS --------------------
 export async function receptionistGetStats(_receptionistId, { date } = {}) {
   const d = date || todayISO();
+  const firstOfMonth = d.slice(0, 7) + "-01";
 
-  const [appointmentsToday, activePatients, pendingLabSamples, todayRevenue] =
+  const [appointmentsToday, activePatients, pendingLabSamples, todayRevenue, revenueThisMonth, breakdownAgg] =
     await Promise.all([
       Appointment.countDocuments({ date: d }),
       Patient.countDocuments({ status: "active" }),
-      LabCase.countDocuments({
-        status: { $in: ["sent", "in_progress", "ready"] },
-      }),
+      LabCase.countDocuments({ status: { $in: ["sent", "in_progress", "ready"] } }),
       revenueCollected(d, d),
+      revenueCollected(firstOfMonth, d),
+      Appointment.aggregate([
+        { $match: { date: d } },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
     ]);
+
+  const todayBreakdown = { total: appointmentsToday, scheduled: 0, completed: 0, cancelled: 0 };
+  for (const { _id, count } of breakdownAgg) {
+    if (_id === "scheduled") todayBreakdown.scheduled = count;
+    else if (_id === "completed") todayBreakdown.completed = count;
+    else if (_id === "cancelled") todayBreakdown.cancelled = count;
+  }
 
   return {
     appointmentsToday,
     activePatients,
     pendingLabSamples,
     todayRevenue,
+    revenueThisMonth,
+    todayBreakdown,
   };
 }
 
