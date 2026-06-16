@@ -84,8 +84,10 @@ export const getReceptionistStats = async (req, res) => {
 
 export const getReceptionistLabSamples = async (req, res) => {
   try {
-    const { date } = req.query;
-    const rows = await receptionistGetLabSamples(req.user._id, { date });
+    const { status, q, date } = req.query;
+    // Use receptionistListLabSamples (supports status/q/date; no forced today scope)
+    // so the page shows all samples, not just today's.
+    const rows = await receptionistListLabSamples(req.user._id, { status, q, date });
     return res.json({ success: true, data: rows });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
