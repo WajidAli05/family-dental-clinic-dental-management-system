@@ -117,8 +117,8 @@ const Appointments = () => {
         </div>
       ) : null}
 
-      {/* STATS */}
-      <AppointmentStats appointments={appointments || []} />
+      {/* STATS — counts reflect the current filtered view */}
+      <AppointmentStats appointments={filteredAppointments} />
 
       {/* FILTERS + ACTIONS */}
       <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
