@@ -15,7 +15,7 @@ const ProfileDetails = ({ profile }) => {
 const Detail = ({ label, value }) => (
   <div className="flex justify-between">
     <span className="text-gray-500">{label}</span>
-    <span className="font-medium">{value}</span>
+    <span className="font-medium">{value || "—"}</span>
   </div>
 );
 

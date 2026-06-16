@@ -67,7 +67,7 @@ const Appointments = () => {
     return (appointments || []).filter((a) => {
       const matchDate = !filters.date || a.date === filters.date;
       const matchDentist =
-        filters.dentist === "All" || a.dentist === filters.dentist;
+        filters.dentist === "All" || a.dentistId === filters.dentist;
       const matchStatus =
         filters.status === "All" || a.status === filters.status;
       const matchSearch =

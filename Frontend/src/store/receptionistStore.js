@@ -306,6 +306,10 @@ export const useReceptionistStore = create((set, get) => ({
           email: u.email || "",
           phone: u.phone || "",
           role: u.role || "receptionist",
+          address: u.address || "",
+          joinedOn: u.createdAt
+            ? new Date(u.createdAt).toISOString().slice(0, 10)
+            : "",
           original: u,
         },
         loading: false,

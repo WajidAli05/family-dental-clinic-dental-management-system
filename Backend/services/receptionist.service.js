@@ -766,10 +766,10 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     original: a,
   }));
 
-  // Dentist name filter (UI uses dentist string)
+  // Dentist filter by publicId (stable key, case-insensitive)
   if (dentist && dentist !== "All") {
-    const dn = String(dentist).toLowerCase();
-    mapped = mapped.filter((x) => String(x.dentist).toLowerCase() === dn);
+    const dk = String(dentist).toLowerCase();
+    mapped = mapped.filter((x) => String(x.dentistId).toLowerCase() === dk);
   }
 
   // Optional search

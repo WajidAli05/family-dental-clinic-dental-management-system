@@ -49,7 +49,7 @@ export default function AppointmentFilters({
               <SelectContent>
                 <SelectItem value="All">All Dentists</SelectItem>
                 {dentists.map((doc) => (
-                  <SelectItem key={doc.id} value={doc.name}>
+                  <SelectItem key={doc.id} value={doc.id}>
                     {doc.name} — {doc.specialization}
                   </SelectItem>
                 ))}

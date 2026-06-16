@@ -58,7 +58,7 @@ const InventoryTable = ({ data, onEdit, onDelete }) => {
                 </Badge>
               </TableCell>
               <TableCell className="text-sm text-gray-500">
-                {(item.usedIn || []).join(", ")}
+                {(item.usedIn || []).length > 0 ? item.usedIn.join(", ") : "—"}
               </TableCell>
 
               <TableCell className="text-right">
