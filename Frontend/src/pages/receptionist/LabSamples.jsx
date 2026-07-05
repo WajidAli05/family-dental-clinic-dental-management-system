@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -13,12 +13,17 @@ import AddLabSampleModal from "@/components/receptionist/AddLabSampleModal";
 import EditLabSampleModal from "@/components/receptionist/EditLabSampleModal";
 import DeleteConfirmModal from "@/components/receptionist/DeleteConfirmModal";
 
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
+
 const LabSamples = () => {
   const {
     samples,
     fetchSamples,
     loading,
     error,
+    pagination,
     updateStatus,
     markDelivered,
     deleteSample,
@@ -26,6 +31,7 @@ const LabSamples = () => {
   } = useLabSampleStore();
 
   const stats = getStats();
+  const { page, limit, setPage, resetPage } = usePagination(50);
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
@@ -34,27 +40,20 @@ const LabSamples = () => {
   const [editingSample, setEditingSample] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // ✅ fetch from backend
-  useEffect(() => {
+  const load = useCallback(() => {
     if (typeof fetchSamples !== "function") return;
-
-    const params = {};
+    const params = { page, limit };
     if (query) params.q = query;
     if (status && status !== "All") params.status = status;
-
     fetchSamples(params);
-  }, [fetchSamples, query, status]);
+  }, [fetchSamples, query, status, page, limit]);
 
-  // local fallback filter (still ok even with server filtering)
-  const filteredSamples = (samples || []).filter((s) => {
-    const matchesQuery =
-      String(s.patientName || "").toLowerCase().includes(query.toLowerCase()) ||
-      String(s.mr || "").includes(query);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-    const matchesStatus = status === "All" || s.status === status;
-
-    return matchesQuery && matchesStatus;
-  });
+  const handleQueryChange = (q) => { setQuery(q); resetPage(); };
+  const handleStatusChange = (s) => { setStatus(s); resetPage(); };
 
   return (
     <div className="space-y-8">
@@ -73,29 +72,19 @@ const LabSamples = () => {
       </div>
 
       {error ? (
-        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
-          {error}
-        </div>
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
-          Loading lab samples...
-        </div>
-      ) : null}
-
-      {/* Stats */}
       <LabSampleStats stats={stats} />
 
-      {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
           <div className="flex justify-between items-center">
             <LabSampleFilters
               query={query}
-              setQuery={setQuery}
+              setQuery={handleQueryChange}
               status={status}
-              setStatus={setStatus}
+              setStatus={handleStatusChange}
             />
 
             <Button
@@ -107,29 +96,36 @@ const LabSamples = () => {
             </Button>
           </div>
 
-          <LabSampleManagementTable
-            data={filteredSamples}
-            onStatusChange={updateStatus}
-            onDeliver={markDelivered}
-            onEdit={(sample) => setEditingSample(sample)}
-            onDelete={(id) => setDeletingId(id)}
+          {loading ? (
+            <TableSkeleton rows={8} cols={6} />
+          ) : (
+            <LabSampleManagementTable
+              data={samples}
+              onStatusChange={updateStatus}
+              onDeliver={markDelivered}
+              onEdit={(sample) => setEditingSample(sample)}
+              onDelete={(id) => setDeletingId(id)}
+            />
+          )}
+
+          <TablePagination
+            page={pagination?.page ?? page}
+            pages={pagination?.pages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            onPage={setPage}
           />
         </CardContent>
       </Card>
 
-      {/* Add */}
       <AddLabSampleModal open={isAddOpen} onOpenChange={setIsAddOpen} />
 
-      {/* Edit */}
       <EditLabSampleModal
         open={!!editingSample}
         sample={editingSample}
-        onOpenChange={(open) => {
-          if (!open) setEditingSample(null);
-        }}
+        onOpenChange={(open) => { if (!open) setEditingSample(null); }}
       />
 
-      {/* Delete */}
       <DeleteConfirmModal
         open={!!deletingId}
         onClose={() => setDeletingId(null)}

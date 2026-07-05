@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -13,6 +13,10 @@ import AddInventoryModal from "@/components/receptionist/AddInventoryModal";
 import EditInventoryModal from "@/components/receptionist/EditInventoryModal";
 import ConfirmDeleteDialog from "@/components/ConfirmDeleteDialog";
 
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
+
 const Inventory = () => {
   const {
     items,
@@ -21,10 +25,12 @@ const Inventory = () => {
     fetchStats,
     loading,
     error,
+    pagination,
     getStats,
     deleteItem,
   } = useInventoryStore();
 
+  const { page, limit, setPage, resetPage } = usePagination(50);
   const [query, setQuery] = useState("");
   const [stockFilter, setStockFilter] = useState("All");
 
@@ -38,14 +44,15 @@ const Inventory = () => {
   useEffect(() => {
     const run = async () => {
       if (typeof fetchItems === "function") {
-        await fetchItems({ q: query, stockFilter });
+        await fetchItems({ q: query, stockFilter, page, limit });
       }
-      if (typeof fetchStats === "function") {
-        await fetchStats();
-      }
+      if (typeof fetchStats === "function") await fetchStats();
     };
     run();
-  }, [fetchItems, fetchStats, query, stockFilter]);
+  }, [fetchItems, fetchStats, query, stockFilter, page, limit]);
+
+  const handleQueryChange = (q) => { setQuery(q); resetPage(); };
+  const handleStockFilterChange = (s) => { setStockFilter(s); resetPage(); };
 
   // fallback local stats
   const stats = serverStats || getStats();
@@ -89,25 +96,16 @@ const Inventory = () => {
         <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
-          Loading inventory...
-        </div>
-      ) : null}
-
-      {/* Stats */}
       <InventoryStats stats={stats} />
 
-      {/* Filters + Add Button + Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
-          {/* Filters row + Add Button */}
           <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
             <InventoryFilters
               query={query}
-              setQuery={setQuery}
+              setQuery={handleQueryChange}
               stockFilter={stockFilter}
-              setStockFilter={setStockFilter}
+              setStockFilter={handleStockFilterChange}
             />
 
             <Button
@@ -119,13 +117,25 @@ const Inventory = () => {
             </Button>
           </div>
 
-          <InventoryTable
-            data={filtered}
-            onEdit={(item) => setEditItem(item)}
-            onDelete={(item) => {
-              setDeleteTarget(item);
-              setConfirmOpen(true);
-            }}
+          {loading ? (
+            <TableSkeleton rows={8} cols={5} />
+          ) : (
+            <InventoryTable
+              data={filtered}
+              onEdit={(item) => setEditItem(item)}
+              onDelete={(item) => {
+                setDeleteTarget(item);
+                setConfirmOpen(true);
+              }}
+            />
+          )}
+
+          <TablePagination
+            page={pagination?.page ?? page}
+            pages={pagination?.pages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            onPage={setPage}
           />
         </CardContent>
       </Card>

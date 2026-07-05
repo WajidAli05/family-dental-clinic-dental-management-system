@@ -127,6 +127,7 @@ import { receptionistApi } from "@/lib/receptionistApi";
 export const useAppointmentStore = create((set, get) => ({
   loading: false,
   error: null,
+  pagination: { total: 0, page: 1, pages: 1 },
 
   // keep same UI shape
   appointments: [],
@@ -191,12 +192,16 @@ export const useAppointmentStore = create((set, get) => ({
       appointments: [row, ...state.appointments],
     })),
 
-  // ✅ ADD: receptionist fetch list (supports filters)
+  // ✅ ADD: receptionist fetch list (supports filters + pagination)
   fetchAppointments: async (filters = {}) => {
     try {
       set({ loading: true, error: null });
       const res = await receptionistApi.getAppointments(filters);
-      set({ appointments: res.data || [], loading: false });
+      set({
+        appointments: res.data || [],
+        pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        loading: false,
+      });
       return res.data || [];
     } catch (e) {
       set({ error: e.message, loading: false });

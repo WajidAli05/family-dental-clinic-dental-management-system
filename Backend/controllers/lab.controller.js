@@ -1,4 +1,4 @@
-import {
+﻿import {
   labGetMe,
   labUpdateMe,
   labGetStats,
@@ -36,9 +36,9 @@ export const getLabStats = async (req, res) => {
 
 export const getLabCases = async (req, res) => {
   try {
-    const { status, q, dateFrom, dateTo } = req.query;
-    const cases = await labGetCases(req.user.publicId, { status, q, dateFrom, dateTo });
-    return res.json({ success: true, data: cases });
+    const { status, q, dateFrom, dateTo, page, limit, sortBy, sortDir } = req.query;
+    const result = await labGetCases(req.user.publicId, { status, q, dateFrom, dateTo, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }

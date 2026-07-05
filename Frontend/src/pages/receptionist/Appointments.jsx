@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,19 +6,21 @@ import { Plus, LayoutGrid, List, Search } from "lucide-react";
 
 import Wavify from "react-wavify";
 
-// Store
 import { useAppointmentStore } from "@/store/appointmentStore";
 import { useDentistStore } from "@/store/dentistStore";
 
-// Modals
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
 
-// Components
 import AppointmentStats from "@/components/receptionist/AppointmentStats";
 import AppointmentFilters from "@/components/receptionist/AppointmentFilters";
 import AppointmentManagementTable from "@/components/receptionist/AppointmentsTable";
 import AppointmentCalendar from "@/components/receptionist/AppointmentCalendar";
 import DentistSchedule from "@/components/receptionist/DentistSchedule";
+
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
+import { useTableSort } from "@/hooks/useTableSort";
 
 const Appointments = () => {
   const {
@@ -27,49 +29,52 @@ const Appointments = () => {
     updateAppointmentStatus,
     loading,
     error,
+    pagination,
   } = useAppointmentStore();
 
   const { fetchAllDentists } = useDentistStore();
 
+  const { page, limit, setPage, resetPage } = usePagination(50);
+  const { sortBy, sortDir } = useTableSort("date", "desc");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [view, setView] = useState("list"); // list | calendar
+  const [view, setView] = useState("list");
 
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({ date: "", dentist: "All", status: "All" });
 
-  const [filters, setFilters] = useState({
-    date: "",
-    dentist: "All",
-    status: "All",
-  });
-
-  // ✅ Load appointments from backend
-  useEffect(() => {
+  const load = useCallback(() => {
     if (typeof fetchAppointments !== "function") return;
-
-    // Only send meaningful filters to backend
-    const params = {};
+    const params = { page, limit, sortBy, sortDir };
     if (filters.date) params.date = filters.date;
     if (filters.dentist && filters.dentist !== "All") params.dentist = filters.dentist;
     if (filters.status && filters.status !== "All") params.status = filters.status;
-
+    if (search) params.q = search;
     fetchAppointments(params);
-  }, [fetchAppointments, filters.date, filters.dentist, filters.status]);
+  }, [fetchAppointments, filters.date, filters.dentist, filters.status, search, page, limit, sortBy, sortDir]);
+
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-  if (typeof fetchAllDentists === "function") {
-    fetchAllDentists();
-  }
-}, [fetchAllDentists]);
+    if (typeof fetchAllDentists === "function") fetchAllDentists();
+  }, [fetchAllDentists]);
 
-  /* -------------------- FILTER LOGIC (keep) -------------------- */
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    resetPage();
+  };
+
+  const handleSearch = (val) => {
+    setSearch(val);
+    resetPage();
+  };
+
   const filteredAppointments = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return (appointments || []).filter((a) => {
       const matchDate = !filters.date || a.date === filters.date;
-      const matchDentist =
-        filters.dentist === "All" || a.dentistId === filters.dentist;
-      const matchStatus =
-        filters.status === "All" || a.status === filters.status;
+      const matchDentist = filters.dentist === "All" || a.dentistId === filters.dentist;
+      const matchStatus = filters.status === "All" || a.status === filters.status;
       const matchSearch =
         !needle ||
         String(a.patientName || "").toLowerCase().includes(needle) ||
@@ -79,7 +84,6 @@ const Appointments = () => {
     });
   }, [appointments, filters, search]);
 
-  /* Dentist-wise appointments */
   const dentistAppointments = useMemo(() => {
     if (filters.dentist === "All") return [];
     return filteredAppointments.filter((a) => a.dentist === filters.dentist);
@@ -96,55 +100,38 @@ const Appointments = () => {
           className="absolute bottom-0 left-0 w-full opacity-20"
         />
         <div className="relative z-10 p-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Appointment Management
-          </h1>
-          <p className="text-gray-500">
-            Book, reschedule and manage appointments efficiently
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Appointment Management</h1>
+          <p className="text-gray-500">Book, reschedule and manage appointments efficiently</p>
         </div>
       </div>
 
-      {/* Error/Loading (safe, won’t break UI) */}
       {error ? (
-        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
-          {error}
-        </div>
-      ) : null}
-      {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
-          Loading appointments...
-        </div>
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
 
-      {/* STATS — counts reflect the current filtered view */}
       <AppointmentStats appointments={filteredAppointments} />
 
-      {/* FILTERS + ACTIONS — single inline row */}
+      {/* FILTERS + ACTIONS */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
         <div className="relative h-9 w-48 shrink-0">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           <Input
             className="h-9 pl-8 text-sm w-full"
             placeholder="Search name or APT-id…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
 
-        {/* Date filter */}
         <Input
           type="date"
           className="h-9 text-sm w-36 shrink-0"
           value={filters.date}
-          onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+          onChange={(e) => handleFilterChange({ ...filters, date: e.target.value })}
         />
 
-        {/* Dentist filter */}
-        <AppointmentFilters filters={filters} onChange={setFilters} />
+        <AppointmentFilters filters={filters} onChange={handleFilterChange} />
 
-        {/* View toggles + Book */}
         <div className="flex items-center gap-2 ml-auto">
           <Button
             size="sm"
@@ -173,23 +160,31 @@ const Appointments = () => {
         </div>
       </div>
 
-
       {/* CONTENT */}
       {view === "list" ? (
         <Card className="rounded-2xl">
           <CardContent className="p-6 space-y-6">
             {filters.dentist !== "All" && (
-              <DentistSchedule
-                dentist={filters.dentist}
-                appointments={dentistAppointments}
+              <DentistSchedule dentist={filters.dentist} appointments={dentistAppointments} />
+            )}
+
+            {loading ? (
+              <TableSkeleton rows={8} cols={6} />
+            ) : (
+              <AppointmentManagementTable
+                data={filteredAppointments}
+                onComplete={(id) => updateAppointmentStatus(id, "Completed")}
+                onCancel={(id) => updateAppointmentStatus(id, "Cancelled")}
+                onReopen={(id) => updateAppointmentStatus(id, "Scheduled")}
               />
             )}
 
-            <AppointmentManagementTable
-              data={filteredAppointments}
-              onComplete={(id) => updateAppointmentStatus(id, "Completed")}
-              onCancel={(id) => updateAppointmentStatus(id, "Cancelled")}
-              onReopen={(id) => updateAppointmentStatus(id, "Scheduled")}
+            <TablePagination
+              page={pagination?.page ?? page}
+              pages={pagination?.pages ?? 1}
+              total={pagination?.total ?? 0}
+              limit={limit}
+              onPage={setPage}
             />
           </CardContent>
         </Card>
@@ -197,7 +192,6 @@ const Appointments = () => {
         <AppointmentCalendar appointments={filteredAppointments} />
       )}
 
-      {/* MODAL */}
       <AddAppointmentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
     </div>
   );

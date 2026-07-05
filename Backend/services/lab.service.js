@@ -1,5 +1,6 @@
 import User from "../models/User.model.js";
 import LabCase from "../models/LabCase.model.js";
+import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -83,14 +84,16 @@ export async function labGetStats(publicId) {
   return { total, inProcess, ready, recent };
 }
 
-export async function labGetCases(publicId, filters) {
+export async function labGetCases(publicId, filters = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination(filters);
+
   const labUser = await User.findOne({ publicId, role: "lab" }).select("_id").lean();
-  if (!labUser) return [];
+  if (!labUser) return { rows: [], total: 0, page: 1, pages: 1 };
 
   const query = { lab: labUser._id };
 
   if (filters.status && filters.status !== "all") {
-    if (!allowedStatuses.includes(filters.status)) return [];
+    if (!allowedStatuses.includes(filters.status)) return { rows: [], total: 0, page: 1, pages: 1 };
     query.status = filters.status;
   }
 
@@ -102,21 +105,19 @@ export async function labGetCases(publicId, filters) {
     if (to) query.createdAt.$lte = to;
   }
 
+  const sort = buildSort(sb, sd, { createdAt: -1 });
+  const rows = await LabCase.find(query).populate("sampleType", "name publicId").sort(sort).lean();
+
+  let mapped = rows.map(mapCaseToFrontend);
+
   const q = String(filters.q || "").trim().toLowerCase();
+  if (q) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.type} ${x.tooth} ${x.status} ${x.note}`.toLowerCase().includes(q)
+    );
+  }
 
-  const rows = await LabCase.find(query)
-    .populate("sampleType", "name publicId")
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const mapped = rows.map(mapCaseToFrontend);
-
-  if (!q) return mapped;
-
-  return mapped.filter((x) => {
-    const hay = `${x.id} ${x.type} ${x.tooth} ${x.status} ${x.note}`.toLowerCase();
-    return hay.includes(q);
-  });
+  return paginateArray(mapped, P, L);
 }
 
 export async function labUpdateCaseStatus(publicId, casePublicId, { status, note }) {

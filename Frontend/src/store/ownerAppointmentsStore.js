@@ -22,6 +22,7 @@ export const useOwnerAppointmentsStore = create((set, get) => ({
   // ✅ optional UX (safe)
   loading: false,
   error: null,
+  pagination: { total: 0, page: 1, pages: 1 },
 
   // --- Demo seed (fallback)
   seedDemoAppointments: () => [
@@ -65,7 +66,11 @@ export const useOwnerAppointmentsStore = create((set, get) => ({
         q: params.q ?? f.query,
       });
 
-      set({ appointments: res?.data || [], loading: false });
+      set({
+        appointments: res?.data || [],
+        pagination: { total: res?.total ?? 0, page: res?.page ?? 1, pages: res?.pages ?? 1 },
+        loading: false,
+      });
       return res?.data || [];
     } catch (e) {
       // fallback demo so owner UI still renders during dev

@@ -15,6 +15,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
   initialized: false,
   loading: false,
   error: null,
+  pagination: { total: 0, page: 1, pages: 1 },
 
   filters: { ...defaultFilters },
 
@@ -160,11 +161,15 @@ export const useOwnerPatientsStore = create((set, get) => ({
   },
 
   // ✅ load patients from backend
-  fetchPatients: async () => {
+  fetchPatients: async (params = {}) => {
     try {
       set({ loading: true, error: null });
-      const res = await ownerApi.listPatients();
-      set({ patients: res.data || [], loading: false });
+      const res = await ownerApi.listPatients(params);
+      set({
+        patients: res.data || [],
+        pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        loading: false,
+      });
     } catch (e) {
       // fallback to demo so UI doesn't go blank
       set((state) => ({

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Wavify from "react-wavify";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -6,6 +6,10 @@ import { useDentistCasesStore } from "@/store/dentistCasesStore";
 import LabSampleStats from "@/components/receptionist/LabSampleStats";
 import LabSamplesTable from "@/components/dentist/LabSamplesTable";
 import LabSampleFilters from "@/components/dentist/LabSampleFilters";
+
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
 
 const mapBackendStatusToUiTitle = (s) => {
   const v = String(s || "").toLowerCase();
@@ -31,16 +35,17 @@ const mapFilterToBackend = (filter) => {
 };
 
 const DentistLabSamples = () => {
-  const { cases, fetchCases, approveCase, loading, error } = useDentistCasesStore();
+  const { cases, fetchCases, approveCase, loading, error, pagination } = useDentistCasesStore();
+  const { page, limit, setPage, resetPage } = usePagination(50);
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    fetchCases({ status: "all" });
-  }, [fetchCases]);
+  const load = useCallback(() => {
+    fetchCases({ status: mapFilterToBackend(filter), page, limit });
+  }, [fetchCases, filter, page, limit]);
 
-  useEffect(() => {
-    fetchCases({ status: mapFilterToBackend(filter) });
-  }, [filter, fetchCases]);
+  useEffect(() => { load(); }, [load]);
+
+  const handleFilterChange = (f) => { setFilter(f); resetPage(); };
 
   const normalized = useMemo(() => {
     return (cases || []).map((c) => ({
@@ -88,17 +93,25 @@ const DentistLabSamples = () => {
 
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
-          <LabSampleFilters active={filter} onChange={setFilter} />
+          <LabSampleFilters active={filter} onChange={handleFilterChange} />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <TableSkeleton rows={6} cols={5} />
           ) : normalized.length > 0 ? (
             <LabSamplesTable data={normalized} onApprove={handleApprove} />
           ) : (
             <p className="text-sm text-gray-500">No samples found.</p>
           )}
+
+          <TablePagination
+            page={pagination?.page ?? page}
+            pages={pagination?.pages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            onPage={setPage}
+          />
         </CardContent>
       </Card>
     </div>

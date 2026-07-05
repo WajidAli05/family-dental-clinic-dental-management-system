@@ -4,6 +4,7 @@ import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
 import Prescription from "../models/Prescription.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
+import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -109,79 +110,66 @@ export async function dentistGetStats(dentistId) {
 // }
 
 // -------------------- APPOINTMENTS --------------------
-export async function dentistGetAppointments(dentistId, { date } = {}) {
-  // ✅ If date is provided => filter by date
-  // ✅ If date is NOT provided => return ALL appointments for this dentist
+export async function dentistGetAppointments(dentistId, { date, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const query = { dentist: dentistId };
-
   const d = String(date || "").trim();
   if (d) query.date = d;
-
-  const rows = await Appointment.find(query)
-    .populate("patient", "name publicId mr")
-    .sort({ date: 1, time: 1 }) // ✅ stable order for all appointments
-    .lean();
-
-  // ✅ frontend friendly + required patientId for prescriptions
-  return rows.map((a) => ({
+  const sort = buildSort(sb, sd, { date: -1, time: 1 });
+  const [total, rows] = await Promise.all([
+    Appointment.countDocuments(query),
+    Appointment.find(query).populate("patient", "name publicId mr").sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((a) => ({
     id: a.publicId,
-    patientId: a.patient?.publicId || "", // ✅ used by FE to fetch prescriptions
+    patientId: a.patient?.publicId || "",
     mr: a.patient?.mr || null,
     patientName: a.patient?.name || "",
     date: a.date,
     time: a.time,
     reason: a.reason,
     status: a.status,
-    // keep original if your FE/store expects it anywhere
     original: a,
   }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // -------------------- LAB CASES --------------------
-export async function dentistGetCases(dentistId, { status, q } = {}) {
+export async function dentistGetCases(dentistId, { status, q, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const query = { dentist: dentistId };
   if (status && status !== "all") query.status = String(status);
-
+  const sort = buildSort(sb, sd, { createdAt: -1 });
   const rows = await LabCase.find(query)
     .populate("patient", "name publicId phone")
     .populate("dentist", "name publicId")
-    .populate("lab", "name publicId") // ✅ for table "Lab"
+    .populate("lab", "name publicId")
     .populate("sampleType", "name publicId")
-    .sort({ createdAt: -1 })
+    .sort(sort)
     .lean();
 
-  const mapped = rows.map((c) => ({
+  let mapped = rows.map((c) => ({
     id: c.publicId,
-
-    // ✅ dentist lab table expects these:
     patientName: c.patient?.name || "",
     lab: c.lab?.name || "",
     sentDate: c.createdAtISO || new Date(c.createdAt).toISOString().slice(0, 10),
-
-    // ✅ MUST be array for join()
     teeth: Array.isArray(c.teeth) ? c.teeth : [],
-
-    // keep existing fields too
     type: c.sampleType?.name || "",
     tooth: (c.teeth || []).map((t) => `#${t}`).join(", "),
-    date: new Date(c.createdAt).toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-    }),
+    date: new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
     status: c.status,
     note: c.notes || "",
     dentistName: c.dentist?.name || "",
   }));
 
   const needle = String(q || "").trim().toLowerCase();
-  if (!needle) return mapped;
+  if (needle) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.type} ${x.tooth} ${x.status} ${x.note} ${x.patientName}`.toLowerCase().includes(needle)
+    );
+  }
 
-  return mapped.filter((x) =>
-    `${x.id} ${x.type} ${x.tooth} ${x.status} ${x.note} ${x.patientName}`
-      .toLowerCase()
-      .includes(needle)
-  );
+  return paginateArray(mapped, P, L);
 }
 
 export async function dentistApproveCase(dentistId, casePublicId) {
@@ -291,30 +279,26 @@ export async function dentistUpdatePrescription(user, rxId, body) {
 // ✅ used by FE to build rxMap for today appointments:
 // GET /dentist/prescriptions?date=YYYY-MM-DD&patientIds=PT-1,PT-2
 export async function dentistGetPrescriptions(user, query = {}) {
+  const { page: P, limit: L } = parsePagination(query);
+
   const dentistName = user?.name || "";
   const date = query.date ? String(query.date) : todayISO();
 
   const q = { dentistName, date };
 
-  // optional single patientId
-  if (query.patientId) {
-    q.patientId = String(query.patientId);
-  }
+  if (query.patientId) q.patientId = String(query.patientId);
 
-  // ✅ optional list patientIds=PT-1,PT-2
   if (query.patientIds) {
-    const ids = String(query.patientIds)
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-
+    const ids = String(query.patientIds).split(",").map((x) => x.trim()).filter(Boolean);
     if (ids.length) q.patientId = { $in: ids };
   }
 
-  const rows = await Prescription.find(q).sort({ createdAt: -1 }).lean();
+  const [total, rows] = await Promise.all([
+    Prescription.countDocuments(q),
+    Prescription.find(q).sort({ createdAt: -1 }).skip((P - 1) * L).limit(L).lean(),
+  ]);
 
-  // return raw rows to FE (keep _id as prescriptionId)
-  return rows;
+  return { rows, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // -------------------- CLINICAL MASTER (for dentist) --------------------

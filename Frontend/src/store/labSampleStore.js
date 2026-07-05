@@ -35,12 +35,17 @@ export const useLabSampleStore = create((set, get) => ({
   loading: false,
   error: null,
   samples: [],
+  pagination: { total: 0, page: 1, pages: 1 },
 
   fetchSamples: async (params = {}) => {
     try {
       set({ loading: true, error: null });
       const res = await receptionistApi.getLabSamples(params);
-      set({ samples: (res.data || []).map(mapRow), loading: false });
+      set({
+        samples: (res.data || []).map(mapRow),
+        pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        loading: false,
+      });
     } catch (e) {
       set({ error: e.message, loading: false });
     }

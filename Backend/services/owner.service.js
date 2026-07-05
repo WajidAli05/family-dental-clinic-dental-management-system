@@ -20,6 +20,7 @@ import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
 import { revenueCollected, outstanding } from "./shared/billing.js";
+import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -170,13 +171,16 @@ async function nextStaffPublicId(role) {
 }
 
 // ---------- STAFF CRUD ----------
-export async function ownerStaffList(_ownerId) {
-  const rows = await User.find({ role: { $in: STAFF_ROLES } })
-    .select("publicId name email phone role enabled commissionPercent createdAt")
-    .sort({ createdAt: -1 })
-    .lean();
-
-  return rows.map((u) => ({
+export async function ownerStaffList(_ownerId, { page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const sort = buildSort(sb, sd, { createdAt: -1 });
+  const [total, rows] = await Promise.all([
+    User.countDocuments({ role: { $in: STAFF_ROLES } }),
+    User.find({ role: { $in: STAFF_ROLES } })
+      .select("publicId name email phone role enabled commissionPercent createdAt")
+      .sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((u) => ({
     id: u.publicId,
     name: u.name || "",
     role: u.role,
@@ -186,6 +190,7 @@ export async function ownerStaffList(_ownerId) {
     commission: u.role === "dentist" ? Number(u.commissionPercent || 0) : undefined,
     createdAt: toISO(u.createdAt),
   }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 export async function ownerStaffCreate(_ownerId, payload = {}) {
@@ -339,9 +344,10 @@ export async function ownerPermissionsUpdate(_ownerId, payload = {}) {
 // ----------------------------
 // ✅ OWNER APPOINTMENTS
 // ----------------------------
-export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentistId, status, q } = {}) {
-  const filter = {};
+export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentistId, status, q, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
+  const filter = {};
   if (dateFrom && dateTo) filter.date = { $gte: normalize(dateFrom), $lte: normalize(dateTo) };
   else if (dateFrom) filter.date = { $gte: normalize(dateFrom) };
   else if (dateTo) filter.date = { $lte: normalize(dateTo) };
@@ -354,14 +360,16 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
 
   if (dentistId && dentistId !== "all") {
     const d = await User.findOne({ role: "dentist", publicId: normalize(dentistId) }).select("_id");
-    if (!d) return [];
+    if (!d) return { rows: [], total: 0, page: 1, pages: 1 };
     filter.dentist = d._id;
   }
+
+  const sort = buildSort(sb, sd, { date: -1, time: 1 });
 
   const rows = await Appointment.find(filter)
     .populate("patient", "name phone publicId mr")
     .populate("dentist", "name publicId")
-    .sort({ date: 1, time: 1 })
+    .sort(sort)
     .lean();
 
   let mapped = rows.map((a) => ({
@@ -386,19 +394,22 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
     );
   }
 
-  return mapped;
+  return paginateArray(mapped, P, L);
 }
 
 // ----------------------------
 // ✅ OWNER PATIENTS LIST
 // ----------------------------
-export async function ownerPatientsList(_ownerId) {
-  const patients = await Patient.find({})
-    .populate("primaryDentist", "name publicId role")
-    .sort({ createdAt: -1 })
-    .lean();
+export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const sort = buildSort(sb, sd, { createdAt: -1 });
 
-  if (!patients.length) return [];
+  const [total, patients] = await Promise.all([
+    Patient.countDocuments({}),
+    Patient.find({}).populate("primaryDentist", "name publicId role").sort(sort).skip(skip).limit(L).lean(),
+  ]);
+
+  if (!patients.length) return { rows: [], total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 
   const patientIds = patients.map((p) => p._id);
 
@@ -448,6 +459,8 @@ export async function ownerPatientsList(_ownerId) {
       tags: Array.isArray(p.tags) ? p.tags : [],
     };
   });
+
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // ----------------------------
@@ -680,17 +693,24 @@ export async function ownerSetLabAccountEnabled(_ownerId, labPublicId, enabled) 
 }
 
 // ---------- LAB CASES ----------
-export async function ownerListLabCases(_ownerId) {
-  const rows = await LabCase.find({})
-    .populate("patient", "name publicId")
-    .populate("dentist", "name publicId")
-    .populate("lab", "name publicId")
-    .populate("sampleType", "name publicId")
-    .sort({ createdAt: -1 })
-    .limit(500)
-    .lean();
+export async function ownerListLabCases(_ownerId, { page, limit, sortBy, sortDir, q, status } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const sort = buildSort(sb, sd, { createdAt: -1 });
 
-  return rows.map((c) => ({
+  const filter = {};
+  if (status && status !== "all") filter.status = String(status);
+
+  const [total, rows] = await Promise.all([
+    LabCase.countDocuments(filter),
+    LabCase.find(filter)
+      .populate("patient", "name publicId")
+      .populate("dentist", "name publicId")
+      .populate("lab", "name publicId")
+      .populate("sampleType", "name publicId")
+      .sort(sort).skip(skip).limit(L).lean(),
+  ]);
+
+  let mapped = rows.map((c) => ({
     id: c.publicId,
     createdAt: toISO(c.createdAt),
     patientName: c.patient?.name || "",
@@ -702,12 +722,17 @@ export async function ownerListLabCases(_ownerId) {
     sampleTypeName: c.sampleType?.name || "",
     status: c.status || "",
     notes: c.note || "",
-    timeline: (c.timeline || []).map((t) => ({
-      at: t.at,
-      status: t.status,
-      note: t.note || "",
-    })),
+    timeline: (c.timeline || []).map((t) => ({ at: t.at, status: t.status, note: t.note || "" })),
   }));
+
+  const needle = String(q || "").trim().toLowerCase();
+  if (needle) {
+    mapped = mapped.filter((x) =>
+      `${x.id} ${x.patientName} ${x.dentistName} ${x.labName} ${x.status}`.toLowerCase().includes(needle)
+    );
+  }
+
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // ---------- SAMPLE TYPES ----------
@@ -807,22 +832,22 @@ export async function ownerListDentists(_ownerId) {
 }
 
 // --- BILLING & FINANCIALS ---
-export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentistId } = {}) {
+export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentistId, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const filter = {};
-
   const df = normalize(dateFrom);
   const dt = normalize(dateTo);
-
   if (df && dt) filter.date = { $gte: df, $lte: dt };
   else if (df) filter.date = { $gte: df };
   else if (dt) filter.date = { $lte: dt };
-
   const did = normalize(dentistId);
   if (did && did !== "all") filter.dentistId = did;
-
-  const rows = await OwnerPayment.find(filter).sort({ date: 1, createdAt: 1 }).lean();
-
-  return rows.map((p) => ({
+  const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
+  const [total, rows] = await Promise.all([
+    OwnerPayment.countDocuments(filter),
+    OwnerPayment.find(filter).sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((p) => ({
     id: p._id || p.id || "",
     date: p.date || "",
     method: String(p.method || "").toLowerCase(),
@@ -830,19 +855,22 @@ export async function ownerBillingPayments(_ownerId, { dateFrom, dateTo, dentist
     dentistId: p.dentistId || "",
     dentistName: p.dentistName || "",
   }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
-export async function ownerBillingLabBills(_ownerId, { month, labId } = {}) {
+export async function ownerBillingLabBills(_ownerId, { month, labId, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const filter = {};
   const m = normalize(month);
   const lid = normalize(labId);
-
   if (m) filter.month = m;
   if (lid && lid !== "all") filter.labId = lid;
-
-  const rows = await LabBill.find(filter).sort({ month: -1, createdAt: -1 }).lean();
-
-  return rows.map((b) => ({
+  const sort = buildSort(sb, sd, { month: -1, createdAt: -1 });
+  const [total, rows] = await Promise.all([
+    LabBill.countDocuments(filter),
+    LabBill.find(filter).sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((b) => ({
     id: b._id,
     month: b.month || "",
     labId: b.labId || "",
@@ -850,6 +878,7 @@ export async function ownerBillingLabBills(_ownerId, { month, labId } = {}) {
     amount: Number(b.amount || 0),
     paid: !!b.paid,
   }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 export async function ownerGetCommissionRules(_ownerId) {
@@ -1017,9 +1046,23 @@ const mapItem = (doc) => ({
   createdAt: toISO(doc.createdAt),
 });
 
-export async function ownerInventoryListItems(_ownerId) {
-  const rows = await InventoryItem.find({}).sort({ createdAt: -1 }).lean();
-  return rows.map(mapItem);
+export async function ownerInventoryListItems(_ownerId, { page, limit, sortBy, sortDir, q } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const filter = {};
+  const needle = String(q || "").trim();
+  if (needle) {
+    filter.$or = [
+      { name: { $regex: needle, $options: "i" } },
+      { category: { $regex: needle, $options: "i" } },
+      { sku: { $regex: needle, $options: "i" } },
+    ];
+  }
+  const sort = buildSort(sb, sd, { createdAt: -1 });
+  const [total, rows] = await Promise.all([
+    InventoryItem.countDocuments(filter),
+    InventoryItem.find(filter).sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  return { rows: rows.map(mapItem), total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 export async function ownerInventoryCreateItem(_ownerId, payload = {}) {
@@ -1130,25 +1173,26 @@ export async function ownerInventoryDeleteItem(_ownerId, itemPublicId) {
 }
 
 // Suppliers list (for filters/columns; do NOT remove even if tab removed)
-export async function ownerInventoryListSuppliers(_ownerId) {
-  const rows = await Supplier.find({}).sort({ name: 1 }).lean();
-  return rows.map((s) => ({
-    id: s.publicId,
-    name: s.name || "",
-    phone: s.phone || "",
-    email: s.email || "",
-    address: s.address || "",
-  }));
+export async function ownerInventoryListSuppliers(_ownerId, { page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const sort = buildSort(sb, sd, { name: 1 });
+  const [total, rows] = await Promise.all([
+    Supplier.countDocuments({}),
+    Supplier.find({}).sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((s) => ({ id: s.publicId, name: s.name || "", phone: s.phone || "", email: s.email || "", address: s.address || "" }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // Purchases list
-export async function ownerInventoryListPurchases(_ownerId) {
-  const rows = await PurchaseOrder.find({})
-    .populate("supplier", "publicId name")
-    .sort({ date: -1, createdAt: -1 })
-    .lean();
-
-  return rows.map((p) => ({
+export async function ownerInventoryListPurchases(_ownerId, { page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
+  const [total, rows] = await Promise.all([
+    PurchaseOrder.countDocuments({}),
+    PurchaseOrder.find({}).populate("supplier", "publicId name").sort(sort).skip(skip).limit(L).lean(),
+  ]);
+  const mapped = rows.map((p) => ({
     id: p.publicId,
     date: p.date,
     supplierId: p.supplier?.publicId || "",
@@ -1157,6 +1201,7 @@ export async function ownerInventoryListPurchases(_ownerId) {
     total: Number(p.total || 0),
     notes: p.notes || "",
   }));
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // Purchase details (modal)

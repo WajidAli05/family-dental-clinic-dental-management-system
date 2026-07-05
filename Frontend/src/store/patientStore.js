@@ -318,7 +318,8 @@ export const usePatientStore = create((set, get) => ({
   },
 
   loading: false,
-error: null,
+  error: null,
+  pagination: { total: 0, page: 1, pages: 1 },
 
 createPatient: async (payload) => {
   try {
@@ -356,11 +357,19 @@ updatePatient: async (id, payload) => {
   }
 },
 
-fetchPatients: async ({ q } = {}) => {
+fetchPatients: async ({ q, page = 1, limit = 50, sortBy, sortDir } = {}) => {
   try {
     set({ loading: true, error: null });
-    const res = await receptionistApi.getPatients(q ? { q } : undefined);
-    set({ patients: res.data || [], loading: false });
+    const params = { page, limit };
+    if (q) params.q = q;
+    if (sortBy) params.sortBy = sortBy;
+    if (sortDir) params.sortDir = sortDir;
+    const res = await receptionistApi.getPatients(params);
+    set({
+      patients: res.data || [],
+      pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+      loading: false,
+    });
     return res.data || [];
   } catch (e) {
     set({ loading: false, error: e.message });

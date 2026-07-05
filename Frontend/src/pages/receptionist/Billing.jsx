@@ -1,5 +1,5 @@
 // pages/receptionist/Billing.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -16,6 +16,10 @@ import ConfirmDeleteDialog from "@/components/ConfirmDeleteDialog";
 import CreateInvoiceModal from "@/components/receptionist/CreateInvoiceModal";
 
 import { printInvoice } from "@/utils/printInvoice";
+
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
 
 /**
  * ✅ Compute stats from live invoices so cards update immediately
@@ -81,8 +85,10 @@ const Billing = () => {
 
     loading,
     error,
+    pagination,
   } = useBillingStore();
 
+  const { page, limit, setPage, resetPage } = usePagination(50);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
 
@@ -94,31 +100,24 @@ const Billing = () => {
 
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
 
-  // ✅ Fetch from backend (if wired). If not, UI still works locally.
+  // ✅ Fetch from backend
   useEffect(() => {
     const run = async () => {
       try {
         if (typeof fetchInvoices === "function") {
-          await fetchInvoices({
-            q: query,
-            status,
-          });
+          await fetchInvoices({ q: query, status, page, limit });
         }
-
-        if (typeof fetchBillingStats === "function") {
-          await fetchBillingStats();
-        }
-
-        if (typeof fetchLabBills === "function") {
-          await fetchLabBills();
-        }
+        if (typeof fetchBillingStats === "function") await fetchBillingStats();
+        if (typeof fetchLabBills === "function") await fetchLabBills();
       } catch {
         // store already sets error
       }
     };
-
     run();
-  }, [fetchInvoices, fetchBillingStats, fetchLabBills, query, status]);
+  }, [fetchInvoices, fetchBillingStats, fetchLabBills, query, status, page, limit]);
+
+  const handleQueryChange = (q) => { setQuery(q); resetPage(); };
+  const handleStatusChange = (s) => { setStatus(s); resetPage(); };
 
   // ✅ Normalize invoices for InvoiceTable:
   // It expects { total, paid } but backend provides totalAmount/paidAmount
@@ -213,13 +212,6 @@ const Billing = () => {
         <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
-          Loading invoices...
-        </div>
-      ) : null}
-
-      {/* Stats */}
       <BillingStats stats={stats} />
 
       {/* Invoices */}
@@ -228,9 +220,9 @@ const Billing = () => {
           <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
             <InvoiceFilters
               query={query}
-              setQuery={setQuery}
+              setQuery={handleQueryChange}
               status={status}
-              setStatus={setStatus}
+              setStatus={handleStatusChange}
             />
 
             {/* ✅ Create Invoice */}
@@ -243,13 +235,25 @@ const Billing = () => {
             </Button>
           </div>
 
-          <InvoiceTable
-            data={filtered}
-            onPay={(inv) => {
-              setSelectedInvoiceId(inv.id);
-              setIsPaymentOpen(true);
-            }}
-            onPrint={(inv) => printInvoice(inv)}
+          {loading ? (
+            <TableSkeleton rows={8} cols={6} />
+          ) : (
+            <InvoiceTable
+              data={filtered}
+              onPay={(inv) => {
+                setSelectedInvoiceId(inv.id);
+                setIsPaymentOpen(true);
+              }}
+              onPrint={(inv) => printInvoice(inv)}
+            />
+          )}
+
+          <TablePagination
+            page={pagination?.page ?? page}
+            pages={pagination?.pages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            onPage={setPage}
           />
 
           {selectedInvoice && (

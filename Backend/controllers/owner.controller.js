@@ -1,4 +1,4 @@
-// Backend/controllers/owner.controller.js
+﻿// Backend/controllers/owner.controller.js
 import {
   ownerListAppointments,
   ownerPatientsList,
@@ -23,7 +23,7 @@ import {
   ownerUpdateCommissionRules,
   ownerBillingARSummaryService,
 
-  // ✅ STAFF + PERMISSIONS
+  // âœ… STAFF + PERMISSIONS
   ownerStaffList,
   ownerStaffCreate,
   ownerStaffUpdate,
@@ -65,9 +65,9 @@ import {
 
 export const getOwnerAppointments = async (req, res) => {
   try {
-    const { dateFrom, dateTo, dentistId, status, q } = req.query;
-    const rows = await ownerListAppointments(req.user?._id, { dateFrom, dateTo, dentistId, status, q });
-    return res.json({ success: true, data: rows });
+    const { dateFrom, dateTo, dentistId, status, q, page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerListAppointments(req.user?._id, { dateFrom, dateTo, dentistId, status, q, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -76,8 +76,9 @@ export const getOwnerAppointments = async (req, res) => {
 // Patients
 export const ownerListPatients = async (req, res) => {
   try {
-    const data = await ownerPatientsList(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerPatientsList(req.user?._id, { page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -142,8 +143,9 @@ export const ownerToggleLabEnabled = async (req, res) => {
 // Lab cases
 export const ownerListLabCasesController = async (req, res) => {
   try {
-    const data = await ownerListLabCases(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir, q, status } = req.query;
+    const result = await ownerListLabCases(req.user?._id, { page, limit, sortBy, sortDir, q, status });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -199,9 +201,9 @@ export const ownerGetDentists = async (req, res) => {
 // Billing
 export const ownerBillingListPayments = async (req, res) => {
   try {
-    const { dateFrom, dateTo, dentistId } = req.query;
-    const data = await ownerBillingPayments(req.user?._id, { dateFrom, dateTo, dentistId });
-    return res.json({ success: true, data });
+    const { dateFrom, dateTo, dentistId, page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerBillingPayments(req.user?._id, { dateFrom, dateTo, dentistId, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }
@@ -209,9 +211,9 @@ export const ownerBillingListPayments = async (req, res) => {
 
 export const ownerBillingListLabBills = async (req, res) => {
   try {
-    const { month, labId } = req.query;
-    const data = await ownerBillingLabBills(req.user?._id, { month, labId });
-    return res.json({ success: true, data });
+    const { month, labId, page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerBillingLabBills(req.user?._id, { month, labId, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }
@@ -246,12 +248,13 @@ export const ownerBillingARSummary = async (req, res) => {
 };
 
 // =====================================================
-// ✅ STAFF (NEW)
+// âœ… STAFF (NEW)
 // =====================================================
 export const ownerListStaff = async (req, res) => {
   try {
-    const data = await ownerStaffList(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerStaffList(req.user?._id, { page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -295,7 +298,7 @@ export const ownerDeleteStaff = async (req, res) => {
 };
 
 // =====================================================
-// ✅ PERMISSIONS (NEW)
+// âœ… PERMISSIONS (NEW)
 // =====================================================
 export const ownerGetPermissions = async (req, res) => {
   try {
@@ -317,12 +320,13 @@ export const ownerUpdatePermissions = async (req, res) => {
 
 // -----------------------------------------------------------------//
 // =====================================================
-// ✅ INVENTORY (OWNER) — Add-only
+// âœ… INVENTORY (OWNER) â€” Add-only
 // =====================================================
 export const ownerInventoryGetItems = async (req, res) => {
   try {
-    const data = await ownerInventoryListItems(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir, q } = req.query;
+    const result = await ownerInventoryListItems(req.user?._id, { page, limit, sortBy, sortDir, q });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -366,8 +370,9 @@ export const ownerInventoryDeleteItemController = async (req, res) => {
 
 export const ownerInventoryGetSuppliers = async (req, res) => {
   try {
-    const data = await ownerInventoryListSuppliers(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerInventoryListSuppliers(req.user?._id, { page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -375,8 +380,9 @@ export const ownerInventoryGetSuppliers = async (req, res) => {
 
 export const ownerInventoryGetPurchases = async (req, res) => {
   try {
-    const data = await ownerInventoryListPurchases(req.user?._id);
-    return res.json({ success: true, data });
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await ownerInventoryListPurchases(req.user?._id, { page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -411,7 +417,7 @@ export const ownerInventoryCreatePurchaseController = async (req, res) => {
 
 
 // ==============================
-// ✅ CLINICAL MASTER (OWNER)
+// âœ… CLINICAL MASTER (OWNER)
 // ==============================
 export const ownerClinicalMasterGetAllController = async (req, res) => {
   try {

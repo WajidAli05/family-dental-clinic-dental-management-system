@@ -1,4 +1,4 @@
-import {
+﻿import {
   dentistGetMe,
   dentistUpdateMe,
   dentistChangePassword,
@@ -52,9 +52,9 @@ export const getDentistStats = async (req, res) => {
 
 export const getDentistAppointments = async (req, res) => {
   try {
-    const { date } = req.query;
-    const rows = await dentistGetAppointments(req.user._id, { date });
-    return res.json({ success: true, data: rows });
+    const { date, page, limit, sortBy, sortDir } = req.query;
+    const result = await dentistGetAppointments(req.user._id, { date, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -62,9 +62,9 @@ export const getDentistAppointments = async (req, res) => {
 
 export const getDentistCases = async (req, res) => {
   try {
-    const { status, q } = req.query;
-    const rows = await dentistGetCases(req.user._id, { status, q });
-    return res.json({ success: true, data: rows });
+    const { status, q, page, limit, sortBy, sortDir } = req.query;
+    const result = await dentistGetCases(req.user._id, { status, q, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -80,7 +80,7 @@ export const approveDentistCase = async (req, res) => {
   }
 };
 
-// ✅ PRESCRIPTIONS
+// âœ… PRESCRIPTIONS
 export const createDentistPrescription = async (req, res) => {
   try {
     const created = await dentistCreatePrescription(req.user, req.body);
@@ -101,8 +101,8 @@ export const updateDentistPrescription = async (req, res) => {
 
 export const getDentistPrescriptions = async (req, res) => {
   try {
-    const rows = await dentistGetPrescriptions(req.user, req.query);
-    res.json({ success: true, data: rows });
+    const result = await dentistGetPrescriptions(req.user, req.query);
+    res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }

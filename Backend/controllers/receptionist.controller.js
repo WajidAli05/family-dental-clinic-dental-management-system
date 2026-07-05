@@ -1,4 +1,4 @@
-import {
+﻿import {
   receptionistGetMe,
   receptionistUpdateMe,
   receptionistChangePassword,
@@ -32,7 +32,7 @@ import {
   receptionistUpdateInvoicePayment,
   receptionistDeleteInvoicePayment,
   receptionistCreateInvoice,
-  // ✅ Inventory service functions (IMPORTANT)
+  // âœ… Inventory service functions (IMPORTANT)
   receptionistListInventory,
   receptionistInventoryStats,
   receptionistCreateInventoryItem,
@@ -84,11 +84,9 @@ export const getReceptionistStats = async (req, res) => {
 
 export const getReceptionistLabSamples = async (req, res) => {
   try {
-    const { status, q, date } = req.query;
-    // Use receptionistListLabSamples (supports status/q/date; no forced today scope)
-    // so the page shows all samples, not just today's.
-    const rows = await receptionistListLabSamples(req.user._id, { status, q, date });
-    return res.json({ success: true, data: rows });
+    const { status, q, date, page, limit, sortBy, sortDir } = req.query;
+    const result = await receptionistListLabSamples(req.user._id, { status, q, date, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -144,9 +142,9 @@ export const createReceptionistAppointment = async (req, res) => {
 
 export const getReceptionistPatients = async (req, res) => {
   try {
-    const { q, limit, page } = req.query;
-    const rows = await receptionistGetPatients(req.user._id, { q, limit, page });
-    return res.json({ success: true, data: rows });
+    const { q, limit, page, sortBy, sortDir } = req.query;
+    const result = await receptionistGetPatients(req.user._id, { q, limit, page, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -164,14 +162,9 @@ export const getReceptionistPatientStats = async (req, res) => {
 
 export const getReceptionistAppointments = async (req, res) => {
   try {
-    const { date, dentist, status, q } = req.query;
-    const rows = await receptionistListAppointments(req.user._id, {
-      date,
-      dentist,
-      status,
-      q,
-    });
-    return res.json({ success: true, data: rows });
+    const { date, dentist, status, q, page, limit, sortBy, sortDir } = req.query;
+    const result = await receptionistListAppointments(req.user._id, { date, dentist, status, q, page, limit, sortBy, sortDir });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
@@ -253,8 +246,8 @@ export const getReceptionistSampleTypes = async (req, res) => {
 
 export const listInvoices = async (req, res) => {
   try {
-    const data = await receptionistListInvoices(req.user._id, req.query);
-    res.json({ success: true, data });
+    const result = await receptionistListInvoices(req.user._id, req.query);
+    res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }
@@ -311,7 +304,7 @@ export const deleteInvoicePayment = async (req, res) => {
 };
 
 
-// ✅ optional: create invoice endpoint (for "add via UI")
+// âœ… optional: create invoice endpoint (for "add via UI")
 export const createInvoice = async (req, res) => {
   try {
     const data = await receptionistCreateInvoice(req.user._id, req.body);
@@ -323,8 +316,8 @@ export const createInvoice = async (req, res) => {
 
 export const listInventory = async (req, res) => {
   try {
-    const data = await receptionistListInventory(req.user?.id, req.query);
-    res.json({ success: true, data });
+    const result = await receptionistListInventory(req.user?.id, req.query);
+    res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }

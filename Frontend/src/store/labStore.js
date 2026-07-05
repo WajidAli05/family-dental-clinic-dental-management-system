@@ -35,6 +35,7 @@ export const useLabStore = create((set, get) => ({
 
   stats: { total: 0, inProcess: 0, ready: 0, recent: 0 },
   samples: [],
+  pagination: { total: 0, page: 1, pages: 1 },
 
   fetchStats: async () => {
     try {
@@ -60,7 +61,11 @@ export const useLabStore = create((set, get) => ({
         status: mapBackendStatusToUi(x.status),
       }));
 
-      set({ samples: normalized, loadingSamples: false });
+      set({
+        samples: normalized,
+        pagination: { total: json.total ?? 0, page: json.page ?? 1, pages: json.pages ?? 1 },
+        loadingSamples: false,
+      });
     } catch (e) {
       set({ error: e.message, loadingSamples: false });
     }

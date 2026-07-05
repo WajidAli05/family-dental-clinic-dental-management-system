@@ -6,6 +6,7 @@ export const useInventoryStore = create((set, get) => ({
   loading: false,
   error: null,
   stats: null,
+  pagination: { total: 0, page: 1, pages: 1 },
 
   getStats: () => {
     const items = get().items || [];
@@ -16,14 +17,22 @@ export const useInventoryStore = create((set, get) => ({
     };
   },
 
-  fetchItems: async ({ q, stockFilter } = {}) => {
+  fetchItems: async ({ q, stockFilter, page, limit, sortBy, sortDir } = {}) => {
     try {
       set({ loading: true, error: null });
-      const res = await receptionistInventoryApi.list({
-        q,
-        stockFilter: stockFilter && stockFilter !== "All" ? stockFilter : undefined,
+      const params = {};
+      if (q) params.q = q;
+      if (stockFilter && stockFilter !== "All") params.stockFilter = stockFilter;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      if (sortBy) params.sortBy = sortBy;
+      if (sortDir) params.sortDir = sortDir;
+      const res = await receptionistInventoryApi.list(params);
+      set({
+        items: res.data || [],
+        pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        loading: false,
       });
-      set({ items: res.data || [], loading: false });
       return res.data || [];
     } catch (e) {
       set({ loading: false, error: e.message });

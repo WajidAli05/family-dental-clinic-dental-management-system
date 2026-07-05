@@ -133,15 +133,24 @@ export const useBillingStore = create((set, get) => ({
   error: null,
   stats: null,          // merged stats (invoice + lab)
   labBills: null,       // { month, rows, total }
+  pagination: { total: 0, page: 1, pages: 1 },
 
-  fetchInvoices: async ({ q, status } = {}) => {
+  fetchInvoices: async ({ q, status, page, limit, sortBy, sortDir } = {}) => {
     try {
       set({ loading: true, error: null });
-      const res = await receptionistBillingApi.listInvoices({
-        q,
-        status: status && status !== "All" ? status : undefined,
+      const params = {};
+      if (q) params.q = q;
+      if (status && status !== "All") params.status = status;
+      if (page) params.page = page;
+      if (limit) params.limit = limit;
+      if (sortBy) params.sortBy = sortBy;
+      if (sortDir) params.sortDir = sortDir;
+      const res = await receptionistBillingApi.listInvoices(params);
+      set({
+        invoices: res.data || [],
+        pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        loading: false,
       });
-      set({ invoices: res.data || [], loading: false });
       return res.data || [];
     } catch (e) {
       set({ loading: false, error: e.message });

@@ -8,6 +8,7 @@ import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
+import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -621,15 +622,12 @@ function computeStatus(lastVisitISO) {
 }
 
 // -------------------- PATIENTS LIST --------------------
-export async function receptionistGetPatients(_receptionistId, { q, limit, page } = {}) {
-  const L = Math.min(Math.max(parseInt(limit || "50", 10), 1), 200);
-  const P = Math.max(parseInt(page || "1", 10), 1);
-  const skip = (P - 1) * L;
+export async function receptionistGetPatients(_receptionistId, { q, limit, page, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
   const filter = {};
   const needle = String(q || "").trim();
   if (needle) {
-    // simple text search across common fields
     filter.$or = [
       { name: { $regex: needle, $options: "i" } },
       { phone: { $regex: needle, $options: "i" } },
@@ -638,11 +636,11 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page 
     ];
   }
 
-  const patients = await Patient.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(L)
-    .lean();
+  const sort = buildSort(sb, sd, { createdAt: -1 });
+  const [total, patients] = await Promise.all([
+    Patient.countDocuments(filter),
+    Patient.find(filter).sort(sort).skip(skip).limit(L).lean(),
+  ]);
 
   // Fetch last visit per patient using appointments (fast + accurate)
   const patientIds = patients.map((p) => p._id);
@@ -659,26 +657,21 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page 
     const lastVisitISO = lastVisitMap.get(String(p._id)) || p.lastVisit || null;
 
     return {
-      // ✅ PatientTable expects patient.id
       id: p.publicId || String(p.mr || p._id),
-
       name: p.name || "",
       phone: p.phone || "",
       age: p.age ?? calcAge(p.dob) ?? "",
-
-      // ✅ PatientTable expects lastVisit string
       lastVisit: isoToPretty(lastVisitISO),
-
-      // ✅ PatientTable expects status: "Active" | "Inactive"
       status: computeStatus(lastVisitISO),
-
-      // keep safe extras for future pages (won’t break table)
       mr: p.mr ?? null,
       address: p.address ?? "",
       registrationDate: isoToPretty(p.createdAt || p.registrationDate),
       original: p,
     };
   });
+
+  const pages = Math.max(1, Math.ceil(total / L));
+  return { rows, total, page: P, pages };
 }
 
 // -------------------- PATIENT STATS --------------------
@@ -736,27 +729,23 @@ export async function receptionistGetPatientStats(_receptionistId) {
 
 
 // ✅ List appointments for receptionist UI
-export async function receptionistListAppointments(_receptionistId, { date, dentist, status, q } = {}) {
+export async function receptionistListAppointments(_receptionistId, { date, dentist, status, q, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+
   const filter = {};
-
-  // If no date filter provided, you can default to today+future; keeping it flexible:
-  // filter.date = { $gte: todayISO() };
   if (date) filter.date = String(date);
+  if (status && status !== "All") filter.status = toDbAppointmentStatus(status);
 
-  // Status filtering (UI uses "Completed"/"Cancelled"/"Scheduled")
-  if (status && status !== "All") {
-    filter.status = toDbAppointmentStatus(status);
-  }
+  const sort = buildSort(sb, sd, { date: -1, time: 1 });
 
-  // We'll filter by dentist NAME at the mapping stage (safer if dentist is populated)
   const rows = await Appointment.find(filter)
     .populate("patient", "name publicId mr phone age gender")
     .populate("dentist", "name publicId specialization")
-    .sort({ date: 1, time: 1 })
+    .sort(sort)
     .lean();
 
   let mapped = rows.map((a) => ({
-    id: a.publicId, // ✅ your UI passes this into updateAppointmentStatus
+    id: a.publicId,
     mr: a.patient?.mr ?? null,
     patientId: a.patient?.publicId || "",
     patientName: a.patient?.name || "",
@@ -770,13 +759,11 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     original: a,
   }));
 
-  // Dentist filter by publicId (stable key, case-insensitive)
   if (dentist && dentist !== "All") {
     const dk = String(dentist).toLowerCase();
     mapped = mapped.filter((x) => String(x.dentistId).toLowerCase() === dk);
   }
 
-  // Optional search
   const needle = String(q || "").trim().toLowerCase();
   if (needle) {
     mapped = mapped.filter((x) =>
@@ -786,7 +773,7 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     );
   }
 
-  return mapped;
+  return paginateArray(mapped, P, L);
 }
 
 // ✅ Update status by publicId
@@ -841,10 +828,10 @@ export async function receptionistUpdateAppointmentStatus(_receptionistId, apptP
 
 
 // ---------- LIST ----------
-export async function receptionistListLabSamples(_receptionistId, { status, q, date } = {}) {
-  const filter = {}; // ✅ MUST exist
+export async function receptionistListLabSamples(_receptionistId, { status, q, date, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
-  // ✅ Date filter (your schema does NOT have createdAtISO)
+  const filter = {};
   if (date) {
     const d = String(date);
     filter.createdAt = {
@@ -852,15 +839,16 @@ export async function receptionistListLabSamples(_receptionistId, { status, q, d
       $lt: new Date(`${d}T23:59:59.999Z`),
     };
   }
+  if (status && status !== "All") filter.status = toDbLabStatus(status);
 
-if (status && status !== "All") filter.status = toDbLabStatus(status);
+  const sort = buildSort(sb, sd, { createdAt: -1 });
 
   const rows = await LabCase.find(filter)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId")
     .populate("lab", "name publicId")
     .populate("sampleType", "name publicId")
-    .sort({ createdAt: -1 })
+    .sort(sort)
     .lean();
 
   let mapped = rows.map((c) => mapCase(c));
@@ -874,7 +862,7 @@ if (status && status !== "All") filter.status = toDbLabStatus(status);
     );
   }
 
-  return mapped;
+  return paginateArray(mapped, P, L);
 }
 
 // ---------- CREATE ----------
@@ -1180,26 +1168,23 @@ export async function receptionistCreateInvoice(_user, body) {
 }
 
 // ✅ LIST INVOICES
-export async function receptionistListInvoices(_receptionistId, { q, status } = {}) {
-  const filter = {};
-  // We filter status on the mapped UI side (because status is virtual)
-  // Search will also be applied after mapping.
+export async function receptionistListInvoices(_receptionistId, { q, status, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
-  const rows = await Invoice.find(filter)
+  const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
+
+  const rows = await Invoice.find({})
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")
-    .sort({ date: -1, createdAt: -1 })
+    .sort(sort)
     .lean({ virtuals: true });
 
   let mapped = rows.map(toUiInvoice);
 
-  // status filter
   if (status && status !== "All") {
-    const st = String(status).trim();
-    mapped = mapped.filter((x) => x.status === st);
+    mapped = mapped.filter((x) => x.status === String(status).trim());
   }
 
-  // q filter
   const needle = String(q || "").trim().toLowerCase();
   if (needle) {
     mapped = mapped.filter((x) =>
@@ -1209,7 +1194,7 @@ export async function receptionistListInvoices(_receptionistId, { q, status } = 
     );
   }
 
-  return mapped;
+  return paginateArray(mapped, P, L);
 }
 
 // ✅ BILLING STATS (Invoices + LabBills merged)
@@ -1397,10 +1382,11 @@ const toUiItem = (x) => ({
   original: x,
 });
 
-export async function receptionistListInventory(_receptionistId, { q, stockFilter } = {}) {
+export async function receptionistListInventory(_receptionistId, { q, stockFilter, page, limit, sortBy, sortDir } = {}) {
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+
   const filter = {};
   const needle = String(q || "").trim();
-
   if (needle) {
     filter.$or = [
       { name: { $regex: needle, $options: "i" } },
@@ -1410,11 +1396,11 @@ export async function receptionistListInventory(_receptionistId, { q, stockFilte
     ];
   }
 
-  const rows = await InventoryItem.find(filter).sort({ createdAt: -1 }).lean();
+  const sort = buildSort(sb, sd, { createdAt: -1 });
+  const rows = await InventoryItem.find(filter).sort(sort).lean();
 
   let mapped = rows.map(toUiItem);
 
-  // optional filter like your UI: InStock | Low | Out
   const sf = String(stockFilter || "").trim();
   if (sf && sf !== "All") {
     if (sf === "Out") mapped = mapped.filter((i) => i.stock === 0);
@@ -1422,7 +1408,7 @@ export async function receptionistListInventory(_receptionistId, { q, stockFilte
     if (sf === "InStock") mapped = mapped.filter((i) => i.stock > i.minStock);
   }
 
-  return mapped;
+  return paginateArray(mapped, P, L);
 }
 
 export async function receptionistInventoryStats(_receptionistId) {

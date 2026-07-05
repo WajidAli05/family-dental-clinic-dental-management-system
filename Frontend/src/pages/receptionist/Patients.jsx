@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { usePatientStore } from "@/store/patientStore";
 
 import PatientStats from "@/components/receptionist/PatientStats";
@@ -12,55 +12,44 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Wavify from "react-wavify";
 
+import TablePagination from "@/components/ui/TablePagination";
+import TableSkeleton from "@/components/ui/TableSkeleton";
+import { usePagination } from "@/hooks/usePagination";
+import { useTableSort } from "@/hooks/useTableSort";
+
 const Patients = () => {
   const {
     patients,
     stats,
     loading,
     error,
+    pagination,
     fetchPatients,
     fetchPatientStats,
   } = usePatientStore();
 
-  const [filteredPatients, setFilteredPatients] = useState(patients);
+  const { page, limit, setPage, resetPage } = usePagination(50);
+  const { sortBy, sortDir } = useTableSort("registrationDate", "desc");
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  useEffect(() => {
-    // initial load
-    (async () => {
-      if (typeof fetchPatients === "function") await fetchPatients();
-      if (typeof fetchPatientStats === "function") await fetchPatientStats();
-    })();
-  }, [fetchPatients, fetchPatientStats]);
-
-  useEffect(() => {
-    setFilteredPatients(patients);
-  }, [patients]);
-
-  const handleSearch = async (query) => {
-    // Server-side search for accuracy
+  const load = useCallback(() => {
     if (typeof fetchPatients === "function") {
-      const rows = await fetchPatients({ q: query });
-      setFilteredPatients(rows);
-      return;
+      fetchPatients({ q: searchQuery, page, limit, sortBy, sortDir });
     }
+  }, [fetchPatients, searchQuery, page, limit, sortBy, sortDir]);
 
-    // fallback to local filter if fetch not present
-    const q = String(query || "").toLowerCase();
-    setFilteredPatients(
-      !q
-        ? patients
-        : patients.filter(
-            (p) =>
-              String(p.name || "").toLowerCase().includes(q) ||
-              String(p.phone || "").toLowerCase().includes(q) ||
-              String(p.address || "").toLowerCase().includes(q)
-          )
-    );
+  useEffect(() => {
+    load();
+    if (typeof fetchPatientStats === "function") fetchPatientStats();
+  }, [load, fetchPatientStats]);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    resetPage();
   };
-
-  const handleAddPatient = () => setIsModalOpen(true);
 
   return (
     <div className="w-full space-y-8">
@@ -78,25 +67,12 @@ const Patients = () => {
         </div>
       </div>
 
-      {/* Errors / Loading */}
       {error ? (
-        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">
-          {error}
-        </div>
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-xl bg-white p-3 text-sm text-gray-600">
-          Loading patients...
-        </div>
-      ) : null}
-
-      {/* Stats */}
-      {/* ✅ keep patients prop (won't break existing component),
-          also pass stats for accurate display if your component supports it */}
       <PatientStats patients={patients} stats={stats} />
 
-      {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
           <div className="flex justify-between items-center">
@@ -104,7 +80,7 @@ const Patients = () => {
             <div className="flex gap-3 items-center">
               <PatientSearch onSearch={handleSearch} />
               <Button
-                onClick={handleAddPatient}
+                onClick={() => setIsModalOpen(true)}
                 className="bg-[#2ec4b6] hover:bg-[#26a699] text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -113,22 +89,30 @@ const Patients = () => {
             </div>
           </div>
 
-          <PatientTable
-            patients={filteredPatients || []}
-            onEdit={(patient) => setEditingPatient(patient)}
+          {loading ? (
+            <TableSkeleton rows={8} cols={5} />
+          ) : (
+            <PatientTable
+              patients={patients || []}
+              onEdit={(patient) => setEditingPatient(patient)}
+            />
+          )}
+
+          <TablePagination
+            page={pagination?.page ?? page}
+            pages={pagination?.pages ?? 1}
+            total={pagination?.total ?? 0}
+            limit={limit}
+            onPage={setPage}
           />
         </CardContent>
       </Card>
 
-      {/* Add Patient Modal */}
       <AddPatientModal open={isModalOpen} onOpenChange={setIsModalOpen} />
 
-      {/* Edit Patient Modal */}
       <EditPatientModal
         open={!!editingPatient}
-        onOpenChange={(open) => {
-          if (!open) setEditingPatient(null);
-        }}
+        onOpenChange={(open) => { if (!open) setEditingPatient(null); }}
         patient={editingPatient}
       />
     </div>
