@@ -1,5 +1,6 @@
 ﻿// Backend/controllers/owner.controller.js
 import {
+  ownerDashboardOverview,
   ownerListAppointments,
   ownerPatientsList,
   ownerPatientProfile,
@@ -63,6 +64,17 @@ import {
   ownerSettingsChangePassword,
 } from "../services/owner.service.js";
 
+// Dashboard overview
+export const ownerGetDashboardOverview = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const data = await ownerDashboardOverview(req.user?._id, { date });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 export const getOwnerAppointments = async (req, res) => {
   try {
     const { dateFrom, dateTo, dentistId, status, q, page, limit, sortBy, sortDir } = req.query;
@@ -76,9 +88,16 @@ export const getOwnerAppointments = async (req, res) => {
 // Patients
 export const ownerListPatients = async (req, res) => {
   try {
-    const { page, limit, sortBy, sortDir } = req.query;
-    const result = await ownerPatientsList(req.user?._id, { page, limit, sortBy, sortDir });
-    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+    const { page, limit, sortBy, sortDir, q, status } = req.query;
+    const result = await ownerPatientsList(req.user?._id, { page, limit, sortBy, sortDir, q, status });
+    return res.json({
+      success: true,
+      data: result.rows,
+      total: result.total,
+      page: result.page,
+      pages: result.pages,
+      stats: result.dbStats,
+    });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }

@@ -17,6 +17,7 @@ import CommissionRuleModal from "@/components/owner/CommissionRuleModal";
 
 import { exportOwnerBillingPdf } from "@/utils/ownerBillingReports";
 import { useOwnerBillingStore } from "@/store/ownerBillingStore";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
 
@@ -235,18 +236,22 @@ const OwnerBilling = () => {
       {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6">
-          {activeTab === "cashbook" ? <DailyCashbookTable data={cashbookRows} /> : null}
-          {activeTab === "revenue" ? <RevenueReportsTable data={revenueRows} /> : null}
-          {activeTab === "commissions" ? (
-            <CommissionsTable
-              data={commissionRows}
-              onEditRule={(row) => {
-                const d = (dentists || []).find((x) => String(x.id) === String(row.dentistId));
-                openCommissionRuleModal(d || { id: row.dentistId, name: row.dentistName });
-              }}
-            />
-          ) : null}
-          {activeTab === "labDues" ? <LabDuesTable data={labDuesRows} /> : null}
+          {loading ? <TableSkeleton rows={8} cols={5} /> : (
+            <>
+              {activeTab === "cashbook" ? <DailyCashbookTable data={cashbookRows} /> : null}
+              {activeTab === "revenue" ? <RevenueReportsTable data={revenueRows} /> : null}
+              {activeTab === "commissions" ? (
+                <CommissionsTable
+                  data={commissionRows}
+                  onEditRule={(row) => {
+                    const d = (dentists || []).find((x) => String(x.id) === String(row.dentistId));
+                    openCommissionRuleModal(d || { id: row.dentistId, name: row.dentistName });
+                  }}
+                />
+              ) : null}
+              {activeTab === "labDues" ? <LabDuesTable data={labDuesRows} /> : null}
+            </>
+          )}
         </CardContent>
       </Card>
 

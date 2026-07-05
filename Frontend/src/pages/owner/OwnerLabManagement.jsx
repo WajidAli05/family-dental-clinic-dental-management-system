@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 import OwnerLabTabs from "@/components/owner/OwnerLabTabs";
 import OwnerLabFilters from "@/components/owner/OwnerLabFilters";
@@ -33,6 +34,7 @@ const OwnerLabManagement = () => {
   const labAccounts = useOwnerLabManagementStore((s) => s.labAccounts);
   const sampleTypes = useOwnerLabManagementStore((s) => s.sampleTypes);
   const labCases = useOwnerLabManagementStore((s) => s.labCases);
+  const loading = useOwnerLabManagementStore((s) => s.loading);
 
   // ✅ dentists fetched by this module from backend (preferred for cases filtering)
   const dentistsFromOwnerStore = useOwnerLabManagementStore((s) => s.dentists);
@@ -174,33 +176,37 @@ const OwnerLabManagement = () => {
             </p>
           </div>
 
-          {activeTab === "accounts" ? (
-            <LabAccountsTable
-              data={accountsData}
-              onEdit={(a) => openEdit("labAccount", a)}
-              onToggle={(a) => setLabAccountEnabled(a.id, !a.enabled)}
-            />
-          ) : null}
+          {loading ? <TableSkeleton rows={6} cols={5} /> : (
+            <>
+              {activeTab === "accounts" ? (
+                <LabAccountsTable
+                  data={accountsData}
+                  onEdit={(a) => openEdit("labAccount", a)}
+                  onToggle={(a) => setLabAccountEnabled(a.id, !a.enabled)}
+                />
+              ) : null}
 
-          {activeTab === "cases" ? (
-            <LabCasesTable data={casesData} onView={(c) => openDetails(c)} />
-          ) : null}
+              {activeTab === "cases" ? (
+                <LabCasesTable data={casesData} onView={(c) => openDetails(c)} />
+              ) : null}
 
-          {activeTab === "sampleTypes" ? (
-            <SampleTypesTable
-              data={sampleTypesData}
-              onEdit={(s) => openEdit("sampleType", s)}
-              onToggle={(s) => setSampleTypeActive(s.id, !s.active)}
-              onDelete={(s) =>
-                openConfirm({
-                  title: "Delete Sample Type",
-                  message: `This will permanently delete "${s.name}".`,
-                  onConfirmKey: "deleteSampleType",
-                  onConfirmPayload: s.id,
-                })
-              }
-            />
-          ) : null}
+              {activeTab === "sampleTypes" ? (
+                <SampleTypesTable
+                  data={sampleTypesData}
+                  onEdit={(s) => openEdit("sampleType", s)}
+                  onToggle={(s) => setSampleTypeActive(s.id, !s.active)}
+                  onDelete={(s) =>
+                    openConfirm({
+                      title: "Delete Sample Type",
+                      message: `This will permanently delete "${s.name}".`,
+                      onConfirmKey: "deleteSampleType",
+                      onConfirmPayload: s.id,
+                    })
+                  }
+                />
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
 

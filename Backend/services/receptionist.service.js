@@ -653,7 +653,7 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
 
   const lastVisitMap = new Map(lastVisits.map((x) => [String(x._id), x.lastVisit]));
 
-  return patients.map((p) => {
+  const rows = patients.map((p) => {
     const lastVisitISO = lastVisitMap.get(String(p._id)) || p.lastVisit || null;
 
     return {

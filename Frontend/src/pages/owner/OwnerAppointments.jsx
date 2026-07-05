@@ -7,6 +7,7 @@ import { useOwnerAppointmentsStore } from "@/store/ownerAppointmentsStore";
 import OwnerAppointmentsTable from "@/components/owner/OwnerAppointmentsTable";
 import AppointmentDetailsModal from "@/components/owner/AppointmentDetailsModal";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 const filterAppointments = (appointments, filters) => {
   const { dateFrom, dateTo, dentistId, status, query } = filters;
@@ -40,6 +41,8 @@ const OwnerAppointments = () => {
 
   const filters = useOwnerAppointmentsStore((s) => s.filters);
   const appointments = useOwnerAppointmentsStore((s) => s.appointments);
+  const loading = useOwnerAppointmentsStore((s) => s.loading);
+  const error = useOwnerAppointmentsStore((s) => s.error);
 
   const setFilter = useOwnerAppointmentsStore((s) => s.setFilter);
   const resetFilters = useOwnerAppointmentsStore((s) => s.resetFilters);
@@ -143,8 +146,13 @@ const OwnerAppointments = () => {
             </p>
           </div>
 
+          {error ? (
+            <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm mb-3">{error}</div>
+          ) : null}
           <div className="mt-4">
-            <OwnerAppointmentsTable data={data} onView={openDetails} />
+            {loading ? <TableSkeleton rows={8} cols={6} /> : (
+              <OwnerAppointmentsTable data={data} onView={openDetails} />
+            )}
           </div>
         </CardContent>
       </Card>

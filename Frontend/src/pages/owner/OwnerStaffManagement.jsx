@@ -14,6 +14,7 @@ import StaffAccountModal from "@/components/owner/StaffAccountModal";
 import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 
 import { useOwnerStaffStore } from "@/store/ownerStaffStore";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 const OwnerStaffManagement = () => {
   const activeTab = useOwnerStaffStore((s) => s.activeTab);
@@ -24,6 +25,7 @@ const OwnerStaffManagement = () => {
   const resetFilters = useOwnerStaffStore((s) => s.resetFilters);
 
   const staff = useOwnerStaffStore((s) => s.staff);
+  const loadingStaff = useOwnerStaffStore((s) => s.loadingStaff);
 
   const permissions = useOwnerStaffStore((s) => s.permissions);
   const permissionsDirty = useOwnerStaffStore((s) => s.permissionsDirty);
@@ -105,19 +107,21 @@ const OwnerStaffManagement = () => {
 
           <Card className="rounded-2xl">
             <CardContent className="p-6">
-              <StaffDirectoryTable
-                data={staffData}
-                onEdit={openEdit}
-                onToggle={(s) => toggleAccountEnabled(s.id)}
-                onDelete={(s) =>
-                  openConfirm({
-                    title: "Delete Staff Account",
-                    message: `This will permanently delete "${s.name}".`,
-                    onConfirmKey: "deleteStaff",
-                    onConfirmPayload: s.id,
-                  })
-                }
-              />
+              {loadingStaff ? <TableSkeleton rows={6} cols={5} /> : (
+                <StaffDirectoryTable
+                  data={staffData}
+                  onEdit={openEdit}
+                  onToggle={(s) => toggleAccountEnabled(s.id)}
+                  onDelete={(s) =>
+                    openConfirm({
+                      title: "Delete Staff Account",
+                      message: `This will permanently delete "${s.name}".`,
+                      onConfirmKey: "deleteStaff",
+                      onConfirmPayload: s.id,
+                    })
+                  }
+                />
+              )}
             </CardContent>
           </Card>
         </>

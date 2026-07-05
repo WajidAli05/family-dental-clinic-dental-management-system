@@ -400,16 +400,46 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
 // ----------------------------
 // ✅ OWNER PATIENTS LIST
 // ----------------------------
-export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir } = {}) {
+export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir, q, status } = {}) {
   const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const sort = buildSort(sb, sd, { createdAt: -1 });
 
-  const [total, patients] = await Promise.all([
-    Patient.countDocuments({}),
-    Patient.find({}).populate("primaryDentist", "name publicId role").sort(sort).skip(skip).limit(L).lean(),
+  // Build filter (q and status come from client search/filter)
+  const filter = {};
+  const qStr = normalize(q);
+  if (qStr) {
+    filter.$or = [
+      { name: { $regex: qStr, $options: "i" } },
+      { phone: { $regex: qStr, $options: "i" } },
+      { publicId: { $regex: qStr, $options: "i" } },
+      { city: { $regex: qStr, $options: "i" } },
+    ];
+  }
+  const statusStr = normalize(status);
+  if (statusStr && statusStr !== "all") filter.status = statusStr;
+
+  // DB-level aggregate stats always run on the full collection (no filter)
+  // so stat cards reflect clinic totals, not the current search subset.
+  const [total, globalActive, globalTotal, pendingLabsCount, revenueAgg, patients] = await Promise.all([
+    Patient.countDocuments(filter),                                               // pagination total
+    Patient.countDocuments({ status: "active" }),                                 // card: active
+    Patient.countDocuments({}),                                                   // card: all
+    LabCase.countDocuments({ status: { $in: ["sent", "received", "in_progress", "ready"] } }),
+    Invoice.aggregate([{ $group: { _id: null, total: { $sum: "$totalAmount" } } }]),
+    Patient.find(filter).populate("primaryDentist", "name publicId role").sort(sort).skip(skip).limit(L).lean(),
   ]);
 
-  if (!patients.length) return { rows: [], total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+  const dbStats = {
+    total: globalTotal,
+    active: globalActive,
+    inactive: globalTotal - globalActive,
+    pendingLabs: pendingLabsCount,
+    revenue: money(revenueAgg?.[0]?.total || 0),
+  };
+
+  if (!patients.length) {
+    return { rows: [], total, page: P, pages: Math.max(1, Math.ceil(total / L)), dbStats };
+  }
 
   const patientIds = patients.map((p) => p._id);
 
@@ -440,7 +470,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
     ])
   );
 
-  return patients.map((p) => {
+  const mapped = patients.map((p) => {
     const inv = invoiceMap.get(String(p._id)) || { totalSpent: 0, lastInvoiceAmount: 0 };
     return {
       id: p.publicId,
@@ -460,7 +490,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
     };
   });
 
-  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)), dbStats };
 }
 
 // ----------------------------
@@ -1702,4 +1732,44 @@ export async function ownerSettingsChangePassword(ownerId, payload = {}) {
   await u.save();
 
   return { message: "Password updated" };
+}
+
+// ----------------------------
+// ✅ OWNER DASHBOARD OVERVIEW
+// ----------------------------
+export async function ownerDashboardOverview(_ownerId, { date } = {}) {
+  const d = new Date();
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const today = date || `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const firstOfMonth = `${today.slice(0, 7)}-01`;
+
+  const [activePatients, pendingLabSamples, revToday, revMonth, apptAgg] = await Promise.all([
+    Patient.countDocuments({ status: "active" }),
+    LabCase.countDocuments({ status: { $in: ["sent", "received", "in_progress", "ready"] } }),
+    revenueCollected(today, today),
+    revenueCollected(firstOfMonth, today),
+    Appointment.aggregate([
+      { $match: { date: today } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const apptMap = {};
+  for (const x of apptAgg) apptMap[String(x._id || "")] = Number(x.count || 0);
+
+  return {
+    stats: {
+      activePatients,
+      pendingLabSamples,
+      revenueToday: revToday,
+      revenueThisMonth: revMonth,
+    },
+    appointmentsSummary: {
+      total: Object.values(apptMap).reduce((s, n) => s + n, 0),
+      scheduled: apptMap["scheduled"] || 0,
+      checkedIn: apptMap["checked_in"] || 0,
+      completed: apptMap["completed"] || 0,
+      cancelled: apptMap["cancelled"] || 0,
+    },
+  };
 }

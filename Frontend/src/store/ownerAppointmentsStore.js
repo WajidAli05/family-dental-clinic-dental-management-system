@@ -73,12 +73,8 @@ export const useOwnerAppointmentsStore = create((set, get) => ({
       });
       return res?.data || [];
     } catch (e) {
-      // fallback demo so owner UI still renders during dev
-      set({
-        appointments: get().seedDemoAppointments(),
-        loading: false,
-        error: e?.message || "Failed to load appointments",
-      });
+      console.error("[ownerAppointmentsStore] fetchAppointments failed:", e);
+      set({ appointments: [], loading: false, error: e?.message || "Failed to load appointments" });
       return [];
     }
   },

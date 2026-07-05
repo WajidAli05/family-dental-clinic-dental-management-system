@@ -28,22 +28,6 @@ export const useOwnerDashboardStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  seedDemoData: () => ({
-    stats: {
-      activePatients: 284,
-      pendingLabSamples: 12,
-      revenueToday: 18500,
-      revenueThisMonth: 342000,
-    },
-    appointmentsSummary: {
-      total: 18,
-      scheduled: 9,
-      checkedIn: 3,
-      completed: 5,
-      cancelled: 1,
-    },
-  }),
-
   fetchOverview: async (params = {}) => {
     try {
       set({ loading: true, error: null });
@@ -59,11 +43,8 @@ export const useOwnerDashboardStore = create((set, get) => ({
 
       return res?.data;
     } catch (e) {
-      // fallback demo so UI still looks fine during dev
-      const demo = get().seedDemoData();
+      console.error("[ownerDashboardStore] fetchOverview failed:", e);
       set({
-        stats: demo.stats,
-        appointmentsSummary: demo.appointmentsSummary,
         loading: false,
         error: e.message || "Failed to load overview",
       });

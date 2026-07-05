@@ -16,6 +16,7 @@ export const useOwnerPatientsStore = create((set, get) => ({
   loading: false,
   error: null,
   pagination: { total: 0, page: 1, pages: 1 },
+  dbStats: { total: 0, active: 0, inactive: 0, pendingLabs: 0, revenue: 0 },
 
   filters: { ...defaultFilters },
 
@@ -168,15 +169,12 @@ export const useOwnerPatientsStore = create((set, get) => ({
       set({
         patients: res.data || [],
         pagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+        dbStats: res.stats ?? get().dbStats,
         loading: false,
       });
     } catch (e) {
-      // fallback to demo so UI doesn't go blank
-      set((state) => ({
-        patients: state.patients?.length ? state.patients : state.seedDemoPatients(),
-        loading: false,
-        error: e.message,
-      }));
+      console.error("[ownerPatientsStore] fetchPatients failed:", e);
+      set({ patients: [], loading: false, error: e.message });
     }
   },
 

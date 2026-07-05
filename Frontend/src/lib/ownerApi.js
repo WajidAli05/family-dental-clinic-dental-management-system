@@ -38,11 +38,14 @@ export const ownerApi = {
   // ✅ Existing Owner APIs (UNCHANGED)
   // =====================================================
 
+  // dashboard overview
+  getDashboardOverview: (params) => request("/owner/dashboard", { params }),
+
   // appointments
   getAppointments: (params) => request("/owner/appointments", { params }),
 
   // patients
-  listPatients: () => request("/owner/patients"),
+  listPatients: (params) => request("/owner/patients", { params }),
   getPatientProfile: (patientId) => request(`/owner/patients/${patientId}/profile`),
   deletePatient: (patientId) => request(`/owner/patients/${patientId}`, { method: "DELETE" }),
 

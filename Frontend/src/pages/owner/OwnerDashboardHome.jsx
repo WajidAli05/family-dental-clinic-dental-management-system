@@ -3,6 +3,7 @@ import Wave from "react-wavify";
 import { useOwnerDashboardStore } from "@/store/ownerDashboardStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import AppointmentsSummaryCard from "@/components/owner/AppointmentsSummaryCard";
+import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
 import { Users, FlaskConical, Banknote, Calendar } from "lucide-react";
 
 const formatPKR = (n) =>
@@ -43,33 +44,39 @@ const OwnerDashboardHome = () => {
         />
       </div>
 
+      {error ? (
+        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
+      ) : null}
+
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <OwnerStatCard
-          title="Active Patients"
-          value={stats.activePatients}
-          icon={Users}
-          subtitle="Total active in system"
-        />
-        <OwnerStatCard
-          title="Pending Lab Samples"
-          value={stats.pendingLabSamples}
-          icon={FlaskConical}
-          subtitle="Across all dentists"
-        />
-        <OwnerStatCard
-          title="Revenue Today"
-          value={formatPKR(stats.revenueToday)}
-          icon={Banknote}
-          subtitle="Collected today"
-        />
-        <OwnerStatCard
-          title="Revenue This Month"
-          value={formatPKR(stats.revenueThisMonth)}
-          icon={Calendar}
-          subtitle="Month-to-date"
-        />
-      </div>
+      {loading ? <StatCardSkeleton /> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <OwnerStatCard
+            title="Active Patients"
+            value={stats.activePatients}
+            icon={Users}
+            subtitle="Total active in system"
+          />
+          <OwnerStatCard
+            title="Pending Lab Samples"
+            value={stats.pendingLabSamples}
+            icon={FlaskConical}
+            subtitle="Across all dentists"
+          />
+          <OwnerStatCard
+            title="Revenue Today"
+            value={formatPKR(stats.revenueToday)}
+            icon={Banknote}
+            subtitle="Collected today"
+          />
+          <OwnerStatCard
+            title="Revenue This Month"
+            value={formatPKR(stats.revenueThisMonth)}
+            icon={Calendar}
+            subtitle="Month-to-date"
+          />
+        </div>
+      )}
 
       {/* Appointments summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

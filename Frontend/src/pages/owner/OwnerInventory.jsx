@@ -13,6 +13,7 @@ import EditItemModal from "@/components/owner/inventory/EditItemModal";
 import DeleteConfirmDialog from "@/components/owner/inventory/DeleteConfirmDialog";
 
 import { useOwnerInventoryStore } from "@/store/ownerInventoryStore";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 const OwnerInventory = () => {
   const setActiveTab = useOwnerInventoryStore((s) => s.setActiveTab);
@@ -24,6 +25,7 @@ const OwnerInventory = () => {
 
   const items = useOwnerInventoryStore((s) => s.items);
   const suppliers = useOwnerInventoryStore((s) => s.suppliers);
+  const loading = useOwnerInventoryStore((s) => s.loading);
 
   const openStockModal = useOwnerInventoryStore((s) => s.openStockModal);
   const closeStockModal = useOwnerInventoryStore((s) => s.closeStockModal);
@@ -135,18 +137,20 @@ const OwnerInventory = () => {
 
       <Card className="rounded-2xl">
         <CardContent className="p-6">
-          <InventoryItemsTable
-            data={itemsData}
-            onUpdateStock={(item) => openStockModal(item)}
-            onEdit={(item) => {
-              setEditItemRow(item);
-              setEditOpen(true);
-            }}
-            onDelete={(item) => {
-              setDeleteRow(item);
-              setDeleteOpen(true);
-            }}
-          />
+          {loading ? <TableSkeleton rows={8} cols={6} /> : (
+            <InventoryItemsTable
+              data={itemsData}
+              onUpdateStock={(item) => openStockModal(item)}
+              onEdit={(item) => {
+                setEditItemRow(item);
+                setEditOpen(true);
+              }}
+              onDelete={(item) => {
+                setDeleteRow(item);
+                setDeleteOpen(true);
+              }}
+            />
+          )}
         </CardContent>
       </Card>
 

@@ -1,6 +1,7 @@
 // Backend/routes/v1/owner.routes.js
 import express from "express";
 import {
+  ownerGetDashboardOverview,
   getOwnerAppointments,
 
   ownerListPatients,
@@ -68,6 +69,9 @@ import {
 } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
+
+// Dashboard overview
+router.get("/dashboard", ownerGetDashboardOverview);
 
 // Appointments
 router.get("/appointments", getOwnerAppointments);

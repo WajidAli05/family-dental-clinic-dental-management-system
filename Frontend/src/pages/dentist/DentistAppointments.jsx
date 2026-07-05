@@ -181,6 +181,7 @@ import { useEffect, useMemo, useState } from "react";
 import Wavify from "react-wavify";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import TableSkeleton from "@/components/ui/TableSkeleton";
 
 import AppointmentsTable from "@/components/dentist/AppointmentsTable";
 import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal";
@@ -365,20 +366,20 @@ const DentistAppointments = () => {
             </button>
           </div>
 
-          {!loading && tableRows.length > 0 ? (
+          {loading ? (
+            <TableSkeleton rows={8} cols={5} />
+          ) : tableRows.length > 0 ? (
             <AppointmentsTable
               data={tableRows}
               onStartPrescription={handleStartPrescription}
               onPrintPrescription={handlePrintFromTable}
             />
-          ) : !loading ? (
+          ) : (
             <p className="text-gray-500 text-sm">
               {showTodayOnly
                 ? "No appointments scheduled for today."
                 : "No appointments found."}
             </p>
-          ) : (
-            <p className="text-gray-500 text-sm">Loading...</p>
           )}
         </CardContent>
       </Card>
