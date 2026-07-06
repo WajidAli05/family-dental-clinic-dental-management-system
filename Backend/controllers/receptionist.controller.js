@@ -40,6 +40,8 @@
   receptionistDeleteInventoryItem,
 } from "../services/receptionist.service.js";
 
+import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+
 export const getReceptionistMe = async (req, res) => {
   try {
     const me = await receptionistGetMe(req.user._id);
@@ -360,5 +362,26 @@ export const deleteInventoryItem = async (req, res) => {
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// ── Catalog (read-only price catalog for receptionist) ──
+export const getCatalogTreatments = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await getActiveTreatments({ page, limit });
+    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const getCatalogSampleTypes = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await getActiveSampleTypes({ page, limit });
+    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
   }
 };

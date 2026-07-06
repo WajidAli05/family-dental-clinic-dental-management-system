@@ -7,6 +7,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { BadgeDollarSign } from "lucide-react";
 
 import { VISUAL_STATUS_OPTIONS } from "./options";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
@@ -55,6 +56,14 @@ const PrescriptionForm = () => {
       .filter(Boolean);
   }, [treatments]);
 
+  const selectedTreatmentFee = useMemo(() => {
+    if (!treatment) return null;
+    const found = (treatments || []).find(
+      (t) => String(t?.name || "").trim() === treatment
+    );
+    return found?.fee > 0 ? Number(found.fee) : null;
+  }, [treatment, treatments]);
+
   const CLINICAL_FINDINGS = useMemo(() => {
     return (clinicalFindingTemplates || [])
       .filter((c) => c?.active !== false)
@@ -91,28 +100,36 @@ const PrescriptionForm = () => {
       </Select>
 
       {/* Treatment */}
-      <Select value={treatment} onValueChange={setTreatment}>
-        <SelectTrigger>
-          <SelectValue
-            placeholder={
-              showLoadingLabel ? "Loading treatments..." : "Select Treatment"
-            }
-          />
-        </SelectTrigger>
-        <SelectContent>
-          {TREATMENT_OPTIONS.length > 0 ? (
-            TREATMENT_OPTIONS.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))
-          ) : (
-            <div className="px-3 py-2 text-sm text-gray-500">
-              {cmError ? "Failed to load treatments" : "No treatments available"}
-            </div>
-          )}
-        </SelectContent>
-      </Select>
+      <div className="space-y-1">
+        <Select value={treatment} onValueChange={setTreatment}>
+          <SelectTrigger>
+            <SelectValue
+              placeholder={
+                showLoadingLabel ? "Loading treatments..." : "Select Treatment"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {TREATMENT_OPTIONS.length > 0 ? (
+              TREATMENT_OPTIONS.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="px-3 py-2 text-sm text-gray-500">
+                {cmError ? "Failed to load treatments" : "No treatments available"}
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+        {selectedTreatmentFee !== null && (
+          <p className="flex items-center gap-1 text-xs text-teal-600 font-medium pl-1">
+            <BadgeDollarSign className="w-3.5 h-3.5" />
+            Fee: PKR {selectedTreatmentFee.toLocaleString("en-PK")}
+          </p>
+        )}
+      </div>
 
       {/* Clinical Findings */}
       <Select value={clinicalFinding} onValueChange={setClinicalFinding}>

@@ -13,6 +13,8 @@
   dentistGetClinicalMaster
 } from "../services/dentist.service.js";
 
+import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+
 export const getDentistMe = async (req, res) => {
   try {
     const me = await dentistGetMe(req.user._id);
@@ -121,6 +123,27 @@ export const getDentistClinicalMaster = async (req, res) => {
   try {
     const data = await dentistGetClinicalMaster();
     res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// ── Catalog (read-only price catalog for dentist) ──
+export const getCatalogTreatments = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await getActiveTreatments({ page, limit });
+    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const getCatalogSampleTypes = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await getActiveSampleTypes({ page, limit });
+    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

@@ -339,10 +339,21 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
                     {(sampleTypes || []).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
+                        {t.price > 0
+                          ? ` — PKR ${Number(t.price).toLocaleString("en-PK")}`
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {sample.sampleTypeId && (() => {
+                  const st = sampleTypes.find((t) => t.id === sample.sampleTypeId);
+                  return st?.price > 0 ? (
+                    <p className="text-xs text-purple-600 font-medium pt-0.5">
+                      Price: PKR {Number(st.price).toLocaleString("en-PK")}
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div>

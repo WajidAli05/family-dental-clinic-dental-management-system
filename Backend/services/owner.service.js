@@ -1670,6 +1670,7 @@ export async function ownerSettingsGet(_ownerId) {
   await ensureClinicSettingsDoc();
   const doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
   const clinic = doc?.clinic || {};
+  const billing = doc?.billing || {};
 
   return {
     clinic: {
@@ -1679,32 +1680,51 @@ export async function ownerSettingsGet(_ownerId) {
       whatsapp: clinic.whatsapp || "",
       address: clinic.address || "",
     },
+    billing: {
+      defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
+    },
   };
 }
 
 export async function ownerSettingsUpdate(_ownerId, payload = {}) {
   const doc = await ensureClinicSettingsDoc();
 
-  const next = sanitizeClinicPayload(payload);
+  // Update clinic block only when clinic data is present in payload
+  const hasClinicData = payload?.clinic !== undefined || typeof payload?.name !== "undefined";
 
-  if (!next.name) throw new Error("Clinic name is required");
+  if (hasClinicData) {
+    const next = sanitizeClinicPayload(payload);
+    if (!next.name) throw new Error("Clinic name is required");
+    doc.clinic = {
+      ...(doc.clinic || {}),
+      ...next,
+    };
+    if (doc.clinic && "timings" in doc.clinic) {
+      delete doc.clinic.timings;
+    }
+  } else if (payload?.billing === undefined) {
+    // Legacy flat payload with no explicit clinic or billing key — treat as clinic update
+    const next = sanitizeClinicPayload(payload);
+    if (!next.name) throw new Error("Clinic name is required");
+    doc.clinic = {
+      ...(doc.clinic || {}),
+      ...next,
+    };
+    if (doc.clinic && "timings" in doc.clinic) {
+      delete doc.clinic.timings;
+    }
+  }
 
-  // ✅ Update clinic safely
-  doc.clinic = {
-    ...(doc.clinic || {}),
-    ...next,
-  };
-
-  // ✅ If an old document still has timings inside clinic from previous schema,
-  // delete it so it never causes issues in mixed deployments.
-  if (doc.clinic && "timings" in doc.clinic) {
-    delete doc.clinic.timings;
+  // Update billing block if provided
+  if (typeof payload?.billing?.defaultConsultationFee !== "undefined") {
+    doc.set("billing.defaultConsultationFee", Math.max(0, Number(payload.billing.defaultConsultationFee) || 0));
   }
 
   await doc.save();
 
   const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
   const clinic = saved?.clinic || {};
+  const billing = saved?.billing || {};
 
   return {
     clinic: {
@@ -1713,6 +1733,9 @@ export async function ownerSettingsUpdate(_ownerId, payload = {}) {
       phone: clinic.phone || "",
       whatsapp: clinic.whatsapp || "",
       address: clinic.address || "",
+    },
+    billing: {
+      defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
     },
   };
 }

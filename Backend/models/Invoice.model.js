@@ -13,6 +13,22 @@ const paymentSchema = new Schema(
   { _id: false }
 );
 
+const itemSchema = new Schema(
+  {
+    kind: {
+      type: String,
+      enum: ["consultation", "treatment", "lab_sample"],
+      required: true,
+    },
+    refId: { type: String, default: "" }, // treatment id / sampleType publicId, "" for consultation
+    name: { type: String, required: true }, // price-snapshot name
+    unitPrice: { type: Number, min: 0, required: true },
+    qty: { type: Number, min: 1, default: 1 },
+    lineTotal: { type: Number, min: 0, required: true },
+  },
+  { _id: false }
+);
+
 const invoiceSchema = new Schema(
   {
     publicId: { type: String, required: true, unique: true, index: true }, // "INV-1001"
@@ -22,6 +38,8 @@ const invoiceSchema = new Schema(
 
     date: { type: String, required: true, index: true },
     totalAmount: { type: Number, min: 0, required: true },
+
+    items: { type: [itemSchema], default: [] }, // optional; when present, totalAmount MUST be server-computed
 
     payments: { type: [paymentSchema], default: [] },
   },

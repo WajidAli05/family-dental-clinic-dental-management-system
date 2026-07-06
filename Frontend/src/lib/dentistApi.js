@@ -157,5 +157,16 @@ export const dentistApi = {
   getPrescriptionById: (id) => req(`/prescriptions/${id}`),
 
   getClinicalMaster: () =>
-  req("/clinical-master"),
+    req("/clinical-master"),
+
+  // ── Price catalog (read-only) ──
+  getCatalogTreatments: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req(`/catalog/treatments${qs ? `?${qs}` : ""}`);
+  },
+
+  getCatalogSampleTypes: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req(`/catalog/sample-types${qs ? `?${qs}` : ""}`);
+  },
 };

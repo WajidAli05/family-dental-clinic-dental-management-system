@@ -11,7 +11,9 @@ import {
   updateDentistPrescription,
   getDentistPrescriptions,
   getDentistPrescriptionById,
-  getDentistClinicalMaster
+  getDentistClinicalMaster,
+  getCatalogTreatments,
+  getCatalogSampleTypes,
 } from "../../controllers/dentist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
@@ -40,5 +42,9 @@ router.post("/prescriptions", requirePermission("tab_dentist_appointments"), cre
 router.get("/prescriptions", requirePermission("tab_dentist_appointments"), getDentistPrescriptions);
 router.get("/prescriptions/:id", requirePermission("tab_dentist_appointments"), getDentistPrescriptionById);
 router.patch("/prescriptions/:id", requirePermission("tab_dentist_appointments"), updateDentistPrescription);
+
+// price catalog (read-only — dentist sees prices when choosing treatments / lab samples)
+router.get("/catalog/treatments", requirePermission("tab_dentist_appointments"), getCatalogTreatments);
+router.get("/catalog/sample-types", requirePermission("tab_dentist_lab_samples"), getCatalogSampleTypes);
 
 export default router;

@@ -14,6 +14,10 @@ const clinicSettingsSchema = new Schema(
       whatsapp: { type: String, default: "", trim: true },
       address: { type: String, default: "", trim: true, maxlength: 250 },
     },
+
+    billing: {
+      defaultConsultationFee: { type: Number, min: 0, default: 0 },
+    },
   },
   { timestamps: true }
 );

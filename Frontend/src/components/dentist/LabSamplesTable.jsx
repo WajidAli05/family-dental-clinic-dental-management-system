@@ -25,6 +25,7 @@ const LabSamplesTable = ({ data, onApprove }) => {
           <TableHead>ID</TableHead>
           <TableHead>Patient</TableHead>
           <TableHead>Lab</TableHead>
+          <TableHead>Sample Type</TableHead>
           <TableHead>Teeth</TableHead>
           <TableHead>Sent</TableHead>
           <TableHead>Status</TableHead>
@@ -38,6 +39,14 @@ const LabSamplesTable = ({ data, onApprove }) => {
             <TableCell className="font-medium">{s.id}</TableCell>
             <TableCell>{s.patientName}</TableCell>
             <TableCell>{s.lab}</TableCell>
+            <TableCell>
+              <span className="text-sm">{s.type || "—"}</span>
+              {s.sampleTypePrice > 0 && (
+                <span className="ml-1 text-xs text-gray-500">
+                  PKR {Number(s.sampleTypePrice).toLocaleString("en-PK")}
+                </span>
+              )}
+            </TableCell>
             <TableCell>#{s.teeth.join(", ")}</TableCell>
             <TableCell>{s.sentDate}</TableCell>
             <TableCell>

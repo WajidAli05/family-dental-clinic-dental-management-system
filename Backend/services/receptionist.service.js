@@ -1050,13 +1050,14 @@ export async function receptionistGetLabs(_receptionistId) {
 
 export async function receptionistGetSampleTypes(_receptionistId) {
   const rows = await SampleType.find({})
-    .select("name publicId")
+    .select("name publicId price")
     .sort({ name: 1 })
     .lean();
 
   return rows.map((x) => ({
     id: x.publicId || String(x._id),
     name: x.name || "",
+    price: Number(x.price) || 0,
   }));
 }
 
@@ -1082,6 +1083,16 @@ const toUiInvoice = (inv) => {
     totalAmount,
     paidAmount,
     status,
+    items: Array.isArray(inv.items)
+      ? inv.items.map((it) => ({
+          kind: it.kind,
+          refId: it.refId || "",
+          name: it.name || "",
+          unitPrice: Number(it.unitPrice) || 0,
+          qty: Number(it.qty) || 1,
+          lineTotal: Number(it.lineTotal) || 0,
+        }))
+      : [],
     payments: payments.map((p) => ({
       id: p.publicId,          // ✅ frontend expects id
       amount: Number(p.amount || 0),
@@ -1110,14 +1121,40 @@ async function generatePaymentPublicId(invoice) {
 // ✅ CREATE INVOICE
 export async function receptionistCreateInvoice(_user, body) {
   const date = String(body?.date || "").trim();
-  const totalAmount = Number(body?.totalAmount);
+  const rawItems = Array.isArray(body?.items) ? body.items : [];
 
   const patientKey = body?.patientId || body?.mr || body?.phone;
   const dentistKey = body?.dentistId || body?.dentist || body?.dentistName; // optional
 
   if (!patientKey) throw new Error("patientId (or mr/phone) is required");
   if (!date) throw new Error("date is required");
-  if (!totalAmount || totalAmount <= 0) throw new Error("totalAmount must be > 0");
+
+  // Server-side totalAmount computation from items (preferred) or body.totalAmount (legacy compat)
+  let totalAmount;
+  let validatedItems = [];
+
+  if (rawItems.length > 0) {
+    const validKinds = ["consultation", "treatment", "lab_sample"];
+    for (const it of rawItems) {
+      if (!validKinds.includes(it.kind)) throw new Error(`Invalid item kind: ${it.kind}`);
+      if (!String(it.name || "").trim()) throw new Error("Item name is required");
+      if (Number(it.unitPrice) < 0) throw new Error("Item unitPrice cannot be negative");
+      if (Number(it.qty) < 1) throw new Error("Item qty must be at least 1");
+      validatedItems.push({
+        kind: it.kind,
+        refId: String(it.refId || ""),
+        name: String(it.name).trim(),
+        unitPrice: Number(it.unitPrice) || 0,
+        qty: Math.max(1, Number(it.qty) || 1),
+        lineTotal: Number(it.unitPrice || 0) * Math.max(1, Number(it.qty) || 1),
+      });
+    }
+    totalAmount = validatedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    if (totalAmount <= 0) throw new Error("Invoice total must be > 0");
+  } else {
+    totalAmount = Number(body?.totalAmount);
+    if (!totalAmount || totalAmount <= 0) throw new Error("totalAmount must be > 0");
+  }
 
   // find patient (supports publicId / mr / phone / objectId)
   const patientOr = [];
@@ -1156,6 +1193,7 @@ export async function receptionistCreateInvoice(_user, body) {
     dentist: dentist?._id,
     date,
     totalAmount,
+    items: validatedItems,
     payments: [],
   });
 

@@ -10,11 +10,16 @@ const normalizeClinic = (c) => ({
   address: c?.address || "",
 });
 
+const normalizeBilling = (b) => ({
+  defaultConsultationFee: Number(b?.defaultConsultationFee) || 0,
+});
+
 export const useOwnerSettingsStore = create((set, get) => ({
   initialized: false,
   loading: false,
 
   clinic: normalizeClinic(null),
+  billing: normalizeBilling(null),
 
   init: async () => {
     if (get().initialized) return;
@@ -29,6 +34,7 @@ export const useOwnerSettingsStore = create((set, get) => ({
       const data = res?.data || {};
       set({
         clinic: normalizeClinic(data.clinic),
+        billing: normalizeBilling(data.billing),
       });
     } catch (e) {
       console.error("fetchSettings failed", e);
@@ -43,7 +49,26 @@ export const useOwnerSettingsStore = create((set, get) => ({
       const payload = { clinic: normalizeClinic(clinicPatch) };
       const res = await ownerApi.updateOwnerSettings(payload);
       const data = res?.data || {};
-      set({ clinic: normalizeClinic(data.clinic) });
+      set({
+        clinic: normalizeClinic(data.clinic),
+        billing: normalizeBilling(data.billing),
+      });
+      return true;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  updateBilling: async (billingPatch) => {
+    set({ loading: true });
+    try {
+      const payload = { billing: normalizeBilling(billingPatch) };
+      const res = await ownerApi.updateOwnerSettings(payload);
+      const data = res?.data || {};
+      set({
+        clinic: normalizeClinic(data.clinic),
+        billing: normalizeBilling(data.billing),
+      });
       return true;
     } finally {
       set({ loading: false });

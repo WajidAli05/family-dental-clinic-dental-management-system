@@ -73,6 +73,13 @@ export const receptionistBillingApi = {
     request(`/receptionist/invoices/${invoiceId}/payments/${paymentId}`, {
       method: "DELETE",
     }),
+
+  // ---------- PRICE CATALOG (read-only) ----------
+  getCatalogTreatments: (params) =>
+    request("/receptionist/catalog/treatments", { params }),
+
+  getCatalogSampleTypes: (params) =>
+    request("/receptionist/catalog/sample-types", { params }),
 };
 
 /**

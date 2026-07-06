@@ -144,7 +144,7 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
     .populate("patient", "name publicId phone")
     .populate("dentist", "name publicId")
     .populate("lab", "name publicId")
-    .populate("sampleType", "name publicId")
+    .populate("sampleType", "name publicId price")
     .sort(sort)
     .lean();
 
@@ -155,6 +155,7 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
     sentDate: c.createdAtISO || new Date(c.createdAt).toISOString().slice(0, 10),
     teeth: Array.isArray(c.teeth) ? c.teeth : [],
     type: c.sampleType?.name || "",
+    sampleTypePrice: Number(c.sampleType?.price) || 0,
     tooth: (c.teeth || []).map((t) => `#${t}`).join(", "),
     date: new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
     status: c.status,

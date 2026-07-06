@@ -35,7 +35,9 @@ import {
   inventoryStats,
   createInventoryItem,
   updateInventoryItem,
-  deleteInventoryItem
+  deleteInventoryItem,
+  getCatalogTreatments,
+  getCatalogSampleTypes,
 } from "../../controllers/receptionist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
@@ -91,5 +93,9 @@ router.get("/inventory/stats", requirePermission("tab_receptionist_inventory"), 
 router.post("/inventory", requirePermission("tab_receptionist_inventory"), createInventoryItem);
 router.patch("/inventory/:id", requirePermission("tab_receptionist_inventory"), updateInventoryItem);
 router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"), deleteInventoryItem);
+
+// price catalog (read-only — billing tab permission since used in invoice creation)
+router.get("/catalog/treatments", requirePermission("tab_receptionist_billing"), getCatalogTreatments);
+router.get("/catalog/sample-types", requirePermission("tab_receptionist_billing"), getCatalogSampleTypes);
 
 export default router;
