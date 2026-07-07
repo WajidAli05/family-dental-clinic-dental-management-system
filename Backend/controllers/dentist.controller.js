@@ -9,6 +9,8 @@
   dentistUpdateAppointmentStatus,
   dentistGetCases,
   dentistUpdateCaseStatus,
+  dentistGetLabs,
+  dentistCreateCase,
   dentistCreatePrescription,
   dentistUpdatePrescription,
   dentistGetPrescriptions,
@@ -120,6 +122,24 @@ export const updateDentistCaseStatus = async (req, res) => {
     if (!status) return res.status(400).json({ success: false, message: "status is required" });
     const updated = await dentistUpdateCaseStatus(req.user._id, id, status);
     return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistLabsCtrl = async (req, res) => {
+  try {
+    const data = await dentistGetLabs();
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const createDentistCaseCtrl = async (req, res) => {
+  try {
+    const data = await dentistCreateCase(req.user._id, req.body);
+    return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
   }

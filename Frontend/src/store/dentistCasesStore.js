@@ -29,6 +29,19 @@ export const useDentistCasesStore = create((set, get) => ({
     }
   },
 
+  addCase: async (body) => {
+    try {
+      set({ error: null });
+      const res = await dentistApi.createCase(body);
+      const newCase = res.data;
+      set((state) => ({ cases: [newCase, ...state.cases] }));
+      return newCase;
+    } catch (e) {
+      set({ error: e.message });
+      throw e;
+    }
+  },
+
   updateCaseStatus: async (caseId, uiAction) => {
     const { cases } = get();
     const idx = cases.findIndex((c) => c.id === caseId);

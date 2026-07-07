@@ -11,6 +11,8 @@ import {
   getDentistPatientsCtrl,
   getDentistCases,
   updateDentistCaseStatus,
+  getDentistLabsCtrl,
+  createDentistCaseCtrl,
   createDentistPrescription,
   updateDentistPrescription,
   getDentistPrescriptions,
@@ -44,8 +46,11 @@ router.patch("/appointments/:id/status",   requirePermission("tab_dentist_appoin
 router.get("/patients", requirePermission("tab_dentist_patients"), getDentistPatientsCtrl);
 
 // lab samples (cases)
-router.get("/cases", requirePermission("tab_dentist_lab_samples"), getDentistCases);
+router.get("/cases",              requirePermission("tab_dentist_lab_samples"), getDentistCases);
+router.post("/cases",             requirePermission("tab_dentist_lab_samples"), createDentistCaseCtrl);
 router.patch("/cases/:id/status", requirePermission("tab_dentist_lab_samples"), updateDentistCaseStatus);
+// labs list (for add-case modal dropdown)
+router.get("/labs", requirePermission("tab_dentist_lab_samples"), getDentistLabsCtrl);
 
 // prescriptions (part of appointments workflow)
 router.post("/prescriptions", requirePermission("tab_dentist_appointments"), createDentistPrescription);

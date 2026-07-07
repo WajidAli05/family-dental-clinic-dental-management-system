@@ -20,6 +20,11 @@ import {
   ownerToggleLabEnabled,
 
   ownerListLabCasesController,
+  ownerGetLabCaseController,
+  ownerCreateLabCaseController,
+  ownerUpdateLabCaseController,
+  ownerDeleteLabCaseController,
+  ownerUpdateLabCaseStatusController,
 
   ownerListSampleTypesController,
   ownerCreateSampleTypeController,
@@ -100,7 +105,12 @@ router.patch("/labs/:id", ownerUpdateLab);
 router.patch("/labs/:id/enabled", ownerToggleLabEnabled);
 
 // Lab cases
-router.get("/lab-cases", ownerListLabCasesController);
+router.get("/lab-cases",               ownerListLabCasesController);
+router.post("/lab-cases",              ownerCreateLabCaseController);
+router.get("/lab-cases/:id",           ownerGetLabCaseController);
+router.patch("/lab-cases/:id",         ownerUpdateLabCaseController);
+router.delete("/lab-cases/:id",        ownerDeleteLabCaseController);
+router.patch("/lab-cases/:id/status",  ownerUpdateLabCaseStatusController);
 
 // Sample types
 router.get("/sample-types", ownerListSampleTypesController);

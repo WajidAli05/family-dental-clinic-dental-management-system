@@ -63,7 +63,9 @@ export const useOwnerLabManagementStore = create((set, get) => ({
   // ---------- UI ----------
   filters: { ...defaultFilters },
 
-  modal: { open: false, type: null, mode: "create", payload: null }, // labAccount | sampleType | caseDetails
+  labCasesPagination: { total: 0, page: 1, pages: 1 },
+
+  modal: { open: false, type: null, mode: "create", payload: null }, // labAccount | sampleType | caseDetails | labCase
   confirm: {
     open: false,
     title: "",
@@ -168,9 +170,15 @@ export const useOwnerLabManagementStore = create((set, get) => ({
     set({ sampleTypes: res.data || [] });
   },
 
-  fetchLabCases: async () => {
-    const res = await request("/owner/lab-cases");
-    set({ labCases: res.data || [] });
+  fetchLabCases: async ({ page = 1, limit = 50, q = "", status = "all" } = {}) => {
+    const params = { page, limit };
+    if (q) params.q = q;
+    if (status && status !== "all") params.status = status;
+    const res = await request("/owner/lab-cases", { params });
+    set({
+      labCases: res.data || [],
+      labCasesPagination: { total: res.total ?? 0, page: res.page ?? 1, pages: res.pages ?? 1 },
+    });
   },
 
   // ✅ NEW: dentists for cases filter (expects [{id,name}] or similar)
@@ -216,6 +224,7 @@ export const useOwnerLabManagementStore = create((set, get) => ({
 
     const map = {
       deleteSampleType: async (id) => get().deleteSampleType(id),
+      deleteLabCase: async (id) => get().deleteLabCase(id),
     };
 
     const fn = map[confirm.onConfirmKey];
@@ -331,6 +340,62 @@ export const useOwnerLabManagementStore = create((set, get) => ({
       }));
     } catch (e) {
       set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  // ---------- LAB CASES CRUD ----------
+  addLabCase: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request("/owner/lab-cases", { method: "POST", body: data });
+      set((state) => ({ labCases: [res.data, ...(state.labCases || [])], loading: false }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  updateLabCase: async (id, patch) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await request(`/owner/lab-cases/${encodeURIComponent(id)}`, { method: "PATCH", body: patch });
+      set((state) => ({
+        labCases: (state.labCases || []).map((x) => (x.id === id ? res.data : x)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  deleteLabCase: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      await request(`/owner/lab-cases/${encodeURIComponent(id)}`, { method: "DELETE" });
+      set((state) => ({
+        labCases: (state.labCases || []).filter((x) => x.id !== id),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  updateLabCaseStatus: async (id, status) => {
+    set({ error: null });
+    try {
+      const res = await request(`/owner/lab-cases/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: { status },
+      });
+      set((state) => ({
+        labCases: (state.labCases || []).map((x) => (x.id === id ? res.data : x)),
+      }));
+    } catch (e) {
+      set({ error: e.message });
       throw e;
     }
   },

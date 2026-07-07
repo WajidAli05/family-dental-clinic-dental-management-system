@@ -4,7 +4,6 @@ const API = "http://localhost:3000/api/v1/lab";
 
 const authFetch = (url, options = {}) => {
   const token = localStorage.getItem("token");
-
   return fetch(url, {
     ...options,
     headers: {
@@ -17,14 +16,12 @@ const authFetch = (url, options = {}) => {
 
 const mapBackendStatusToUi = (s) => {
   const v = String(s || "").toLowerCase();
-
   if (v === "received" || v === "sent") return "sent";
   if (v === "in_progress" || v === "in-process") return "in-process";
   if (v === "ready") return "ready";
   if (v === "delivered") return "delivered";
   if (v === "approved") return "approved";
   if (v === "rejected") return "rejected";
-
   return v || "sent";
 };
 
@@ -51,9 +48,10 @@ export const useLabStore = create((set, get) => ({
   fetchSamples: async (params = {}) => {
     try {
       set({ loadingSamples: true, error: null });
-
-      const qs = new URLSearchParams(params).toString();
-      const res = await authFetch(`${API}/cases?${qs}`);
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== "all"))
+      ).toString();
+      const res = await authFetch(`${API}/cases${qs ? `?${qs}` : ""}`);
       const json = await res.json();
 
       const normalized = (json.data || []).map((x) => ({
@@ -71,67 +69,55 @@ export const useLabStore = create((set, get) => ({
     }
   },
 
+  // Unified status update — sends canonical DB status string
+  updateStatus: async (sampleId, dbStatus) => {
+    const { samples } = get();
+    const idx = samples.findIndex((s) => s.id === sampleId);
+    if (idx === -1) return;
+
+    const oldStatus = samples[idx].status;
+    const newUiStatus = mapBackendStatusToUi(dbStatus);
+
+    // Optimistic update
+    const optimistic = [...samples];
+    optimistic[idx] = { ...optimistic[idx], status: newUiStatus };
+    set({ samples: optimistic, error: null });
+
+    try {
+      const res = await authFetch(`${API}/cases/${sampleId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: dbStatus }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.message || `Failed: ${res.status}`);
+      }
+      await get().fetchStats();
+    } catch (e) {
+      // Rollback
+      const rolled = [...get().samples];
+      rolled[idx] = { ...rolled[idx], status: oldStatus };
+      set({ samples: rolled, error: e.message });
+    }
+  },
+
   addNote: async (sampleId, note) => {
     try {
       set({ error: null });
-
       await authFetch(`${API}/cases/${sampleId}/note`, {
         method: "PATCH",
         body: JSON.stringify({ note }),
       });
-
       set((state) => ({
-        samples: state.samples.map((s) =>
-          s.id === sampleId ? { ...s, note } : s
-        ),
+        samples: state.samples.map((s) => s.id === sampleId ? { ...s, note } : s),
       }));
-
       await get().fetchStats();
-      await get().fetchSamples();
     } catch (e) {
       set({ error: e.message });
     }
   },
 
-  startWork: async (sampleId) => {
-    try {
-      set({ error: null });
-      await authFetch(`${API}/cases/${sampleId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "in_progress" }),
-      });
-      await get().fetchStats();
-      await get().fetchSamples();
-    } catch (e) {
-      set({ error: e.message });
-    }
-  },
-
-  markReady: async (sampleId) => {
-    try {
-      set({ error: null });
-      await authFetch(`${API}/cases/${sampleId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "ready" }),
-      });
-      await get().fetchStats();
-      await get().fetchSamples();
-    } catch (e) {
-      set({ error: e.message });
-    }
-  },
-
-  markDelivered: async (sampleId) => {
-    try {
-      set({ error: null });
-      await authFetch(`${API}/cases/${sampleId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "delivered" }),
-      });
-      await get().fetchStats();
-      await get().fetchSamples();
-    } catch (e) {
-      set({ error: e.message });
-    }
-  },
+  startWork: async (sampleId) => get().updateStatus(sampleId, "in_progress"),
+  markReady: async (sampleId) => get().updateStatus(sampleId, "ready"),
+  markDelivered: async (sampleId) => get().updateStatus(sampleId, "delivered"),
 }));

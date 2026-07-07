@@ -159,6 +159,11 @@ export const dentistApi = {
   updateCaseStatus: (caseId, status) =>
     req(`/cases/${caseId}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
 
+  createCase: (body) =>
+    req("/cases", { method: "POST", body: JSON.stringify(body) }),
+
+  getLabs: () => req("/labs"),
+
   // ✅ prescriptions
   createPrescription: (payload) =>
     req("/prescriptions", { method: "POST", body: JSON.stringify(payload) }),

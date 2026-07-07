@@ -9,6 +9,7 @@ import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
+import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -978,19 +979,8 @@ export async function receptionistUpdateLabSampleStatus(_user, casePublicId, bod
   const uiStatus = String(body?.status || "").trim();
   if (!uiStatus) throw new Error("status is required");
 
-  const c = await LabCase.findOne({ publicId: casePublicId });
-  if (!c) throw new Error("Sample not found");
-
-  const dbStatus = toDbLabStatus(uiStatus);
-  c.status = dbStatus;
-  c.timeline = c.timeline || [];
-c.timeline.push({
-  at: new Date(),
-  status: dbStatus,
-  note: `Updated by receptionist`,
-});
-
-  await c.save();
+  // Delegate to shared helper — receptionist has free transitions; ownership unrestricted
+  const c = await sharedUpdateStatus("receptionist", _user?._id ?? null, casePublicId, uiStatus);
 
   const populated = await LabCase.findById(c._id)
     .populate("patient", "name publicId mr phone")

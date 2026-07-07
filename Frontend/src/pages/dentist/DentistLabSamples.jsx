@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Wavify from "react-wavify";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 import { useDentistCasesStore } from "@/store/dentistCasesStore";
 import LabSampleStats from "@/components/receptionist/LabSampleStats";
 import LabSamplesTable from "@/components/dentist/LabSamplesTable";
 import LabSampleFilters from "@/components/dentist/LabSampleFilters";
+import DentistAddLabSampleModal from "@/components/dentist/DentistAddLabSampleModal";
 
 import TablePagination from "@/components/ui/TablePagination";
 import TableSkeleton from "@/components/ui/TableSkeleton";
@@ -38,6 +41,7 @@ const DentistLabSamples = () => {
   const { cases, fetchCases, updateCaseStatus, loading, error, pagination } = useDentistCasesStore();
   const { page, limit, setPage, resetPage } = usePagination(50);
   const [filter, setFilter] = useState("all");
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const load = useCallback(() => {
     fetchCases({ status: mapFilterToBackend(filter), page, limit });
@@ -55,11 +59,10 @@ const DentistLabSamples = () => {
   }, [cases]);
 
   const stats = useMemo(() => {
-    const total = normalized.length;
-    const sent = normalized.filter((x) => x.status === "Sent").length;
+    const total     = normalized.length;
+    const sent      = normalized.filter((x) => x.status === "Sent").length;
     const inProcess = normalized.filter((x) => x.status === "In Process").length;
-    const ready = normalized.filter((x) => x.status === "Ready").length;
-
+    const ready     = normalized.filter((x) => x.status === "Ready").length;
     return { total, sent, inProcess, ready };
   }, [normalized]);
 
@@ -93,7 +96,16 @@ const DentistLabSamples = () => {
 
       <Card className="rounded-2xl">
         <CardContent className="p-6 space-y-4">
-          <LabSampleFilters active={filter} onChange={handleFilterChange} />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <LabSampleFilters active={filter} onChange={handleFilterChange} />
+            <Button
+              className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
+              onClick={() => setAddModalOpen(true)}
+            >
+              <Plus size={16} className="mr-1" />
+              Add Sample
+            </Button>
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -114,6 +126,11 @@ const DentistLabSamples = () => {
           />
         </CardContent>
       </Card>
+
+      <DentistAddLabSampleModal
+        open={addModalOpen}
+        onClose={() => { setAddModalOpen(false); load(); }}
+      />
     </div>
   );
 };

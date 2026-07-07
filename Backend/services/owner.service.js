@@ -33,6 +33,7 @@ import {
   OWNER_PERMISSION_KEYS,
   DEFAULT_ROLE_GRANTS,
 } from "./shared/permissionsConfig.js";
+import { updateLabCaseStatus as sharedUpdateLabCaseStatus } from "./shared/labCases.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -764,6 +765,136 @@ export async function ownerListLabCases(_ownerId, { page, limit, sortBy, sortDir
   }
 
   return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+}
+
+function mapOwnerCase(c) {
+  return {
+    id: c.publicId,
+    createdAt: toISO(c.createdAt),
+    patientId: c.patient?.publicId || "",
+    patientName: c.patient?.name || "",
+    dentistId: c.dentist?.publicId || "",
+    dentistName: c.dentist?.name || "",
+    labId: c.lab?.publicId || "",
+    labName: c.lab?.name || "",
+    sampleTypeId: c.sampleType?.publicId || "",
+    sampleTypeName: c.sampleType?.name || "",
+    teeth: Array.isArray(c.teeth) ? c.teeth : [],
+    status: c.status || "",
+    notes: c.note || "",
+    timeline: (c.timeline || []).map((t) => ({ at: t.at, status: t.status, note: t.note || "" })),
+  };
+}
+
+export async function ownerGetLabCase(_ownerId, casePublicId) {
+  const c = await LabCase.findOne({ publicId: casePublicId })
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+  if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
+  return mapOwnerCase(c);
+}
+
+export async function ownerCreateLabCase(_ownerId, body) {
+  const patientKey    = String(body?.patientId || "").trim();
+  const dentistKey    = String(body?.dentistId || "").trim();
+  const labKey        = String(body?.labId || "").trim();
+  const sampleTypeKey = String(body?.sampleTypeId || "").trim();
+  const teeth = (Array.isArray(body?.teeth) ? body.teeth : [])
+    .map((t) => String(t).replace("#", "").trim())
+    .filter(Boolean);
+  const note = String(body?.note || body?.notes || "");
+
+  if (!patientKey)    throw Object.assign(new Error("patientId is required"), { status: 400 });
+  if (!dentistKey)    throw Object.assign(new Error("dentistId is required"), { status: 400 });
+  if (!labKey)        throw Object.assign(new Error("labId is required"), { status: 400 });
+  if (!sampleTypeKey) throw Object.assign(new Error("sampleTypeId is required"), { status: 400 });
+  if (!teeth.length)  throw Object.assign(new Error("At least one tooth is required"), { status: 400 });
+
+  const [patient, dentist, lab, sampleType] = await Promise.all([
+    Patient.findOne({ publicId: patientKey }),
+    User.findOne({ role: "dentist", publicId: dentistKey }),
+    User.findOne({ role: "lab", publicId: labKey }),
+    SampleType.findOne({ publicId: sampleTypeKey }),
+  ]);
+
+  if (!patient)    throw Object.assign(new Error("Patient not found"), { status: 404 });
+  if (!dentist)    throw Object.assign(new Error("Dentist not found"), { status: 404 });
+  if (!lab)        throw Object.assign(new Error("Lab not found"), { status: 404 });
+  if (!sampleType) throw Object.assign(new Error("Sample type not found"), { status: 404 });
+
+  const created = await LabCase.create({
+    patient: patient._id,
+    dentist: dentist._id,
+    lab: lab._id,
+    sampleType: sampleType._id,
+    teeth,
+    note,
+    status: "sent",
+    timeline: [{ at: new Date(), status: "sent", note: "Created by owner" }],
+  });
+
+  const populated = await LabCase.findById(created._id)
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapOwnerCase(populated);
+}
+
+export async function ownerUpdateLabCase(_ownerId, casePublicId, body) {
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
+
+  if (body?.labId) {
+    const lab = await User.findOne({ role: "lab", publicId: String(body.labId) }).select("_id");
+    if (!lab) throw Object.assign(new Error("Lab not found"), { status: 404 });
+    c.lab = lab._id;
+  }
+  if (body?.sampleTypeId) {
+    const st = await SampleType.findOne({ publicId: String(body.sampleTypeId) }).select("_id");
+    if (!st) throw Object.assign(new Error("Sample type not found"), { status: 404 });
+    c.sampleType = st._id;
+  }
+  if (body?.teeth !== undefined) {
+    if (!Array.isArray(body.teeth)) throw Object.assign(new Error("teeth must be an array"), { status: 400 });
+    c.teeth = body.teeth.map((t) => String(t).replace("#", "").trim()).filter(Boolean);
+  }
+  if (body?.note !== undefined) c.note = String(body.note || "");
+  if (body?.notes !== undefined) c.note = String(body.notes || "");
+
+  await c.save();
+
+  const populated = await LabCase.findById(c._id)
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+
+  return mapOwnerCase(populated);
+}
+
+export async function ownerDeleteLabCase(_ownerId, casePublicId) {
+  const c = await LabCase.findOne({ publicId: casePublicId });
+  if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
+  await LabCase.deleteOne({ _id: c._id });
+  return { id: casePublicId };
+}
+
+export async function ownerUpdateLabCaseStatus(_ownerId, casePublicId, status) {
+  const c = await sharedUpdateLabCaseStatus("owner", _ownerId, casePublicId, status);
+  const populated = await LabCase.findById(c._id)
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId")
+    .lean();
+  return mapOwnerCase(populated);
 }
 
 // ---------- SAMPLE TYPES ----------

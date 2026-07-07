@@ -1,7 +1,9 @@
 //dentist services
 import User from "../models/User.model.js";
+import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
+import SampleType from "../models/SampleType.model.js";
 import Prescription from "../models/Prescription.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
@@ -11,6 +13,7 @@ import {
   updateAppointmentStatusCore,
 } from "./shared/appointments.js";
 import { listPatientsCore } from "./shared/patients.js";
+import { updateLabCaseStatus } from "./shared/labCases.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -179,67 +182,8 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
   return paginateArray(mapped, P, L);
 }
 
-// UI action → canonical DB status
-const UI_ACTION_TO_DB = {
-  approved: "approved",
-  rejected: "rejected",
-  reopened: "in_progress",   // reopen sends the case back to lab as "in_progress"
-};
-// States from which dentist can finalize (approve / reject)
-const FINALIZE_FROM = new Set(["sent", "in_progress", "ready", "delivered", "received"]);
-// States from which dentist can reopen
-const REOPEN_FROM = new Set(["approved", "rejected", "delivered"]);
-
-const TIMELINE_NOTES = {
-  approved: "Approved by dentist",
-  rejected: "Rejected by dentist",
-  reopened: "Reopened by dentist",
-};
-
 export async function dentistUpdateCaseStatus(dentistId, casePublicId, uiAction) {
-  const action = String(uiAction || "").toLowerCase();
-  const dbStatus = UI_ACTION_TO_DB[action];
-  if (!dbStatus) {
-    const err = new Error(`Invalid action "${uiAction}". Valid: approved, rejected, reopened.`);
-    err.status = 400;
-    throw err;
-  }
-
-  const c = await LabCase.findOne({ publicId: casePublicId, dentist: dentistId });
-  if (!c) {
-    const err = new Error("Case not found");
-    err.status = 404;
-    throw err;
-  }
-
-  const current = c.status;
-
-  if (action === "reopened") {
-    if (!REOPEN_FROM.has(current)) {
-      const err = new Error(
-        `Cannot reopen a case with status "${current}". Only approved, rejected, or delivered cases can be reopened.`
-      );
-      err.status = 400;
-      throw err;
-    }
-  } else {
-    if (!FINALIZE_FROM.has(current)) {
-      const err = new Error(
-        `Cannot ${action} a case that is already "${current}". Reopen it first.`
-      );
-      err.status = 400;
-      throw err;
-    }
-  }
-
-  c.status = dbStatus;
-  c.timeline.push({
-    at: new Date().toISOString().slice(0, 16).replace("T", " "),
-    status: dbStatus,
-    note: TIMELINE_NOTES[action],
-  });
-
-  await c.save();
+  const c = await updateLabCaseStatus("dentist", dentistId, casePublicId, uiAction);
   return c.toJSON();
 }
 
@@ -368,6 +312,73 @@ export async function dentistUpdateAppointment(dentistId, apptPublicId, body) {
 
 export async function dentistUpdateAppointmentStatus(dentistId, apptPublicId, uiStatus) {
   return updateAppointmentStatusCore(apptPublicId, uiStatus, { ownDentistId: dentistId });
+}
+
+// -------------------- LAB CASE CREATE (dentist self-service) --------------------
+export async function dentistGetLabs() {
+  const rows = await User.find({ role: "lab", enabled: true })
+    .select("name publicId")
+    .sort({ name: 1 })
+    .lean();
+  return rows.map((u) => ({ id: u.publicId, name: u.name || "" }));
+}
+
+export async function dentistCreateCase(dentistId, body) {
+  const patientKey     = String(body?.patientId || "").trim();
+  const labKey         = String(body?.labId || "").trim();
+  const sampleTypeKey  = String(body?.sampleTypeId || "").trim();
+  const teeth = (Array.isArray(body?.teeth) ? body.teeth : [])
+    .map((t) => String(t).replace("#", "").trim())
+    .filter(Boolean);
+  const note = String(body?.note || body?.notes || "");
+
+  if (!patientKey)    throw Object.assign(new Error("patientId is required"), { status: 400 });
+  if (!labKey)        throw Object.assign(new Error("labId is required"), { status: 400 });
+  if (!sampleTypeKey) throw Object.assign(new Error("sampleTypeId is required"), { status: 400 });
+  if (!teeth.length)  throw Object.assign(new Error("At least one tooth is required"), { status: 400 });
+
+  const [patient, lab, sampleType] = await Promise.all([
+    Patient.findOne({ publicId: patientKey }),
+    User.findOne({ role: "lab", publicId: labKey }),
+    SampleType.findOne({ publicId: sampleTypeKey }),
+  ]);
+
+  if (!patient)    throw Object.assign(new Error("Patient not found"), { status: 404 });
+  if (!lab)        throw Object.assign(new Error("Lab not found"), { status: 404 });
+  if (!sampleType) throw Object.assign(new Error("Sample type not found"), { status: 404 });
+
+  const created = await LabCase.create({
+    patient: patient._id,
+    dentist: dentistId,
+    lab: lab._id,
+    sampleType: sampleType._id,
+    teeth,
+    note,
+    status: "sent",
+    timeline: [{ at: new Date(), status: "sent", note: "Created by dentist" }],
+  });
+
+  const populated = await LabCase.findById(created._id)
+    .populate("patient", "name publicId")
+    .populate("dentist", "name publicId")
+    .populate("lab", "name publicId")
+    .populate("sampleType", "name publicId price")
+    .lean();
+
+  return {
+    id: populated.publicId,
+    patientName: populated.patient?.name || "",
+    lab: populated.lab?.name || "",
+    sentDate: new Date(populated.createdAt).toISOString().slice(0, 10),
+    teeth: populated.teeth || [],
+    type: populated.sampleType?.name || "",
+    sampleTypePrice: Number(populated.sampleType?.price) || 0,
+    tooth: (populated.teeth || []).map((t) => `#${t}`).join(", "),
+    date: new Date(populated.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+    status: populated.status,
+    note: populated.note || "",
+    dentistName: populated.dentist?.name || "",
+  };
 }
 
 // -------------------- PATIENTS (read-only list for dentist) --------------------

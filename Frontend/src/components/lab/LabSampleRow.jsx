@@ -1,43 +1,50 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, CheckCircle, Truck } from "lucide-react";
 import { useLabStore } from "@/store/labStore";
 import AddNoteDialog from "@/components/lab/AddNoteDialog";
 
-export default function LabSampleRow({ sample }) {
-  const { startWork, markReady, markDelivered } = useLabStore();
+// Lab can only advance to these statuses (approved/rejected are dentist-only)
+const LAB_STATUS_OPTIONS = [
+  { value: "sent",        label: "Sent" },
+  { value: "in-process",  label: "In Process", db: "in_progress" },
+  { value: "ready",       label: "Ready" },
+  { value: "delivered",   label: "Delivered" },
+];
 
-  const statusBadge = {
-    sent: (
-      <Badge className="bg-blue-100 text-blue-800 border border-blue-200">
-        Sent
-      </Badge>
-    ),
-    "in-process": (
-      <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-200">
-        In Process
-      </Badge>
-    ),
-    ready: (
-      <Badge className="bg-purple-100 text-purple-800 border border-purple-200">
-        Ready
-      </Badge>
-    ),
-    delivered: (
-      <Badge className="bg-indigo-100 text-indigo-800 border border-indigo-200">
-        Delivered
-      </Badge>
-    ),
-    approved: (
-      <Badge className="bg-green-100 text-green-800 border border-green-200">
-        Approved
-      </Badge>
-    ),
-    rejected: (
-      <Badge className="bg-red-100 text-red-800 border border-red-200">
-        Rejected
-      </Badge>
-    ),
+const STATUS_STYLES = {
+  "sent":        "bg-blue-50 text-blue-700 border-blue-200",
+  "in-process":  "bg-amber-50 text-amber-700 border-amber-200",
+  "ready":       "bg-purple-50 text-purple-700 border-purple-200",
+  "delivered":   "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "approved":    "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "rejected":    "bg-rose-50 text-rose-700 border-rose-200",
+};
+
+const STATUS_LABELS = {
+  "sent":       "Sent",
+  "in-process": "In Process",
+  "ready":      "Ready",
+  "delivered":  "Delivered",
+  "approved":   "Approved",
+  "rejected":   "Rejected",
+};
+
+// Map UI status back to DB status for the API call
+const UI_TO_DB = {
+  "sent":       "sent",
+  "in-process": "in_progress",
+  "ready":      "ready",
+  "delivered":  "delivered",
+};
+
+const FINALIZED = new Set(["approved", "rejected"]);
+
+export default function LabSampleRow({ sample }) {
+  const { updateStatus } = useLabStore();
+  const finalized = FINALIZED.has(sample.status);
+
+  const handleChange = (e) => {
+    const uiVal = e.target.value;
+    const dbVal = UI_TO_DB[uiVal] ?? uiVal;
+    updateStatus(sample.id, dbVal);
   };
 
   return (
@@ -46,55 +53,29 @@ export default function LabSampleRow({ sample }) {
       <td className="text-gray-700">{sample.type}</td>
       <td className="font-mono text-gray-700">{sample.tooth}</td>
       <td className="text-gray-600">{sample.date}</td>
-      <td>{statusBadge[sample.status] || <Badge>{sample.status}</Badge>}</td>
+
+      {/* Status badge */}
+      <td>
+        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[sample.status] || "bg-gray-50 text-gray-700 border-gray-200"}`}>
+          {STATUS_LABELS[sample.status] || sample.status}
+        </span>
+      </td>
 
       <td className="text-right space-x-2">
         <AddNoteDialog sample={sample} />
 
-        {/* Sent → In Process */}
-        {sample.status === "sent" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-gray-900 border-gray-300 hover:bg-gray-100"
-            onClick={() => startWork(sample.id)}
+        {finalized ? (
+          <span className="text-sm text-gray-400 italic">Final</span>
+        ) : (
+          <select
+            value={sample.status}
+            onChange={handleChange}
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2ec4b6] cursor-pointer"
           >
-            <Play size={14} className="mr-1" />
-            Start Work
-          </Button>
-        )}
-
-        {/* In Process → Ready */}
-        {sample.status === "in-process" && (
-          <Button
-            size="sm"
-            className="bg-purple-600 text-white hover:bg-purple-700"
-            onClick={() => markReady(sample.id)}
-          >
-            <CheckCircle size={14} className="mr-1" />
-            Mark Ready
-          </Button>
-        )}
-
-        {/* Ready → Delivered */}
-        {sample.status === "ready" && (
-          <Button
-            size="sm"
-            className="bg-indigo-600 text-white hover:bg-indigo-700"
-            onClick={() => markDelivered(sample.id)}
-          >
-            <Truck size={14} className="mr-1" />
-            Mark Delivered
-          </Button>
-        )}
-
-        {/* Delivered/Approved/Rejected - No actions */}
-        {(sample.status === "delivered" ||
-          sample.status === "approved" ||
-          sample.status === "rejected") && (
-          <span className="text-sm text-gray-500 italic">
-            {sample.status === "delivered" ? "Awaiting approval" : "Final status"}
-          </span>
+            {LAB_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         )}
       </td>
     </tr>

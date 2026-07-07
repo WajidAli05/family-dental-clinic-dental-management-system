@@ -1,24 +1,26 @@
 import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
 
-const StatusPill = ({ status }) => {
-  const map = {
-    sent: "bg-gray-50 text-gray-700 border-gray-100",
-    received: "bg-blue-50 text-blue-700 border-blue-100",
-    in_progress: "bg-amber-50 text-amber-700 border-amber-100",
-    ready: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    delivered: "bg-gray-50 text-gray-700 border-gray-100",
-    approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    rejected: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  const cls = map[status] || "bg-gray-50 text-gray-700 border-gray-100";
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${cls}`}>
-      {String(status).replaceAll("_", " ")}
-    </span>
-  );
+const STATUS_OPTIONS = [
+  { value: "sent",        label: "Sent" },
+  { value: "in_progress", label: "In Process" },
+  { value: "ready",       label: "Ready" },
+  { value: "delivered",   label: "Delivered" },
+  { value: "approved",    label: "Approved" },
+  { value: "rejected",    label: "Rejected" },
+];
+
+const STATUS_STYLES = {
+  sent:        "bg-gray-50 text-gray-700 border-gray-200",
+  received:    "bg-blue-50 text-blue-700 border-blue-200",
+  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
+  ready:       "bg-emerald-50 text-emerald-700 border-emerald-200",
+  delivered:   "bg-gray-50 text-gray-700 border-gray-200",
+  approved:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected:    "bg-rose-50 text-rose-700 border-rose-200",
 };
 
-const LabCasesTable = ({ data = [], onView }) => {
+const LabCasesTable = ({ data = [], onView, onEdit, onDelete, onStatusChange }) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -47,20 +49,53 @@ const LabCasesTable = ({ data = [], onView }) => {
               <tr key={c.id} className="hover:bg-gray-50/60 transition">
                 <td className="py-3 pr-4">
                   <div className="font-semibold text-gray-900">{c.id}</div>
-                  <div className="text-xs text-gray-500">{c.notes || "-"}</div>
+                  <div className="text-xs text-gray-500 max-w-[120px] truncate">{c.notes || "-"}</div>
                 </td>
-                <td className="py-3 pr-4">{c.createdAt}</td>
+                <td className="py-3 pr-4 whitespace-nowrap">
+                  {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-PK") : "-"}
+                </td>
                 <td className="py-3 pr-4">{c.patientName}</td>
                 <td className="py-3 pr-4">{c.dentistName}</td>
                 <td className="py-3 pr-4">{c.labName}</td>
                 <td className="py-3 pr-4">{c.sampleTypeName}</td>
+
+                {/* Inline status dropdown */}
                 <td className="py-3 pr-4">
-                  <StatusPill status={c.status} />
+                  <select
+                    value={c.status}
+                    onChange={(e) => onStatusChange && onStatusChange(c.id, e.target.value)}
+                    className={`rounded-full border px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none ${STATUS_STYLES[c.status] || "bg-gray-50 text-gray-700 border-gray-200"}`}
+                  >
+                    {STATUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </td>
-                <td className="py-3 text-right">
-                  <Button variant="outline" className="rounded-xl" onClick={() => onView(c)}>
+
+                <td className="py-3 text-right space-x-1 whitespace-nowrap">
+                  <Button variant="outline" size="sm" className="rounded-lg" onClick={() => onView && onView(c)}>
                     View
                   </Button>
+                  {onEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => onEdit(c)}
+                    >
+                      <Pencil size={13} />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => onDelete(c)}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  )}
                 </td>
               </tr>
             ))

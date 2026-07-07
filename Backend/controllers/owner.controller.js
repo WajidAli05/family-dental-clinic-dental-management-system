@@ -18,6 +18,11 @@ import {
   ownerSetLabAccountEnabled,
 
   ownerListLabCases,
+  ownerGetLabCase,
+  ownerCreateLabCase,
+  ownerUpdateLabCase,
+  ownerDeleteLabCase,
+  ownerUpdateLabCaseStatus,
   ownerListSampleTypes,
   ownerCreateSampleType,
   ownerUpdateSampleType,
@@ -173,6 +178,53 @@ export const ownerListLabCasesController = async (req, res) => {
     return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerGetLabCaseController = async (req, res) => {
+  try {
+    const data = await ownerGetLabCase(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerCreateLabCaseController = async (req, res) => {
+  try {
+    const data = await ownerCreateLabCase(req.user?._id, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateLabCaseController = async (req, res) => {
+  try {
+    const data = await ownerUpdateLabCase(req.user?._id, req.params.id, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerDeleteLabCaseController = async (req, res) => {
+  try {
+    const data = await ownerDeleteLabCase(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateLabCaseStatusController = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ success: false, message: "status is required" });
+    const data = await ownerUpdateLabCaseStatus(req.user?._id, req.params.id, status);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

@@ -1,6 +1,7 @@
 import User from "../models/User.model.js";
 import LabCase from "../models/LabCase.model.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
+import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -8,7 +9,8 @@ const pick = (obj, keys) =>
     return acc;
   }, {});
 
-const allowedStatuses = ["sent", "in_progress", "ready", "delivered", "approved", "rejected"];
+// lab may only write these statuses; approved/rejected are dentist-only
+const allowedStatuses = ["sent", "in_progress", "ready", "delivered"];
 
 const formatTooth = (teeth = []) => teeth.map((t) => `#${t}`).join(", ");
 
@@ -121,28 +123,28 @@ export async function labGetCases(publicId, filters = {}) {
 }
 
 export async function labUpdateCaseStatus(publicId, casePublicId, { status, note }) {
-  const labUser = await User.findOne({ publicId, role: "lab" }).select("_id").lean();
-  if (!labUser) throw new Error("Lab not found");
-
-  const c = await LabCase.findOne({ publicId: casePublicId, lab: labUser._id }).populate("sampleType", "name");
-  if (!c) throw new Error("Case not found");
+  let c;
 
   if (status) {
-    if (!allowedStatuses.includes(status)) throw new Error("Invalid status");
-    c.status = status;
+    // Delegates to shared helper — enforces 403 on approved/rejected
+    c = await sharedUpdateStatus("lab", publicId, casePublicId, status);
+    await c.populate("sampleType", "name");
+  } else {
+    const labUser = await User.findOne({ publicId, role: "lab" }).select("_id").lean();
+    if (!labUser) throw new Error("Lab not found");
+    c = await LabCase.findOne({ publicId: casePublicId, lab: labUser._id }).populate("sampleType", "name");
+    if (!c) throw new Error("Case not found");
   }
 
-  if (note !== undefined) c.note = note;
+  if (note !== undefined) {
+    c.note = note;
+    if (!status) {
+      // note-only path: preserve timeline continuity
+      c.timeline.push({ at: new Date(), status: c.status, note: note || "" });
+    }
+    await c.save();
+  }
 
-  c.timeline.push({
-    at: new Date(),
-    status: c.status,
-    note: note || "",
-  });
-
-  await c.save();
-
-  // ✅ return frontend shape always
   return mapCaseToFrontend(c);
 }
 
