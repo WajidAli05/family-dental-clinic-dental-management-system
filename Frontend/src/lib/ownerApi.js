@@ -43,9 +43,16 @@ export const ownerApi = {
 
   // appointments
   getAppointments: (params) => request("/owner/appointments", { params }),
+  createAppointment: (body) => request("/owner/appointments", { method: "POST", body }),
+  updateAppointment: (id, body) => request(`/owner/appointments/${id}`, { method: "PATCH", body }),
+  updateAppointmentStatus: (id, status) =>
+    request(`/owner/appointments/${id}/status`, { method: "PATCH", body: { status } }),
+  deleteAppointment: (id) => request(`/owner/appointments/${id}`, { method: "DELETE" }),
 
   // patients
   listPatients: (params) => request("/owner/patients", { params }),
+  createPatient: (body) => request("/owner/patients", { method: "POST", body }),
+  updatePatient: (id, body) => request(`/owner/patients/${id}`, { method: "PATCH", body }),
   getPatientProfile: (patientId) => request(`/owner/patients/${patientId}/profile`),
   deletePatient: (patientId) => request(`/owner/patients/${patientId}`, { method: "DELETE" }),
 

@@ -127,11 +127,28 @@ export const dentistApi = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
-  getStats: () => req("/stats"),
+  getStats: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req(`/stats${qs ? `?${qs}` : ""}`);
+  },
 
   getAppointments: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return req(`/appointments${qs ? `?${qs}` : ""}`);
+  },
+
+  createAppointment: (body) =>
+    req("/appointments", { method: "POST", body: JSON.stringify(body) }),
+
+  updateAppointment: (id, body) =>
+    req(`/appointments/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  updateAppointmentStatus: (id, status) =>
+    req(`/appointments/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+
+  getPatients: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req(`/patients${qs ? `?${qs}` : ""}`);
   },
 
   getCases: (params = {}) => {
@@ -139,8 +156,8 @@ export const dentistApi = {
     return req(`/cases${qs ? `?${qs}` : ""}`);
   },
 
-  approveCase: (caseId) =>
-    req(`/cases/${caseId}/approve`, { method: "PATCH" }),
+  updateCaseStatus: (caseId, status) =>
+    req(`/cases/${caseId}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
 
   // ✅ prescriptions
   createPrescription: (payload) =>

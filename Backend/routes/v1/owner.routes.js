@@ -3,10 +3,16 @@ import express from "express";
 import {
   ownerGetDashboardOverview,
   getOwnerAppointments,
+  ownerCreateAppointmentCtrl,
+  ownerUpdateAppointmentCtrl,
+  ownerUpdateAppointmentStatusCtrl,
+  ownerDeleteAppointmentCtrl,
 
   ownerListPatients,
   ownerGetPatientProfile,
   ownerDeletePatient,
+  ownerCreatePatientCtrl,
+  ownerUpdatePatientCtrl,
 
   ownerListLabs,
   ownerCreateLab,
@@ -74,12 +80,18 @@ const router = express.Router();
 router.get("/dashboard", ownerGetDashboardOverview);
 
 // Appointments
-router.get("/appointments", getOwnerAppointments);
+router.get("/appointments",              getOwnerAppointments);
+router.post("/appointments",             ownerCreateAppointmentCtrl);
+router.patch("/appointments/:id",        ownerUpdateAppointmentCtrl);
+router.patch("/appointments/:id/status", ownerUpdateAppointmentStatusCtrl);
+router.delete("/appointments/:id",       ownerDeleteAppointmentCtrl);
 
 // Patients
-router.get("/patients", ownerListPatients);
+router.get("/patients",            ownerListPatients);
+router.post("/patients",           ownerCreatePatientCtrl);
 router.get("/patients/:id/profile", ownerGetPatientProfile);
-router.delete("/patients/:id", ownerDeletePatient);
+router.patch("/patients/:id",      ownerUpdatePatientCtrl);
+router.delete("/patients/:id",     ownerDeletePatient);
 
 // Lab accounts
 router.get("/labs", ownerListLabs);

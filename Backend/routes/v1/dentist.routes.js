@@ -5,8 +5,12 @@ import {
   changeDentistPassword,
   getDentistStats,
   getDentistAppointments,
+  createDentistAppointmentCtrl,
+  updateDentistAppointmentCtrl,
+  updateDentistAppointmentStatusCtrl,
+  getDentistPatientsCtrl,
   getDentistCases,
-  approveDentistCase,
+  updateDentistCaseStatus,
   createDentistPrescription,
   updateDentistPrescription,
   getDentistPrescriptions,
@@ -31,11 +35,17 @@ router.get("/clinical-master", requirePermission("tab_dentist_appointments"), ge
 router.get("/stats", requirePermission("tab_dentist_dashboard"), getDentistStats);
 
 // appointments
-router.get("/appointments", requirePermission("tab_dentist_appointments"), getDentistAppointments);
+router.get("/appointments",                requirePermission("tab_dentist_appointments"), getDentistAppointments);
+router.post("/appointments",               requirePermission("tab_dentist_appointments"), createDentistAppointmentCtrl);
+router.patch("/appointments/:id",          requirePermission("tab_dentist_appointments"), updateDentistAppointmentCtrl);
+router.patch("/appointments/:id/status",   requirePermission("tab_dentist_appointments"), updateDentistAppointmentStatusCtrl);
+
+// patients (read-only for dentist)
+router.get("/patients", requirePermission("tab_dentist_patients"), getDentistPatientsCtrl);
 
 // lab samples (cases)
 router.get("/cases", requirePermission("tab_dentist_lab_samples"), getDentistCases);
-router.patch("/cases/:id/approve", requirePermission("tab_dentist_lab_samples"), approveDentistCase);
+router.patch("/cases/:id/status", requirePermission("tab_dentist_lab_samples"), updateDentistCaseStatus);
 
 // prescriptions (part of appointments workflow)
 router.post("/prescriptions", requirePermission("tab_dentist_appointments"), createDentistPrescription);

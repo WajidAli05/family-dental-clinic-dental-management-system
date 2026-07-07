@@ -7,7 +7,7 @@ import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 // Icons
-import { Home, Calendar, FlaskConical, User, LogOut } from "lucide-react";
+import { Home, Calendar, FlaskConical, User, Users, LogOut } from "lucide-react";
 
 // Store
 import { useUserStore } from "@/store/userStore";
@@ -35,6 +35,7 @@ const DentistDashboard = () => {
     Dashboard: "tab_dentist_dashboard",
     Appointments: "tab_dentist_appointments",
     "Lab Samples": "tab_dentist_lab_samples",
+    Patients: "tab_dentist_patients",
     Profile: "tab_dentist_profile",
   };
 
@@ -43,8 +44,9 @@ const DentistDashboard = () => {
       { title: "Dashboard", url: "/dentist-dashboard/dashboard", icon: Home },
       { title: "Appointments", url: "/dentist-dashboard/appointments", icon: Calendar },
       { title: "Lab Samples", url: "/dentist-dashboard/lab-samples", icon: FlaskConical },
+      { title: "Patients", url: "/dentist-dashboard/patients", icon: Users },
       { title: "Profile", url: "/dentist-dashboard/profile", icon: User },
-      { title: "Logout", icon: LogOut, onClick: handleLogout }, // ✅ action item (no url)
+      { title: "Logout", icon: LogOut, onClick: handleLogout },
     ];
 
     return base.filter((item) => {

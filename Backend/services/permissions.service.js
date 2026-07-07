@@ -1,25 +1,14 @@
 import Permissions from "../models/Permissions.model.js";
+import {
+  PERMISSION_ROLES,
+  OWNER_PERMISSION_KEYS,
+  DEFAULT_ROLE_GRANTS,
+} from "./shared/permissionsConfig.js";
+
+// Re-export so callers that imported OWNER_PERMISSION_KEYS from this file still work.
+export { OWNER_PERMISSION_KEYS };
 
 const PERMISSIONS_DOC_ID = "PERMISSIONS";
-const PERMISSION_ROLES = ["receptionist", "dentist"];
-
-// Must match owner keys (keep in sync)
-export const OWNER_PERMISSION_KEYS = [
-  // receptionist tabs
-  "tab_receptionist_dashboard",
-  "tab_receptionist_patients",
-  "tab_receptionist_appointments",
-  "tab_receptionist_lab_samples",
-  "tab_receptionist_billing",
-  "tab_receptionist_inventory",
-  "tab_receptionist_profile",
-
-  // dentist tabs
-  "tab_dentist_dashboard",
-  "tab_dentist_appointments",
-  "tab_dentist_lab_samples",
-  "tab_dentist_profile",
-];
 
 const mapToPlainObject = (maybeMap) => {
   if (!maybeMap) return {};
@@ -36,9 +25,12 @@ const sanitizeRolesArray = (arr) => {
 
 export async function ensurePermissionsDoc() {
   let doc = await Permissions.findById(PERMISSIONS_DOC_ID);
+
   if (!doc) {
+    // First-ever run: seed every key with DEFAULT_ROLE_GRANTS so fresh installs
+    // work without any manual owner action.
     const seed = {};
-    OWNER_PERMISSION_KEYS.forEach((k) => (seed[k] = []));
+    OWNER_PERMISSION_KEYS.forEach((k) => (seed[k] = DEFAULT_ROLE_GRANTS[k] ?? []));
     doc = await Permissions.create({
       _id: PERMISSIONS_DOC_ID,
       permissions: new Map(Object.entries(seed)),
@@ -46,14 +38,17 @@ export async function ensurePermissionsDoc() {
     return doc;
   }
 
+  // Existing doc: reconcile on every call.
   const current = mapToPlainObject(doc.permissions) || {};
   let changed = false;
 
   OWNER_PERMISSION_KEYS.forEach((k) => {
     if (!(k in current)) {
-      current[k] = [];
+      // Key completely absent — write the default grant.
+      current[k] = DEFAULT_ROLE_GRANTS[k] ?? [];
       changed = true;
     } else if (Array.isArray(current[k])) {
+      // Key present — only sanitize stale/invalid role strings; never change valid content.
       const clean = sanitizeRolesArray(current[k]);
       if (JSON.stringify(clean) !== JSON.stringify(current[k])) {
         current[k] = clean;
@@ -92,7 +87,6 @@ export async function getAllPermissionsAsMatrix() {
 }
 
 export async function userCanAccess(user, permKey) {
-  // owners unrestricted (optional safe rule)
   if (!user || !permKey) return true;
   if (user.role === "owner") return true;
 

@@ -23,7 +23,13 @@ const statusText = (s) =>
     cancelled: "Cancelled",
   }[s] || s);
 
-const OwnerAppointmentsTable = ({ data = [], onView }) => {
+const OwnerAppointmentsTable = ({
+  data = [],
+  onView,
+  onEdit,
+  onStatusChange,
+  onDelete,
+}) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -46,45 +52,72 @@ const OwnerAppointmentsTable = ({ data = [], onView }) => {
               </td>
             </tr>
           ) : (
-            data.map((a) => (
-              <tr key={a.id} className="hover:bg-gray-50/60 transition">
-                <td className="py-3 pr-4 whitespace-nowrap">
-                  <div className="font-semibold text-gray-900">{a.time}</div>
-                  <div className="text-xs text-gray-500">{a.date}</div>
-                </td>
+            data.map((a) => {
+              const st = a.status;
+              const canComplete = st === "scheduled" || st === "checked_in";
+              const canCancel   = st === "scheduled" || st === "checked_in";
+              const canReopen   = st === "completed"  || st === "cancelled";
+              return (
+                <tr key={a.id} className="hover:bg-gray-50/60 transition">
+                  <td className="py-3 pr-4 whitespace-nowrap">
+                    <div className="font-semibold text-gray-900">{a.time}</div>
+                    <div className="text-xs text-gray-500">{a.date}</div>
+                  </td>
 
-                <td className="py-3 pr-4">
-                  <div className="font-semibold text-gray-900">{a.patientName}</div>
-                  <div className="text-xs text-gray-500">{a.patientPhone}</div>
-                </td>
+                  <td className="py-3 pr-4">
+                    <div className="font-semibold text-gray-900">{a.patientName}</div>
+                    <div className="text-xs text-gray-500">{a.patientPhone}</div>
+                  </td>
 
-                <td className="py-3 pr-4">{a.dentistName}</td>
+                  <td className="py-3 pr-4">{a.dentistName}</td>
 
-                <td className="py-3 pr-4">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass(
-                      a.status
-                    )}`}
-                  >
-                    {statusText(a.status)}
-                  </span>
-                </td>
+                  <td className="py-3 pr-4">
+                    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass(a.status)}`}>
+                      {statusText(a.status)}
+                    </span>
+                  </td>
 
-                <td className="py-3 pr-4 max-w-[280px] truncate text-gray-700">
-                  {a.reason}
-                </td>
+                  <td className="py-3 pr-4 max-w-[200px] truncate text-gray-700">{a.reason}</td>
 
-                <td className="py-3 text-right">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => onView(a)}
-                  >
-                    View
-                  </Button>
-                </td>
-              </tr>
-            ))
+                  <td className="py-3 text-right">
+                    <div className="flex items-center justify-end gap-1 flex-wrap">
+                      <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onView?.(a)}>
+                        View
+                      </Button>
+                      {onEdit && (
+                        <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onEdit(a)}>
+                          Edit
+                        </Button>
+                      )}
+                      {onStatusChange && canComplete && (
+                        <Button size="sm" className="rounded-xl text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                          onClick={() => onStatusChange(a, "completed")}>
+                          Complete
+                        </Button>
+                      )}
+                      {onStatusChange && canCancel && (
+                        <Button size="sm" variant="outline" className="rounded-xl text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                          onClick={() => onStatusChange(a, "cancelled")}>
+                          Cancel
+                        </Button>
+                      )}
+                      {onStatusChange && canReopen && (
+                        <Button size="sm" variant="outline" className="rounded-xl text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                          onClick={() => onStatusChange(a, "scheduled")}>
+                          Reopen
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button size="sm" variant="outline" className="rounded-xl text-xs text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => onDelete(a)}>
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

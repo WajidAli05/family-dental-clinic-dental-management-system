@@ -1,6 +1,7 @@
 // src/store/dentistDashboardStore.js
 import { create } from "zustand";
 import { dentistApi } from "@/lib/dentistApi";
+import { localISODate } from "@/utils/localISODate";
 
 export const useDentistDashboardStore = create((set) => ({
   loading: false,
@@ -19,11 +20,10 @@ export const useDentistDashboardStore = create((set) => ({
     try {
       set({ loading: true, error: null });
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = localISODate();
 
       const [statsRes, apptRes] = await Promise.all([
-        dentistApi.getStats(),
-        // ✅ only date is guaranteed; backend may ignore others
+        dentistApi.getStats({ date: today }),
         dentistApi.getAppointments({ date: today }),
       ]);
 

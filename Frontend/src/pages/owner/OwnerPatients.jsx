@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import OwnerPatientsFilters from "@/components/owner/OwnerPatientsFilters";
 import OwnerPatientsTable from "@/components/owner/OwnerPatientsTable";
 import OwnerPatientProfileModal from "@/components/owner/OwnerPatientProfileModal";
+import AddEditPatientModal from "@/components/owner/AddEditPatientModal";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
 import { useDentistStore } from "@/store/dentistStore";
-import { Users, UserCheck, FlaskConical, Banknote } from "lucide-react";
+import { Users, UserCheck, FlaskConical, Banknote, UserPlus } from "lucide-react";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
 import TablePagination from "@/components/ui/TablePagination";
 import { usePagination } from "@/hooks/usePagination";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const OwnerPatients = () => {
   const filters = useOwnerPatientsStore((s) => s.filters);
@@ -27,6 +33,12 @@ const OwnerPatients = () => {
   const openProfile = useOwnerPatientsStore((s) => s.openProfile);
   const closeProfile = useOwnerPatientsStore((s) => s.closeProfile);
   const fetchPatients = useOwnerPatientsStore((s) => s.fetchPatients);
+  const markPatientInactive = useOwnerPatientsStore((s) => s.markPatientInactive);
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [editPatient, setEditPatient] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const dentistsStore = useDentistStore((s) => s.dentists);
   const fetchAllDentists = useDentistStore((s) => s.fetchAllDentists);
@@ -79,7 +91,6 @@ const OwnerPatients = () => {
     return Array.from(set);
   }, [patients]);
 
-  // When search/status filter changes, reset to page 1 then reload
   const handleFilterChange = (key, value) => {
     setFilter(key, value);
     if (key === "query" || key === "status") resetPage();
@@ -88,6 +99,21 @@ const OwnerPatients = () => {
   const handleReset = () => {
     resetFilters();
     resetPage();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await markPatientInactive(deleteTarget.id);
+      toast.success(`${deleteTarget.name} marked inactive`);
+      setDeleteTarget(null);
+      load();
+    } catch (e) {
+      toast.error(e.message || "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -130,20 +156,30 @@ const OwnerPatients = () => {
         <CardContent className="p-6">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-semibold text-gray-900">Results</h2>
-            <p className="text-sm text-gray-500">
-              Showing{" "}
-              <span className="font-semibold text-gray-900">{data.length}</span>
-              {pagination.total > 0 && pagination.total !== data.length ? (
-                <> of <span className="font-semibold text-gray-900">{pagination.total}</span></>
-              ) : null}
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-500">
+                Showing{" "}
+                <span className="font-semibold text-gray-900">{data.length}</span>
+                {pagination.total > 0 && pagination.total !== data.length ? (
+                  <> of <span className="font-semibold text-gray-900">{pagination.total}</span></>
+                ) : null}
+              </p>
+              <Button onClick={() => setAddOpen(true)} className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] gap-2">
+                <UserPlus className="w-4 h-4" /> Add Patient
+              </Button>
+            </div>
           </div>
 
           <div className="mt-4">
             {loading ? (
               <TableSkeleton rows={8} cols={5} />
             ) : (
-              <OwnerPatientsTable data={data} onView={openProfile} />
+              <OwnerPatientsTable
+                data={data}
+                onView={openProfile}
+                onEdit={(p) => setEditPatient(p)}
+                onDelete={(p) => setDeleteTarget(p)}
+              />
             )}
           </div>
 
@@ -163,6 +199,45 @@ const OwnerPatients = () => {
         patient={selectedPatient}
         onClose={closeProfile}
       />
+
+      {/* Add Patient */}
+      <AddEditPatientModal
+        open={addOpen}
+        patient={null}
+        onOpenChange={setAddOpen}
+        onSuccess={() => { setAddOpen(false); load(); }}
+      />
+
+      {/* Edit Patient */}
+      <AddEditPatientModal
+        open={!!editPatient}
+        patient={editPatient}
+        onOpenChange={(v) => { if (!v) setEditPatient(null); }}
+        onSuccess={() => { setEditPatient(null); load(); }}
+      />
+
+      {/* Delete Confirm */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark patient inactive?</DialogTitle>
+            <DialogDescription>
+              <strong>{deleteTarget?.name}</strong> will be marked inactive.
+              Financial records (invoices, treatments, labs) are NOT deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={deleting} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeleteConfirm}
+            >
+              {deleting ? "Deleting…" : "Mark Inactive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

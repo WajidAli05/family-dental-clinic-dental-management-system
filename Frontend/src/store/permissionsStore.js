@@ -48,4 +48,7 @@ export const usePermissionsStore = create((set, get) => ({
     if (role === "dentist") return !!row.dentist;
     return true;
   },
+
+  // Called on logout so stale permissions don't persist into the next session.
+  reset: () => set({ rolePermissions: null, role: null, loading: false, error: null }),
 }));

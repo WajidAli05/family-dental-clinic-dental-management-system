@@ -257,6 +257,41 @@ export const useOwnerPatientsStore = create((set, get) => ({
     return get().markPatientInactive(patientId);
   },
 
+  // ✅ NEW: create patient
+  addPatient: async (body) => {
+    try {
+      set({ loading: true, error: null });
+      const res = await ownerApi.createPatient(body);
+      const newPatient = res.data || {};
+      set((state) => ({
+        patients: [newPatient, ...state.patients],
+        loading: false,
+      }));
+      return newPatient;
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
+  // ✅ NEW: update patient
+  editPatient: async (patientId, body) => {
+    const id = String(patientId || "").trim();
+    try {
+      set({ loading: true, error: null });
+      const res = await ownerApi.updatePatient(id, body);
+      const updated = res.data || {};
+      set((state) => ({
+        patients: state.patients.map((p) => (p.id === id ? { ...p, ...updated } : p)),
+        loading: false,
+      }));
+      return updated;
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
   // single “source of truth” filtering here (page just calls this)
   getFilteredPatients: () => {
     const { patients, filters } = get();

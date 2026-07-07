@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { usePermissionsStore } from "./permissionsStore";
 
 export const useUserStore = create((set) => ({
   currentUser: JSON.parse(localStorage.getItem("user")) || null,
@@ -26,6 +27,11 @@ export const useUserStore = create((set) => ({
       localStorage.setItem("user", JSON.stringify(user));
 
       set({ token, currentUser: user, error: null });
+
+      // Fetch fresh permissions immediately so the sidebar and PermissionRoute
+      // reflect the current DB state without needing a hard refresh.
+      usePermissionsStore.getState().fetchMyPermissions();
+
       return true;
     } catch {
       set({ error: "Server unreachable" });
@@ -37,5 +43,7 @@ export const useUserStore = create((set) => ({
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     set({ token: null, currentUser: null, error: null });
+    // Clear stale permissions so they don't leak into the next login session.
+    usePermissionsStore.getState().reset();
   },
 }));

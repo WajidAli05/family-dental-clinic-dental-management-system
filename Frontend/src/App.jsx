@@ -19,6 +19,7 @@ import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
 import DentistAppointments from "./pages/dentist/DentistAppointments";
 import DentistLabSamples from "./pages/dentist/DentistLabSamples";
 import DentistProfile from "./pages/dentist/DentistProfile";
+import DentistPatients from "./pages/dentist/DentistPatients";
 
 import ReceptionistDashboard from "./pages/ReceptionistDashboard";
 import ReceptionististDashboardHome from "./pages/receptionist/ReceptionistDashboardHome";
@@ -96,6 +97,17 @@ function App() {
               }
             >
               <Route path="lab-samples" element={<DentistLabSamples />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_dentist_patients"
+                  fallback="/dentist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="patients" element={<DentistPatients />} />
             </Route>
 
             <Route

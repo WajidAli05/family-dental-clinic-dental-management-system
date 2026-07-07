@@ -5,6 +5,12 @@ import LabCase from "../models/LabCase.model.js";
 import Prescription from "../models/Prescription.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
+import {
+  createAppointmentCore,
+  updateAppointmentCore,
+  updateAppointmentStatusCore,
+} from "./shared/appointments.js";
+import { listPatientsCore } from "./shared/patients.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -62,8 +68,8 @@ export async function dentistChangePassword(dentistId, { currentPassword, newPas
 }
 
 // -------------------- STATS --------------------
-export async function dentistGetStats(dentistId) {
-  const date = todayISO();
+export async function dentistGetStats(dentistId, { date: dateParam } = {}) {
+  const date = String(dateParam || "").trim() || todayISO();
 
   const [appointmentsToday, completedToday, pendingLab, prescriptionsToday] =
     await Promise.all([
@@ -173,15 +179,64 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
   return paginateArray(mapped, P, L);
 }
 
-export async function dentistApproveCase(dentistId, casePublicId) {
-  const c = await LabCase.findOne({ publicId: casePublicId, dentist: dentistId });
-  if (!c) throw new Error("Case not found");
+// UI action → canonical DB status
+const UI_ACTION_TO_DB = {
+  approved: "approved",
+  rejected: "rejected",
+  reopened: "in_progress",   // reopen sends the case back to lab as "in_progress"
+};
+// States from which dentist can finalize (approve / reject)
+const FINALIZE_FROM = new Set(["sent", "in_progress", "ready", "delivered", "received"]);
+// States from which dentist can reopen
+const REOPEN_FROM = new Set(["approved", "rejected", "delivered"]);
 
-  c.status = "approved";
+const TIMELINE_NOTES = {
+  approved: "Approved by dentist",
+  rejected: "Rejected by dentist",
+  reopened: "Reopened by dentist",
+};
+
+export async function dentistUpdateCaseStatus(dentistId, casePublicId, uiAction) {
+  const action = String(uiAction || "").toLowerCase();
+  const dbStatus = UI_ACTION_TO_DB[action];
+  if (!dbStatus) {
+    const err = new Error(`Invalid action "${uiAction}". Valid: approved, rejected, reopened.`);
+    err.status = 400;
+    throw err;
+  }
+
+  const c = await LabCase.findOne({ publicId: casePublicId, dentist: dentistId });
+  if (!c) {
+    const err = new Error("Case not found");
+    err.status = 404;
+    throw err;
+  }
+
+  const current = c.status;
+
+  if (action === "reopened") {
+    if (!REOPEN_FROM.has(current)) {
+      const err = new Error(
+        `Cannot reopen a case with status "${current}". Only approved, rejected, or delivered cases can be reopened.`
+      );
+      err.status = 400;
+      throw err;
+    }
+  } else {
+    if (!FINALIZE_FROM.has(current)) {
+      const err = new Error(
+        `Cannot ${action} a case that is already "${current}". Reopen it first.`
+      );
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  c.status = dbStatus;
   c.timeline.push({
     at: new Date().toISOString().slice(0, 16).replace("T", " "),
-    status: "approved",
-    note: "Approved by dentist",
+    status: dbStatus,
+    note: TIMELINE_NOTES[action],
   });
 
   await c.save();
@@ -300,6 +355,24 @@ export async function dentistGetPrescriptions(user, query = {}) {
   ]);
 
   return { rows, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+}
+
+// -------------------- APPOINTMENT CRUD (dentist self-service) --------------------
+export async function dentistCreateAppointment(dentistId, body) {
+  return createAppointmentCore(body, { forceDentistId: dentistId });
+}
+
+export async function dentistUpdateAppointment(dentistId, apptPublicId, body) {
+  return updateAppointmentCore(apptPublicId, body, { ownDentistId: dentistId });
+}
+
+export async function dentistUpdateAppointmentStatus(dentistId, apptPublicId, uiStatus) {
+  return updateAppointmentStatusCore(apptPublicId, uiStatus, { ownDentistId: dentistId });
+}
+
+// -------------------- PATIENTS (read-only list for dentist) --------------------
+export async function dentistGetPatients(_dentistId, params = {}) {
+  return listPatientsCore(params);
 }
 
 // -------------------- CLINICAL MASTER (for dentist) --------------------

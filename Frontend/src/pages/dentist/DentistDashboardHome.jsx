@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { localISODate } from "@/utils/localISODate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Users, FlaskConical, FileText } from "lucide-react";
 import Wave from "react-wavify";
@@ -18,7 +19,7 @@ const DentistDashboardHome = () => {
 
   const rxStore = usePrescriptionStore();
 
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => localISODate(), []);
 
   useEffect(() => {
     if (typeof fetchDashboard === "function") fetchDashboard();

@@ -21,6 +21,18 @@ import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
 import { revenueCollected, outstanding } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
+import {
+  createAppointmentCore,
+  updateAppointmentCore,
+  updateAppointmentStatusCore,
+  deleteAppointmentCore,
+} from "./shared/appointments.js";
+import { createPatientCore, updatePatientCore } from "./shared/patients.js";
+import {
+  PERMISSION_ROLES,
+  OWNER_PERMISSION_KEYS,
+  DEFAULT_ROLE_GRANTS,
+} from "./shared/permissionsConfig.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -44,26 +56,10 @@ const pad = (n, w = 4) => String(n).padStart(w, "0");
 // ✅ STAFF & PERMISSIONS (NEW)
 // =====================================================
 const STAFF_ROLES = ["dentist", "receptionist", "lab"];
-const PERMISSION_ROLES = ["receptionist", "dentist"]; // labs removed from permissions tab
 const PERMISSIONS_DOC_ID = "PERMISSIONS";
 
-// These must match your frontend PERMISSION_KEYS
-export const OWNER_PERMISSION_KEYS = [
-  // receptionist tabs
-  "tab_receptionist_dashboard",
-  "tab_receptionist_patients",
-  "tab_receptionist_appointments",
-  "tab_receptionist_lab_samples",
-  "tab_receptionist_billing",
-  "tab_receptionist_inventory",
-  "tab_receptionist_profile",
-
-  // dentist tabs
-  "tab_dentist_dashboard",
-  "tab_dentist_appointments",
-  "tab_dentist_lab_samples",
-  "tab_dentist_profile",
-];
+// OWNER_PERMISSION_KEYS, PERMISSION_ROLES, DEFAULT_ROLE_GRANTS imported at top of file
+export { OWNER_PERMISSION_KEYS };
 
 // --- Permissions helpers ---
 // Stored in DB as: permissions: Map<permKey, ["receptionist","dentist"]>
@@ -118,23 +114,27 @@ async function ensurePermissionsDoc() {
   let doc = await Permissions.findById(PERMISSIONS_DOC_ID);
   if (!doc) {
     const seed = {};
-    OWNER_PERMISSION_KEYS.forEach((k) => (seed[k] = []));
+    // Use DEFAULT_ROLE_GRANTS so a fresh install doesn't need manual owner setup.
+    OWNER_PERMISSION_KEYS.forEach((k) => (seed[k] = DEFAULT_ROLE_GRANTS[k] ?? []));
     doc = await Permissions.create({
       _id: PERMISSIONS_DOC_ID,
       permissions: new Map(Object.entries(seed)),
     });
   } else {
-    // backfill missing keys safely
     const current = mapToPlainObject(doc.permissions) || {};
     let changed = false;
 
     OWNER_PERMISSION_KEYS.forEach((k) => {
       if (!(k in current)) {
-        current[k] = [];
+        // New key — apply the default grant, not a bare [].
+        current[k] = DEFAULT_ROLE_GRANTS[k] ?? [];
         changed = true;
-      } else {
-        // also sanitize any old values
-        if (Array.isArray(current[k])) current[k] = sanitizeRolesArray(current[k]);
+      } else if (Array.isArray(current[k])) {
+        const clean = sanitizeRolesArray(current[k]);
+        if (JSON.stringify(clean) !== JSON.stringify(current[k])) {
+          current[k] = clean;
+          changed = true;
+        }
       }
     });
 
@@ -376,6 +376,7 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
     id: a.publicId,
     date: a.date,
     time: a.time,
+    patientId: a.patient?.publicId || "",
     patientName: a.patient?.name || "",
     patientPhone: a.patient?.phone || "",
     dentistId: a.dentist?.publicId || "",
@@ -1795,4 +1796,76 @@ export async function ownerDashboardOverview(_ownerId, { date } = {}) {
       cancelled: apptMap["cancelled"] || 0,
     },
   };
+}
+
+// =====================================================
+// ✅ OWNER APPOINTMENT CRUD
+// =====================================================
+
+function mapOwnerAppt(populated) {
+  return {
+    id:          populated.publicId,
+    date:        populated.date,
+    time:        populated.time,
+    patientId:   populated.patient?.publicId || "",
+    patientName: populated.patient?.name     || "",
+    patientPhone: populated.patient?.phone   || "",
+    dentistId:   populated.dentist?.publicId || "",
+    dentistName: populated.dentist?.name     || "",
+    status:      populated.status,
+    reason:      populated.reason  || "",
+    notes:       populated.notes   || "",
+  };
+}
+
+export async function ownerCreateAppointment(_ownerId, body) {
+  const result = await createAppointmentCore(body);
+  return mapOwnerAppt(result.original || result);
+}
+
+export async function ownerUpdateAppointment(_ownerId, apptPublicId, body) {
+  const result = await updateAppointmentCore(apptPublicId, body);
+  return mapOwnerAppt(result.original || result);
+}
+
+export async function ownerUpdateAppointmentStatus(_ownerId, apptPublicId, uiStatus) {
+  const result = await updateAppointmentStatusCore(apptPublicId, uiStatus);
+  return mapOwnerAppt(result.original || result);
+}
+
+export async function ownerDeleteAppointment(_ownerId, apptPublicId) {
+  return deleteAppointmentCore(apptPublicId);
+}
+
+// =====================================================
+// ✅ OWNER PATIENT CREATE / UPDATE
+// =====================================================
+
+function mapOwnerPatient(p) {
+  return {
+    id:          p.publicId,
+    name:        p.name    || "",
+    phone:       p.phone   || "",
+    age:         p.age     ?? "",
+    gender:      p.gender  || "",
+    city:        p.city    || "",
+    status:      p.status  || "active",
+    lastVisit:   p.lastVisit || "",
+    createdAt:   (p.registrationDate || ""),
+    dentist:     "",
+    pendingLab:  0,
+    totalSpent:  0,
+    lastInvoiceAmount: 0,
+    tags:        Array.isArray(p.tags) ? p.tags : [],
+  };
+}
+
+export async function ownerCreatePatient(_ownerId, body) {
+  const patient = await createPatientCore(body);
+  return mapOwnerPatient(patient.toJSON ? patient.toJSON() : patient);
+}
+
+export async function ownerUpdatePatient(_ownerId, patientPublicId, body) {
+  const patient = await updatePatientCore(patientPublicId, body);
+  return mapOwnerPatient(patient);
 }

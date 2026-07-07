@@ -35,7 +35,7 @@ const mapFilterToBackend = (filter) => {
 };
 
 const DentistLabSamples = () => {
-  const { cases, fetchCases, approveCase, loading, error, pagination } = useDentistCasesStore();
+  const { cases, fetchCases, updateCaseStatus, loading, error, pagination } = useDentistCasesStore();
   const { page, limit, setPage, resetPage } = usePagination(50);
   const [filter, setFilter] = useState("all");
 
@@ -63,8 +63,8 @@ const DentistLabSamples = () => {
     return { total, sent, inProcess, ready };
   }, [normalized]);
 
-  const handleApprove = async (id) => {
-    await approveCase(id);
+  const handleStatusChange = async (id, uiAction) => {
+    await updateCaseStatus(id, uiAction);
   };
 
   return (
@@ -100,7 +100,7 @@ const DentistLabSamples = () => {
           {loading ? (
             <TableSkeleton rows={6} cols={5} />
           ) : normalized.length > 0 ? (
-            <LabSamplesTable data={normalized} onApprove={handleApprove} />
+            <LabSamplesTable data={normalized} onStatusChange={handleStatusChange} />
           ) : (
             <p className="text-sm text-gray-500">No samples found.</p>
           )}

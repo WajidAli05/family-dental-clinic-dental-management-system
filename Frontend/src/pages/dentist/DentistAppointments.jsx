@@ -180,14 +180,19 @@
 import { useEffect, useMemo, useState } from "react";
 import Wavify from "react-wavify";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import TableSkeleton from "@/components/ui/TableSkeleton";
+import { CalendarPlus } from "lucide-react";
 
 import AppointmentsTable from "@/components/dentist/AppointmentsTable";
 import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal";
+import DentistBookAppointmentModal from "@/components/dentist/DentistBookAppointmentModal";
+import DentistEditAppointmentModal from "@/components/dentist/DentistEditAppointmentModal";
 import { dentistApi } from "@/lib/dentistApi";
 import { printPrescription } from "@/utils/printPrescription";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { localISODate } from "@/utils/localISODate";
 
 const DentistAppointments = () => {
   const [appointments, setAppointments] = useState([]);
@@ -198,10 +203,13 @@ const DentistAppointments = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [selectedPrescription, setSelectedPrescription] = useState(null);
 
+  const [bookOpen, setBookOpen] = useState(false);
+  const [editAppt, setEditAppt] = useState(null);
+
   // ✅ UI toggle: filter client-side
   const [showTodayOnly, setShowTodayOnly] = useState(true);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localISODate();
   const rxStore = usePrescriptionStore();
 
   // ✅ Fetch ALL appointments, but only today's prescriptions (workflow)
@@ -296,6 +304,18 @@ const DentistAppointments = () => {
     setIsPrescriptionOpen(true);
   };
 
+  const handleStatusChange = async (row, uiStatus) => {
+    const id = row?.id || row?.original?.id;
+    if (!id) return;
+    try {
+      await dentistApi.updateAppointmentStatus(id, uiStatus);
+      toast.success(`Appointment ${uiStatus}`);
+      fetchAllAppointments();
+    } catch (e) {
+      toast.error(e.message || "Status update failed");
+    }
+  };
+
   const handlePrintFromTable = async (row) => {
     try {
       const rx = row.prescription;
@@ -337,33 +357,41 @@ const DentistAppointments = () => {
 
       <Card className="rounded-2xl">
         <CardContent className="p-6">
-          {/* ✅ Buttons ABOVE the table */}
-          <div className="flex items-center gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => setShowTodayOnly(true)}
-              className={[
-                "px-3 py-2 rounded-xl text-sm font-semibold border",
-                showTodayOnly
-                  ? "bg-[#2ec4b6] text-white border-[#2ec4b6]"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
-              ].join(" ")}
-            >
-              Today Only
-            </button>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTodayOnly(true)}
+                className={[
+                  "px-3 py-2 rounded-xl text-sm font-semibold border",
+                  showTodayOnly
+                    ? "bg-[#2ec4b6] text-white border-[#2ec4b6]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
+                ].join(" ")}
+              >
+                Today Only
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowTodayOnly(false)}
-              className={[
-                "px-3 py-2 rounded-xl text-sm font-semibold border",
-                !showTodayOnly
-                  ? "bg-[#2ec4b6] text-white border-[#2ec4b6]"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
-              ].join(" ")}
+              <button
+                type="button"
+                onClick={() => setShowTodayOnly(false)}
+                className={[
+                  "px-3 py-2 rounded-xl text-sm font-semibold border",
+                  !showTodayOnly
+                    ? "bg-[#2ec4b6] text-white border-[#2ec4b6]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
+                ].join(" ")}
+              >
+                All
+              </button>
+            </div>
+
+            <Button
+              onClick={() => setBookOpen(true)}
+              className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] gap-2"
             >
-              All
-            </button>
+              <CalendarPlus className="w-4 h-4" /> Book Appointment
+            </Button>
           </div>
 
           {loading ? (
@@ -373,6 +401,8 @@ const DentistAppointments = () => {
               data={tableRows}
               onStartPrescription={handleStartPrescription}
               onPrintPrescription={handlePrintFromTable}
+              onEdit={(row) => setEditAppt(row?.original || row)}
+              onStatusChange={handleStatusChange}
             />
           ) : (
             <p className="text-gray-500 text-sm">
@@ -391,11 +421,24 @@ const DentistAppointments = () => {
           if (!v) {
             setSelectedAppointment(null);
             setSelectedPrescription(null);
-            fetchAllAppointments(); // ✅ refresh after save/edit
+            fetchAllAppointments();
           }
         }}
         appointment={selectedAppointment}
         prescription={selectedPrescription}
+      />
+
+      <DentistBookAppointmentModal
+        open={bookOpen}
+        onOpenChange={setBookOpen}
+        onSuccess={() => { setBookOpen(false); fetchAllAppointments(); }}
+      />
+
+      <DentistEditAppointmentModal
+        open={!!editAppt}
+        appointment={editAppt}
+        onOpenChange={(v) => { if (!v) setEditAppt(null); }}
+        onSuccess={() => { setEditAppt(null); fetchAllAppointments(); }}
       />
     </div>
   );

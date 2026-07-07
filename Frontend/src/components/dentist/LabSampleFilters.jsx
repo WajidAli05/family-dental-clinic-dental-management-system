@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 
-const filters = ["all", "Sent", "In Process", "Ready", "Delivered", "Approved"];
+const filters = ["all", "Sent", "In Process", "Ready", "Delivered", "Approved", "Rejected"];
 
 const LabSampleFilters = ({ active, onChange }) => {
   return (

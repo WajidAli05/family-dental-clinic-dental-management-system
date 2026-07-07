@@ -4,13 +4,17 @@
   dentistChangePassword,
   dentistGetStats,
   dentistGetAppointments,
+  dentistCreateAppointment,
+  dentistUpdateAppointment,
+  dentistUpdateAppointmentStatus,
   dentistGetCases,
-  dentistApproveCase,
+  dentistUpdateCaseStatus,
   dentistCreatePrescription,
   dentistUpdatePrescription,
   dentistGetPrescriptions,
   dentistGetPrescriptionById,
-  dentistGetClinicalMaster
+  dentistGetClinicalMaster,
+  dentistGetPatients,
 } from "../services/dentist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
@@ -45,7 +49,7 @@ export const changeDentistPassword = async (req, res) => {
 
 export const getDentistStats = async (req, res) => {
   try {
-    const stats = await dentistGetStats(req.user._id);
+    const stats = await dentistGetStats(req.user._id, { date: req.query.date });
     return res.json({ success: true, data: stats });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -62,6 +66,43 @@ export const getDentistAppointments = async (req, res) => {
   }
 };
 
+export const createDentistAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await dentistCreateAppointment(req.user._id, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateDentistAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await dentistUpdateAppointment(req.user._id, req.params.id, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateDentistAppointmentStatusCtrl = async (req, res) => {
+  try {
+    const data = await dentistUpdateAppointmentStatus(req.user._id, req.params.id, req.body?.status);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistPatientsCtrl = async (req, res) => {
+  try {
+    const { page, limit, sortBy, sortDir, q } = req.query;
+    const result = await dentistGetPatients(req.user._id, { page, limit, sortBy, sortDir, q });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 export const getDentistCases = async (req, res) => {
   try {
     const { status, q, page, limit, sortBy, sortDir } = req.query;
@@ -72,13 +113,15 @@ export const getDentistCases = async (req, res) => {
   }
 };
 
-export const approveDentistCase = async (req, res) => {
+export const updateDentistCaseStatus = async (req, res) => {
   try {
-    const { id } = req.params; // CASE-2001
-    const updated = await dentistApproveCase(req.user._id, id);
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ success: false, message: "status is required" });
+    const updated = await dentistUpdateCaseStatus(req.user._id, id, status);
     return res.json({ success: true, data: updated });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

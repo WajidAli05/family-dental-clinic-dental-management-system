@@ -18,7 +18,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const OwnerPatientsTable = ({ data = [], onView }) => {
+const OwnerPatientsTable = ({ data = [], onView, onEdit, onDelete }) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -58,13 +58,22 @@ const OwnerPatientsTable = ({ data = [], onView }) => {
                 <td className="py-3 pr-4">{p.pendingLab ?? 0}</td>
                 <td className="py-3 pr-4">PKR {Number(p.totalSpent || 0).toLocaleString("en-PK")}</td>
                 <td className="py-3 text-right">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => onView(p)}
-                  >
-                    View
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onView?.(p)}>
+                      View
+                    </Button>
+                    {onEdit && (
+                      <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onEdit(p)}>
+                        Edit
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button size="sm" variant="outline" className="rounded-xl text-xs text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => onDelete(p)}>
+                        Delete
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))

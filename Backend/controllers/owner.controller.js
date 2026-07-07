@@ -2,9 +2,15 @@
 import {
   ownerDashboardOverview,
   ownerListAppointments,
+  ownerCreateAppointment,
+  ownerUpdateAppointment,
+  ownerUpdateAppointmentStatus,
+  ownerDeleteAppointment,
   ownerPatientsList,
   ownerPatientProfile,
   ownerPatientDelete,
+  ownerCreatePatient,
+  ownerUpdatePatient,
 
   ownerListLabAccounts,
   ownerCreateLabAccount,
@@ -564,6 +570,66 @@ export const ownerUpdateSettingsController = async (req, res) => {
 export const ownerChangePasswordController = async (req, res) => {
   try {
     const data = await ownerSettingsChangePassword(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =====================================================
+// ✅ OWNER APPOINTMENT CRUD
+// =====================================================
+export const ownerCreateAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await ownerCreateAppointment(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await ownerUpdateAppointment(req.user?._id, req.params.id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateAppointmentStatusCtrl = async (req, res) => {
+  try {
+    const data = await ownerUpdateAppointmentStatus(req.user?._id, req.params.id, req.body?.status);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerDeleteAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await ownerDeleteAppointment(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =====================================================
+// ✅ OWNER PATIENT CREATE / UPDATE
+// =====================================================
+export const ownerCreatePatientCtrl = async (req, res) => {
+  try {
+    const data = await ownerCreatePatient(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdatePatientCtrl = async (req, res) => {
+  try {
+    const data = await ownerUpdatePatient(req.user?._id, req.params.id, req.body || {});
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

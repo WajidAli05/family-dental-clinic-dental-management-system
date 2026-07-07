@@ -1,13 +1,20 @@
 // src/pages/owner/OwnerAppointments.jsx
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDentistStore } from "@/store/dentistStore";
 import { useOwnerAppointmentsStore } from "@/store/ownerAppointmentsStore";
 import OwnerAppointmentsTable from "@/components/owner/OwnerAppointmentsTable";
+import OwnerBookAppointmentModal from "@/components/owner/OwnerBookAppointmentModal";
+import OwnerEditAppointmentModal from "@/components/owner/OwnerEditAppointmentModal";
 import AppointmentDetailsModal from "@/components/owner/AppointmentDetailsModal";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 import TableSkeleton from "@/components/ui/TableSkeleton";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { CalendarPlus } from "lucide-react";
 
 const filterAppointments = (appointments, filters) => {
   const { dateFrom, dateTo, dentistId, status, query } = filters;
@@ -50,16 +57,43 @@ const OwnerAppointments = () => {
   const selectedAppointment = useOwnerAppointmentsStore((s) => s.selectedAppointment);
   const openDetails = useOwnerAppointmentsStore((s) => s.openDetails);
   const closeDetails = useOwnerAppointmentsStore((s) => s.closeDetails);
+  const updateAppointmentStatus = useOwnerAppointmentsStore((s) => s.updateAppointmentStatus);
+  const deleteAppointment = useOwnerAppointmentsStore((s) => s.deleteAppointment);
+
+  const [bookOpen, setBookOpen] = useState(false);
+  const [editAppt, setEditAppt] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    // ✅ Load dentists for dropdown (owner is allowed on /receptionist/dentists per your v1 router)
     fetchAllDentists?.();
-
-    // ✅ Load appointments list (owner store init)
     useOwnerAppointmentsStore.getState().init();
   }, [fetchAllDentists]);
 
   const data = useMemo(() => filterAppointments(appointments, filters), [appointments, filters]);
+
+  const handleStatusChange = async (appt, uiStatus) => {
+    try {
+      await updateAppointmentStatus(appt.id, uiStatus);
+      toast.success(`Appointment ${uiStatus}`);
+    } catch (e) {
+      toast.error(e.message || "Status update failed");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteAppointment(deleteTarget.id);
+      toast.success("Appointment deleted");
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error(e.message || "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -141,9 +175,14 @@ const OwnerAppointments = () => {
         <CardContent className="p-6">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-semibold text-gray-900">Results</h2>
-            <p className="text-sm text-gray-500">
-              Showing <span className="font-semibold text-gray-900">{data.length}</span>
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-500">
+                Showing <span className="font-semibold text-gray-900">{data.length}</span>
+              </p>
+              <Button onClick={() => setBookOpen(true)} className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] gap-2">
+                <CalendarPlus className="w-4 h-4" /> Book Appointment
+              </Button>
+            </div>
           </div>
 
           {error ? (
@@ -151,7 +190,13 @@ const OwnerAppointments = () => {
           ) : null}
           <div className="mt-4">
             {loading ? <TableSkeleton rows={8} cols={6} /> : (
-              <OwnerAppointmentsTable data={data} onView={openDetails} />
+              <OwnerAppointmentsTable
+                data={data}
+                onView={openDetails}
+                onEdit={(a) => setEditAppt(a)}
+                onStatusChange={handleStatusChange}
+                onDelete={(a) => setDeleteTarget(a)}
+              />
             )}
           </div>
         </CardContent>
@@ -162,6 +207,42 @@ const OwnerAppointments = () => {
         appointment={selectedAppointment}
         onClose={closeDetails}
       />
+
+      <OwnerBookAppointmentModal
+        open={bookOpen}
+        onOpenChange={setBookOpen}
+        onSuccess={() => { setBookOpen(false); useOwnerAppointmentsStore.getState().fetchAppointments(); }}
+      />
+
+      <OwnerEditAppointmentModal
+        open={!!editAppt}
+        appointment={editAppt}
+        onOpenChange={(v) => { if (!v) setEditAppt(null); }}
+        onSuccess={() => { setEditAppt(null); useOwnerAppointmentsStore.getState().fetchAppointments(); }}
+      />
+
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete appointment?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete the appointment for{" "}
+              <strong>{deleteTarget?.patientName}</strong> on {deleteTarget?.date}.
+              Financial records (invoices, treatments, labs) are NOT deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={deleting} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeleteConfirm}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -96,4 +96,25 @@ export const useOwnerAppointmentsStore = create((set, get) => ({
 
   openDetails: (appointment) => set({ selectedAppointment: appointment }),
   closeDetails: () => set({ selectedAppointment: null }),
+
+  // ✅ CRUD mutations (always refresh from server after)
+  createAppointment: async (body) => {
+    await ownerApi.createAppointment(body);
+    await get().fetchAppointments();
+  },
+
+  updateAppointment: async (id, body) => {
+    await ownerApi.updateAppointment(id, body);
+    await get().fetchAppointments();
+  },
+
+  updateAppointmentStatus: async (id, uiStatus) => {
+    await ownerApi.updateAppointmentStatus(id, uiStatus);
+    await get().fetchAppointments();
+  },
+
+  deleteAppointment: async (id) => {
+    await ownerApi.deleteAppointment(id);
+    await get().fetchAppointments();
+  },
 }));
