@@ -17,6 +17,7 @@
   dentistGetPrescriptionById,
   dentistGetClinicalMaster,
   dentistGetPatients,
+  dentistGetFinance,
 } from "../services/dentist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
@@ -209,5 +210,14 @@ export const getCatalogSampleTypes = async (req, res) => {
     res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const getDentistFinanceCtrl = async (req, res) => {
+  try {
+    const data = await dentistGetFinance(req.user._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
   }
 };

@@ -124,4 +124,15 @@ export const ownerApi = {
   getOwnerSettings: () => request("/owner/settings"),
   updateOwnerSettings: (body) => request("/owner/settings", { method: "PATCH", body }),
   changeOwnerPassword: (body) => request("/owner/settings/password", { method: "PATCH", body }),
+
+  // =====================================================
+  // ✅ Finance APIs (NEW)
+  // =====================================================
+  getFinanceCashbook: (params) => request("/owner/finance/cashbook", { params }),
+  getFinanceCommissions: (params) => request("/owner/finance/commissions", { params }),
+  getFinanceOwnerPayments: (params) => request("/owner/finance/commissions/payments", { params }),
+  recordOwnerPayment: (body) => request("/owner/finance/commissions/payments", { method: "POST", body }),
+  getFinanceLabDues: () => request("/owner/finance/lab-dues"),
+  recordLabPayment: (body) => request("/owner/finance/lab-dues/payments", { method: "POST", body }),
+  getFinanceLabBillsByLab: (labId, params) => request(`/owner/finance/lab-dues/bills/${labId}`, { params }),
 };

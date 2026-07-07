@@ -35,6 +35,14 @@ import {
   ownerUpdateCommissionRules,
   ownerBillingARSummaryService,
 
+  ownerCashbookData,
+  ownerCommissionData,
+  ownerRecordOwnerPayment,
+  ownerListOwnerPayments,
+  ownerLabDuesData,
+  ownerRecordLabPayment,
+  ownerLabBillsByLab,
+
   // âœ… STAFF + PERMISSIONS
   ownerStaffList,
   ownerStaffCreate,
@@ -683,6 +691,78 @@ export const ownerUpdatePatientCtrl = async (req, res) => {
   try {
     const data = await ownerUpdatePatient(req.user?._id, req.params.id, req.body || {});
     return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// =====================================================
+// ✅ FINANCE CONTROLLERS
+// =====================================================
+
+export const ownerFinanceCashbook = async (req, res) => {
+  try {
+    const { from, to, page, limit, q } = req.query;
+    const data = await ownerCashbookData(req.user?._id, { from, to, page, limit, q });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceCommissions = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const data = await ownerCommissionData(req.user?._id, { from, to });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceRecordOwnerPayment = async (req, res) => {
+  try {
+    const data = await ownerRecordOwnerPayment(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceListOwnerPayments = async (req, res) => {
+  try {
+    const { dentistId, page, limit } = req.query;
+    const result = await ownerListOwnerPayments(req.user?._id, { dentistId, page, limit });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceLabDues = async (req, res) => {
+  try {
+    const data = await ownerLabDuesData(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceRecordLabPayment = async (req, res) => {
+  try {
+    const data = await ownerRecordLabPayment(req.user?._id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerFinanceLabBillsByLab = async (req, res) => {
+  try {
+    const { labId } = req.params;
+    const { page, limit } = req.query;
+    const result = await ownerLabBillsByLab(req.user?._id, labId, { page, limit });
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }

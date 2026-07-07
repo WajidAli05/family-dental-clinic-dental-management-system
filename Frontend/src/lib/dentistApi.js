@@ -191,4 +191,7 @@ export const dentistApi = {
     const qs = new URLSearchParams(params).toString();
     return req(`/catalog/sample-types${qs ? `?${qs}` : ""}`);
   },
+
+  // ── My Finance ──
+  getFinance: () => req("/finance"),
 };

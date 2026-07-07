@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { localISODate } from "@/utils/localISODate";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Users, FlaskConical, FileText } from "lucide-react";
+import { Calendar, Users, FlaskConical, FileText, Wallet, TrendingUp } from "lucide-react";
 import Wave from "react-wavify";
 
 import { useDentistDashboardStore } from "@/store/dentistDashboardStore";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { useDentistFinanceStore } from "@/store/dentistFinanceStore";
 
 import DentistStatCard from "@/components/dentist/StatCard";
 import DentistAppointmentsTable from "@/components/dentist/AppointmentsTable";
 import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal";
 
+const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+
 const DentistDashboardHome = () => {
+  const navigate = useNavigate();
   const { stats, appointments, fetchDashboard } = useDentistDashboardStore();
+  const { data: financeData, fetch: fetchFinance } = useDentistFinanceStore();
 
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -23,6 +29,7 @@ const DentistDashboardHome = () => {
 
   useEffect(() => {
     if (typeof fetchDashboard === "function") fetchDashboard();
+    fetchFinance();
   }, [fetchDashboard]);
 
   /**
@@ -153,6 +160,37 @@ const DentistDashboardHome = () => {
           icon={FileText}
         />
       </div>
+
+      {/* Finance quick cards */}
+      {financeData && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => navigate("/dentist-dashboard/finance")}
+            className="rounded-2xl border border-[#2ec4b6]/30 bg-[#f0fdfc] p-4 text-left hover:bg-[#e6faf8] transition"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Wallet size={16} className="text-[#2ec4b6]" />
+              <span className="text-xs font-semibold text-[#2ec4b6]">Earned This Month</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">{money(financeData.earnedThisMonth)}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Rate: {financeData.rate}% · View My Finance →</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dentist-dashboard/finance")}
+            className="rounded-2xl border border-orange-100 bg-orange-50 p-4 text-left hover:bg-orange-100/60 transition"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp size={16} className="text-orange-500" />
+              <span className="text-xs font-semibold text-orange-600">Remaining Balance</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">{money(financeData.remaining)}</p>
+            <p className="text-xs text-gray-500 mt-0.5">All-time earned minus total paid out</p>
+          </button>
+        </div>
+      )}
 
       <Card className="rounded-2xl">
         <CardContent className="p-6">

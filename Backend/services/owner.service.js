@@ -20,6 +20,15 @@ import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
 import { revenueCollected, outstanding } from "./shared/billing.js";
+import LabBillPayment from "../models/LabBillPayment.model.js";
+import {
+  cashbookStats,
+  cashbookTransactions,
+  cashbookTrend,
+  commissionSummary,
+  labDuesSummary,
+  labBillsForLab,
+} from "./shared/finance.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import {
   createAppointmentCore,
@@ -1999,4 +2008,82 @@ export async function ownerCreatePatient(_ownerId, body) {
 export async function ownerUpdatePatient(_ownerId, patientPublicId, body) {
   const patient = await updatePatientCore(patientPublicId, body);
   return mapOwnerPatient(patient);
+}
+
+// =====================================================
+// ✅ FINANCE — Daily Cashbook, Commissions, Lab Dues
+// =====================================================
+
+export async function ownerCashbookData(_ownerId, { from, to, page, limit, q } = {}) {
+  const f = normalize(from) || undefined;
+  const t = normalize(to) || undefined;
+  const [stats, transactions, trend] = await Promise.all([
+    cashbookStats(f, t),
+    cashbookTransactions(f, t, { page, limit, q }),
+    cashbookTrend(30),
+  ]);
+  return { stats, transactions, trend };
+}
+
+export async function ownerCommissionData(_ownerId, { from, to } = {}) {
+  const f = normalize(from) || undefined;
+  const t = normalize(to) || undefined;
+  return commissionSummary(f, t);
+}
+
+export async function ownerRecordOwnerPayment(_ownerId, { dentistId, dentistName, amount, method, date } = {}) {
+  const did = normalize(dentistId);
+  if (!did) throw new Error("dentistId is required");
+  const amt = Number(amount);
+  if (!amt || amt <= 0) throw new Error("amount must be positive");
+  const m = normalize(method).toLowerCase();
+  if (!["cash", "card"].includes(m)) throw new Error("method must be cash or card");
+  const d = normalize(date) || toISO(new Date());
+  const id = `OP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await OwnerPayment.create({
+    _id: id, dentistId: did, dentistName: normalize(dentistName) || did, amount: amt, method: m, date: d,
+  });
+  return { id, dentistId: did, amount: amt, method: m, date: d };
+}
+
+export async function ownerListOwnerPayments(_ownerId, { dentistId, page, limit } = {}) {
+  const { page: P, limit: L, skip } = parsePagination({ page, limit });
+  const filter = {};
+  const did = normalize(dentistId);
+  if (did && did !== "all") filter.dentistId = did;
+  const [total, rows] = await Promise.all([
+    OwnerPayment.countDocuments(filter),
+    OwnerPayment.find(filter).sort({ date: -1, createdAt: -1 }).skip(skip).limit(L).lean(),
+  ]);
+  return {
+    rows: rows.map((p) => ({
+      id: p._id, date: p.date, amount: Number(p.amount || 0),
+      method: p.method, dentistId: p.dentistId, dentistName: p.dentistName,
+    })),
+    total, page: P, pages: Math.max(1, Math.ceil(total / L)),
+  };
+}
+
+export async function ownerLabDuesData(_ownerId) {
+  return labDuesSummary();
+}
+
+export async function ownerRecordLabPayment(_ownerId, { labId, labName, amount, method, date, note, labBillId } = {}) {
+  const lid = normalize(labId);
+  if (!lid) throw new Error("labId is required");
+  const amt = Number(amount);
+  if (!amt || amt <= 0) throw new Error("amount must be positive");
+  const d = normalize(date) || toISO(new Date());
+  const m = normalize(method) || "cash";
+  const id = `LP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await LabBillPayment.create({
+    _id: id, labId: lid, labName: normalize(labName) || lid,
+    amount: amt, date: d, method: m,
+    note: normalize(note), labBillId: normalize(labBillId),
+  });
+  return { id, labId: lid, amount: amt, date: d };
+}
+
+export async function ownerLabBillsByLab(_ownerId, labId, { page, limit } = {}) {
+  return labBillsForLab(labId, { page, limit });
 }

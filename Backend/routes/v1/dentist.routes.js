@@ -20,6 +20,7 @@ import {
   getDentistClinicalMaster,
   getCatalogTreatments,
   getCatalogSampleTypes,
+  getDentistFinanceCtrl,
 } from "../../controllers/dentist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
@@ -61,5 +62,8 @@ router.patch("/prescriptions/:id", requirePermission("tab_dentist_appointments")
 // price catalog (read-only — dentist sees prices when choosing treatments / lab samples)
 router.get("/catalog/treatments", requirePermission("tab_dentist_appointments"), getCatalogTreatments);
 router.get("/catalog/sample-types", requirePermission("tab_dentist_lab_samples"), getCatalogSampleTypes);
+
+// my finance
+router.get("/finance", requirePermission("tab_dentist_finance"), getDentistFinanceCtrl);
 
 export default router;

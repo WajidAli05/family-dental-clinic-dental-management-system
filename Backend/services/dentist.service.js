@@ -1,5 +1,6 @@
 //dentist services
 import User from "../models/User.model.js";
+import { dentistFinance } from "./shared/finance.js";
 import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
@@ -403,4 +404,13 @@ export async function dentistGetClinicalMaster() {
     diagnosisTemplates: (doc.diagnosisTemplates || []).filter((d) => d.active !== false),
     clinicalFindingTemplates: (doc.clinicalFindingTemplates || []).filter((f) => f.active !== false),
   };
+}
+
+// =====================================================
+// ✅ MY FINANCE
+// =====================================================
+export async function dentistGetFinance(dentistId) {
+  const user = await User.findById(dentistId).lean();
+  if (!user) throw new Error("Dentist not found");
+  return dentistFinance(user.publicId);
 }

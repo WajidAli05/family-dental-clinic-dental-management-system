@@ -39,6 +39,14 @@ import {
   ownerBillingUpdateCommissionRules,
   ownerBillingARSummary,
 
+  ownerFinanceCashbook,
+  ownerFinanceCommissions,
+  ownerFinanceRecordOwnerPayment,
+  ownerFinanceListOwnerPayments,
+  ownerFinanceLabDues,
+  ownerFinanceRecordLabPayment,
+  ownerFinanceLabBillsByLab,
+
   // ✅ NEW
   ownerListStaff,
   ownerCreateStaff,
@@ -121,12 +129,21 @@ router.delete("/sample-types/:id", ownerDeleteSampleTypeController);
 // Dentists for filters
 router.get("/dentists", ownerGetDentists);
 
-// Billing
+// Billing (legacy endpoints — kept for backwards compatibility)
 router.get("/billing/payments", ownerBillingListPayments);
 router.get("/billing/lab-bills", ownerBillingListLabBills);
 router.get("/billing/commission-rules", ownerBillingGetCommissionRules);
 router.patch("/billing/commission-rules", ownerBillingUpdateCommissionRules);
 router.get("/billing/ar-summary", ownerBillingARSummary);
+
+// Finance (new endpoints)
+router.get("/finance/cashbook",                 ownerFinanceCashbook);
+router.get("/finance/commissions",              ownerFinanceCommissions);
+router.get("/finance/commissions/payments",     ownerFinanceListOwnerPayments);
+router.post("/finance/commissions/payments",    ownerFinanceRecordOwnerPayment);
+router.get("/finance/lab-dues",                 ownerFinanceLabDues);
+router.post("/finance/lab-dues/payments",       ownerFinanceRecordLabPayment);
+router.get("/finance/lab-dues/bills/:labId",    ownerFinanceLabBillsByLab);
 
 // =====================================================
 // ✅ STAFF (NEW)

@@ -20,6 +20,7 @@ export const OWNER_PERMISSION_KEYS = [
   "tab_dentist_lab_samples",
   "tab_dentist_patients",
   "tab_dentist_profile",
+  "tab_dentist_finance",
 ];
 
 // Default role grants applied when a key is FIRST written to the DB (missing key only).
@@ -39,4 +40,5 @@ export const DEFAULT_ROLE_GRANTS = {
   tab_dentist_lab_samples:       ["dentist"],
   tab_dentist_patients:          ["dentist"],
   tab_dentist_profile:           ["dentist"],
+  tab_dentist_finance:           ["dentist"],
 };

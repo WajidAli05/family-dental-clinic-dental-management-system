@@ -1,281 +1,387 @@
-// src/pages/owner/OwnerBilling.jsx
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
-
 import OwnerBillingTabs from "@/components/owner/OwnerBillingTabs";
 import OwnerBillingFilters from "@/components/owner/OwnerBillingFilters";
 import OwnerBillingCharts from "@/components/owner/OwnerBillingCharts";
-
 import DailyCashbookTable from "@/components/owner/DailyCashbookTable";
-import RevenueReportsTable from "@/components/owner/RevenueReportsTable";
-import LabDuesTable from "@/components/owner/LabDuesTable";
 import CommissionsTable from "@/components/owner/CommissionsTable";
-
-import CommissionRuleModal from "@/components/owner/CommissionRuleModal";
-
-import { exportOwnerBillingPdf } from "@/utils/ownerBillingReports";
-import { useOwnerBillingStore } from "@/store/ownerBillingStore";
+import LabDuesTable from "@/components/owner/LabDuesTable";
 import TableSkeleton from "@/components/ui/TableSkeleton";
+import { useOwnerBillingStore } from "@/store/ownerBillingStore";
 
 const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
 
-const KPI = ({ label, value, sub }) => (
-  <div className="rounded-2xl border border-gray-100 bg-white p-4">
+const KPI = ({ label, value, sub, highlight }) => (
+  <div className={`rounded-2xl border p-4 ${highlight ? "border-[#2ec4b6]/30 bg-[#f0fdfc]" : "border-gray-100 bg-white"}`}>
     <div className="text-xs font-semibold text-gray-500">{label}</div>
-    <div className="text-lg font-semibold text-gray-900 mt-1">{value}</div>
+    <div className={`text-lg font-bold mt-1 ${highlight ? "text-[#2ec4b6]" : "text-gray-900"}`}>{value}</div>
     {sub ? <div className="text-xs text-gray-500 mt-1">{sub}</div> : null}
   </div>
 );
 
-const OwnerBilling = () => {
-  // ✅ store state
-  const initialized = useOwnerBillingStore((s) => s.initialized);
-  const loading = useOwnerBillingStore((s) => s.loading);
-  const error = useOwnerBillingStore((s) => s.error);
+// ── Record Payment Modal ──────────────────────────────────────────────────────
+const RecordPaymentModal = ({ open, modal, onClose, onSubmit }) => {
+  const [form, setForm] = useState({ amount: "", method: "cash", date: "", note: "" });
+  const [err, setErr] = useState("");
 
-  const activeTab = useOwnerBillingStore((s) => s.activeTab);
-  const setActiveTab = useOwnerBillingStore((s) => s.setActiveTab);
-
-  const filters = useOwnerBillingStore((s) => s.filters);
-  const setFilter = useOwnerBillingStore((s) => s.setFilter);
-  const resetFilters = useOwnerBillingStore((s) => s.resetFilters);
-
-  const dentists = useOwnerBillingStore((s) => s.dentists);
-  const labs = useOwnerBillingStore((s) => s.labs);
-
-  const modal = useOwnerBillingStore((s) => s.modal);
-  const closeModal = useOwnerBillingStore((s) => s.closeModal);
-
-  const commissionRules = useOwnerBillingStore((s) => s.commissionRules);
-  const openCommissionRuleModal = useOwnerBillingStore((s) => s.openCommissionRuleModal);
-  const setCommissionPercentForDentist = useOwnerBillingStore((s) => s.setCommissionPercentForDentist);
-
-  const arSummary = useOwnerBillingStore((s) => s.arSummary);
-
-  const getSummaryForTab = useOwnerBillingStore((s) => s.getSummaryForTab);
-
-  // ✅ init
   useEffect(() => {
-    if (!initialized) {
-      useOwnerBillingStore.getState().init?.();
+    if (open) {
+      const today = new Date().toISOString().slice(0, 10);
+      setForm({ amount: "", method: "cash", date: today, note: "" });
+      setErr("");
     }
-  }, [initialized]);
+  }, [open]);
 
-  // ✅ refresh AR summary when cashbook date filter changes
-  useEffect(() => {
-    useOwnerBillingStore.getState().fetchARSummary?.().catch(() => {});
-  }, [filters.cashbook?.dateFrom, filters.cashbook?.dateTo]);
+  if (!open) return null;
 
-  // ---- Derived rows (useMemo keeps PDF/export stable)
-  const cashbookRows = useMemo(
-    () => useOwnerBillingStore.getState().getCashbookRows(),
-    [filters.cashbook, useOwnerBillingStore.getState().payments]
+  const label = modal.type === "commission"
+    ? `Pay Commission — ${modal.dentist?.name}`
+    : `Record Lab Payment — ${modal.lab?.name}`;
+
+  const maxAmount = modal.type === "commission"
+    ? Number(modal.dentist?.remaining || 0)
+    : Number(modal.lab?.remaining || 0);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    const amt = Number(form.amount);
+    if (!amt || amt <= 0) { setErr("Enter a valid amount"); return; }
+    if (amt > maxAmount + 0.01) { setErr(`Amount exceeds remaining balance (${money(maxAmount)})`); return; }
+    if (modal.type === "commission" && !["cash", "card"].includes(form.method)) {
+      setErr("Method must be cash or card"); return;
+    }
+    try {
+      if (modal.type === "commission") {
+        await onSubmit({
+          dentistId: modal.dentist.publicId, dentistName: modal.dentist.name,
+          amount: amt, method: form.method, date: form.date,
+        });
+      } else {
+        await onSubmit({
+          labId: modal.lab.labId, labName: modal.lab.name,
+          amount: amt, method: form.method, date: form.date, note: form.note,
+        });
+      }
+      onClose();
+    } catch (e2) {
+      setErr(e2.message || "Payment failed");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">{label}</h2>
+        <p className="text-xs text-gray-500 mb-4">Remaining: <span className="font-semibold text-orange-600">{money(maxAmount)}</span></p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Amount (PKR)</label>
+            <input type="number" min="1" max={maxAmount} value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30"
+              placeholder="Enter amount" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Method</label>
+            <select value={form.method} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30">
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              {modal.type === "lab" && <option value="online">Online Transfer</option>}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Date</label>
+            <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30" />
+          </div>
+          {modal.type === "lab" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Note (optional)</label>
+              <input type="text" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30" />
+            </div>
+          )}
+          {err && <p className="text-xs text-red-600">{err}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={onClose}>Cancel</Button>
+            <Button type="submit" className="flex-1 rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] text-white" disabled={modal.loading}>
+              {modal.loading ? "Saving…" : "Record Payment"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
+};
 
-  const revenueRows = useMemo(
-    () => useOwnerBillingStore.getState().getRevenueRows(),
-    [filters.revenue, useOwnerBillingStore.getState().payments]
+// ── Drawers ───────────────────────────────────────────────────────────────────
+const Drawer = ({ open, onClose, title, children }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-md h-full shadow-xl flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
   );
+};
 
-  const commissionRows = useMemo(
-    () => useOwnerBillingStore.getState().getCommissionRows(),
-    [filters.commissions, commissionRules, useOwnerBillingStore.getState().payments]
-  );
+// ── Main page ─────────────────────────────────────────────────────────────────
+const OwnerBilling = () => {
+  const activeTab      = useOwnerBillingStore((s) => s.activeTab);
+  const setActiveTab   = useOwnerBillingStore((s) => s.setActiveTab);
+  const filters        = useOwnerBillingStore((s) => s.filters);
+  const setFilter      = useOwnerBillingStore((s) => s.setFilter);
+  const setQuickRange  = useOwnerBillingStore((s) => s.setQuickRange);
 
-  const labDuesRows = useMemo(
-    () => useOwnerBillingStore.getState().getLabDuesRows(),
-    [filters.labDues, useOwnerBillingStore.getState().labBills]
-  );
+  const cashbook       = useOwnerBillingStore((s) => s.cashbook);
+  const commissions    = useOwnerBillingStore((s) => s.commissions);
+  const ownerPayments  = useOwnerBillingStore((s) => s.ownerPayments);
+  const labDues        = useOwnerBillingStore((s) => s.labDues);
+  const labBills       = useOwnerBillingStore((s) => s.labBills);
+  const labBillsLoading = useOwnerBillingStore((s) => s.labBillsLoading);
 
-  // ---- Charts
-  const cashbookChart = useMemo(
-    () => useOwnerBillingStore.getState().getCashbookChart(),
-    [filters.cashbook, useOwnerBillingStore.getState().payments]
-  );
+  const recordPaymentModal    = useOwnerBillingStore((s) => s.recordPaymentModal);
+  const billsDrawer           = useOwnerBillingStore((s) => s.billsDrawer);
+  const ownerPaymentsDrawer   = useOwnerBillingStore((s) => s.ownerPaymentsDrawer);
 
-  const revenueByDentist = useMemo(
-    () => useOwnerBillingStore.getState().getRevenueByDentistChart(),
-    [filters.revenue, useOwnerBillingStore.getState().payments]
-  );
+  const fetchCashbook        = useOwnerBillingStore((s) => s.fetchCashbook);
+  const fetchCommissions     = useOwnerBillingStore((s) => s.fetchCommissions);
+  const fetchLabDues         = useOwnerBillingStore((s) => s.fetchLabDues);
 
-  const commissionChart = useMemo(
-    () => useOwnerBillingStore.getState().getCommissionChart(),
-    [filters.commissions, commissionRules, useOwnerBillingStore.getState().payments]
-  );
+  const openRecordPaymentModal   = useOwnerBillingStore((s) => s.openRecordPaymentModal);
+  const closeRecordPaymentModal  = useOwnerBillingStore((s) => s.closeRecordPaymentModal);
+  const recordOwnerPayment       = useOwnerBillingStore((s) => s.recordOwnerPayment);
+  const recordLabPayment         = useOwnerBillingStore((s) => s.recordLabPayment);
 
-  const labDuesChart = useMemo(
-    () => useOwnerBillingStore.getState().getLabDuesChart(),
-    [filters.labDues, useOwnerBillingStore.getState().labBills]
-  );
+  const openBillsDrawer          = useOwnerBillingStore((s) => s.openBillsDrawer);
+  const closeBillsDrawer         = useOwnerBillingStore((s) => s.closeBillsDrawer);
+  const openOwnerPaymentsDrawer  = useOwnerBillingStore((s) => s.openOwnerPaymentsDrawer);
+  const closeOwnerPaymentsDrawer = useOwnerBillingStore((s) => s.closeOwnerPaymentsDrawer);
 
-  const summary = useMemo(
-    () => getSummaryForTab(),
-    [activeTab, filters, commissionRules, arSummary]
-  );
+  // initial load
+  useEffect(() => { fetchCashbook(); }, []);
+  useEffect(() => { if (activeTab === "commissions") fetchCommissions(); }, [activeTab]);
+  useEffect(() => { if (activeTab === "labDues") fetchLabDues(); }, [activeTab]);
 
-  const tableRows = useMemo(() => {
-    if (activeTab === "cashbook") return cashbookRows;
-    if (activeTab === "revenue") return revenueRows;
-    if (activeTab === "commissions") return commissionRows;
-    return labDuesRows;
-  }, [activeTab, cashbookRows, revenueRows, commissionRows, labDuesRows]);
+  // re-fetch cashbook when filter changes
+  const cbFilters = filters.cashbook;
+  useEffect(() => { if (activeTab === "cashbook") fetchCashbook(); }, [cbFilters.from, cbFilters.to, cbFilters.q]);
+  const cmFilters = filters.commissions;
+  useEffect(() => { if (activeTab === "commissions") fetchCommissions(); }, [cmFilters.from, cmFilters.to]);
 
-  const kpis = useMemo(
-    () => useOwnerBillingStore.getState().getFinancialKPIs(),
-    [
-      filters.cashbook,
-      filters.revenue,
-      filters.commissions,
-      filters.labDues,
-      commissionRules,
-      arSummary,
-      useOwnerBillingStore.getState().payments,
-      useOwnerBillingStore.getState().labBills,
-    ]
-  );
+  const handleTabChange = useCallback((tab) => { setActiveTab(tab); }, [setActiveTab]);
 
-  const onExportPdf = useCallback(() => {
-    const totals =
-      activeTab === "cashbook"
-        ? summary
-        : activeTab === "revenue"
-        ? { total: summary.total }
-        : activeTab === "commissions"
-        ? summary
-        : { total: summary.total };
+  const handleFilterReset = useCallback(() => {
+    if (activeTab === "cashbook") {
+      setFilter("cashbook", "from", "");
+      setFilter("cashbook", "to", "");
+      setFilter("cashbook", "q", "");
+    } else if (activeTab === "commissions") {
+      setFilter("commissions", "from", "");
+      setFilter("commissions", "to", "");
+    }
+  }, [activeTab, setFilter]);
 
-    exportOwnerBillingPdf({
-      tab: activeTab,
-      filters: filters[activeTab],
-      rows: tableRows,
-      totals,
-    });
-  }, [activeTab, summary, filters, tableRows]);
+  // ── Cashbook KPIs ──
+  const cbStats = cashbook.stats || {};
+  const cbTxns  = cashbook.transactions || { rows: [], total: 0 };
+
+  // ── Commissions KPIs ──
+  const commRows = commissions.rows || [];
+  const earnedInPeriod  = commRows.reduce((s, r) => s + Number(r.earned || 0), 0);
+  const paidAllTime     = commRows.reduce((s, r) => s + Number(r.paid || 0), 0);
+  const remainingAllTime = commRows.reduce((s, r) => s + Number(r.remaining || 0), 0);
+
+  // ── Lab Dues KPIs ──
+  const labRows = labDues.rows || [];
+  const labTotalBilled   = labRows.reduce((s, r) => s + Number(r.totalBilled || 0), 0);
+  const labTotalPaid     = labRows.reduce((s, r) => s + Number(r.paid || 0), 0);
+  const labTotalRemaining = labRows.reduce((s, r) => s + Number(r.remaining || 0), 0);
+
+  const isLoading = cashbook.loading || commissions.loading || labDues.loading;
+
+  // CSV export for cashbook
+  const handleExportCSV = () => {
+    const rows = cbTxns.rows || [];
+    if (!rows.length) return;
+    const header = "Date,Invoice,Patient,Dentist,Mode,Amount";
+    const body = rows.map((r) => `${r.date},${r.invoiceId},${r.patientName},${r.dentistName},${r.mode},${r.amount}`).join("\n");
+    const blob = new Blob([header + "\n" + body], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `cashbook-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
       <OwnerPageHeader
-        title="Billing, Payments & Financials"
-        subtitle="Centralized collections, revenue, commissions, lab payables, A/R, charts + PDF exports"
+        title="Billing & Financials"
+        subtitle="Daily cashbook, dentist commissions, and lab dues"
       />
 
-      {/* status */}
-      {error ? (
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
+      {/* Tabs + actions row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <OwnerBillingTabs value={activeTab} onChange={setActiveTab} />
-
-        <Button
-          className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] text-white"
-          onClick={onExportPdf}
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Export PDF"}
-        </Button>
+        <OwnerBillingTabs value={activeTab} onChange={handleTabChange} />
+        {activeTab === "cashbook" && (
+          <Button variant="outline" className="rounded-xl" onClick={handleExportCSV} disabled={!cbTxns.rows?.length}>
+            Export CSV
+          </Button>
+        )}
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI
-          label="Total Collections"
-          value={money(kpis.collections)}
-          sub={`Cash: ${money(kpis.collectionsCash)} • Card: ${money(kpis.collectionsCard)}`}
-        />
-        <KPI
-          label="Accounts Receivable (Outstanding)"
-          value={money(kpis.totalOutstanding)}
-          sub={`Invoices: ${kpis.invoiceCount} • Outstanding: ${kpis.outstandingCount}`}
-        />
-        <KPI label="Commission Payout" value={money(kpis.commissionPayout)} />
-        <KPI label="Lab Payables" value={money(kpis.labPayables)} />
-        <KPI label="Total Billed" value={money(kpis.totalBilled)} />
-        <KPI label="Total Paid (Invoices)" value={money(kpis.totalPaid)} />
-        <KPI
-          label="Estimated Net (Collections - Commissions - Lab)"
-          value={money(kpis.estimatedNet)}
-          sub="Simple profitability view (can be expanded later with expenses)."
-        />
-        <KPI
-          label="Operational Insight"
-          value={
-            activeTab === "cashbook"
-              ? "Daily Collections"
-              : activeTab === "revenue"
-              ? "Revenue Streams"
-              : activeTab === "commissions"
-              ? "Dentist Payouts"
-              : "Vendor Payables"
-          }
-        />
-      </div>
-
+      {/* Filters */}
       <OwnerBillingFilters
         tab={activeTab}
-        filters={filters[activeTab]}
-        dentists={dentists}
-        labs={labs}
+        filters={activeTab === "cashbook" ? filters.cashbook : filters.commissions}
         onChange={(key, value) => setFilter(activeTab, key, value)}
-        onReset={() => resetFilters(activeTab)}
+        onReset={handleFilterReset}
+        onQuickRange={setQuickRange}
       />
+
+      {/* KPI cards */}
+      {activeTab === "cashbook" && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPI label="Total Collected"    value={money(cbStats.totalCollected)}    highlight />
+          <KPI label="Cash"               value={money(cbStats.Cash)} />
+          <KPI label="Card"               value={money(cbStats.Card)} />
+          {Number(cbStats["Online Transfer"]) > 0 && <KPI label="Online Transfer" value={money(cbStats["Online Transfer"])} />}
+          <KPI label="Invoices"           value={Number(cbStats.invoiceCount  || 0).toLocaleString()} />
+          <KPI label="Outstanding Added"  value={money(cbStats.outstandingAdded)} sub="new AR in period" />
+        </div>
+      )}
+
+      {activeTab === "commissions" && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <KPI label="Earned This Period"   value={money(earnedInPeriod)}   highlight />
+          <KPI label="Total Paid (all-time)" value={money(paidAllTime)}    sub="OwnerPayments sum" />
+          <KPI label="Remaining Balance"    value={money(remainingAllTime)} sub="All dentists combined" />
+        </div>
+      )}
+
+      {activeTab === "labDues" && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <KPI label="Total Billed"   value={money(labTotalBilled)} />
+          <KPI label="Total Paid"     value={money(labTotalPaid)}  highlight />
+          <KPI label="Total Remaining" value={money(labTotalRemaining)} sub="Across all labs" />
+        </div>
+      )}
 
       {/* Charts */}
       <OwnerBillingCharts
         tab={activeTab}
-        cashbookChart={cashbookChart}
-        revenueByDentist={revenueByDentist}
-        commissionChart={commissionChart}
-        labDuesChart={labDuesChart}
+        trendData={cashbook.trend}
+        commissionRows={commRows}
+        labDuesRows={labRows}
       />
 
       {/* Table */}
       <Card className="rounded-2xl">
         <CardContent className="p-6">
-          {loading ? <TableSkeleton rows={8} cols={5} /> : (
+          {isLoading ? (
+            <TableSkeleton rows={8} cols={5} />
+          ) : (
             <>
-              {activeTab === "cashbook" ? <DailyCashbookTable data={cashbookRows} /> : null}
-              {activeTab === "revenue" ? <RevenueReportsTable data={revenueRows} /> : null}
-              {activeTab === "commissions" ? (
+              {activeTab === "cashbook" && (
+                <DailyCashbookTable data={cbTxns.rows || []} />
+              )}
+              {activeTab === "commissions" && (
                 <CommissionsTable
-                  data={commissionRows}
-                  onEditRule={(row) => {
-                    const d = (dentists || []).find((x) => String(x.id) === String(row.dentistId));
-                    openCommissionRuleModal(d || { id: row.dentistId, name: row.dentistName });
-                  }}
+                  data={commRows}
+                  onRecordPayment={(row) => openRecordPaymentModal("commission", row)}
+                  onViewHistory={(row) => openOwnerPaymentsDrawer(row)}
                 />
-              ) : null}
-              {activeTab === "labDues" ? <LabDuesTable data={labDuesRows} /> : null}
+              )}
+              {activeTab === "labDues" && (
+                <LabDuesTable
+                  data={labRows}
+                  onRecordPayment={(row) => openRecordPaymentModal("lab", row)}
+                  onViewBills={(row) => openBillsDrawer(row)}
+                />
+              )}
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Commission rule modal */}
-      <CommissionRuleModal
-        open={modal.open && modal.type === "commissionRule"}
-        dentist={modal.payload}
-        defaultPercent={commissionRules.defaultPercent}
-        initialPercent={
-          modal.payload?.id
-            ? commissionRules.byDentist[String(modal.payload.id)] ?? commissionRules.defaultPercent
-            : commissionRules.defaultPercent
-        }
-        onClose={closeModal}
-        onSave={(percent) => {
-          const id = modal?.payload?.id ?? modal?.payload?.dentistId;
-          if (!id) {
-            closeModal();
-            return;
-          }
-          setCommissionPercentForDentist(id, percent);
-          closeModal();
-        }}
+      {/* Record Payment Modal */}
+      <RecordPaymentModal
+        open={recordPaymentModal.open}
+        modal={recordPaymentModal}
+        onClose={closeRecordPaymentModal}
+        onSubmit={recordPaymentModal.type === "commission" ? recordOwnerPayment : recordLabPayment}
       />
+
+      {/* Bills Drawer (Lab Dues) */}
+      <Drawer
+        open={billsDrawer.open}
+        onClose={closeBillsDrawer}
+        title={`Bills — ${billsDrawer.lab?.name || ""}`}
+      >
+        {labBillsLoading ? (
+          <p className="text-sm text-gray-500">Loading…</p>
+        ) : (
+          <div className="space-y-3">
+            {(labBills[billsDrawer.lab?.labId] || []).length === 0 ? (
+              <p className="text-sm text-gray-500">No bills found.</p>
+            ) : (labBills[billsDrawer.lab?.labId] || []).map((b) => {
+              const age = b.month ? Math.floor((new Date() - new Date(b.month + "-01")) / (1000 * 60 * 60 * 24 * 30)) : 0;
+              const agingLabel = age >= 90 ? "90+ days" : age >= 60 ? "60–90 days" : age >= 30 ? "30–60 days" : "< 30 days";
+              const agingColor = age >= 90 ? "text-red-600" : age >= 60 ? "text-orange-500" : age >= 30 ? "text-yellow-600" : "text-green-600";
+              return (
+                <div key={b.id} className={`rounded-xl border p-3 ${b.fullyPaid ? "border-green-100 bg-green-50" : "border-gray-100 bg-white"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-900">{b.month}</span>
+                    <span className={`text-xs font-medium ${agingColor}`}>{agingLabel}</span>
+                  </div>
+                  <div className="flex justify-between mt-1 text-xs text-gray-600">
+                    <span>Billed: {money(b.amount)}</span>
+                    <span>Paid: {money(b.paid)}</span>
+                    <span className={b.remaining > 0 ? "text-orange-600 font-semibold" : "text-green-600"}>
+                      Remaining: {money(b.remaining)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Drawer>
+
+      {/* Owner Payments History Drawer (Commissions) */}
+      <Drawer
+        open={ownerPaymentsDrawer.open}
+        onClose={closeOwnerPaymentsDrawer}
+        title={`Payment History — ${ownerPaymentsDrawer.dentist?.name || ""}`}
+      >
+        {ownerPayments.loading ? (
+          <p className="text-sm text-gray-500">Loading…</p>
+        ) : (
+          <div className="space-y-3">
+            {(ownerPayments.rows || []).length === 0 ? (
+              <p className="text-sm text-gray-500">No payments recorded yet.</p>
+            ) : (ownerPayments.rows || []).map((p) => (
+              <div key={p.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-900">{money(p.amount)}</span>
+                  <span className="text-xs text-gray-400">{p.date}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 capitalize">{p.method}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };
