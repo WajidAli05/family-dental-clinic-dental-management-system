@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,55 +18,68 @@ import PrescriptionPreview from "./PrescriptionPreview";
 
 import { dentistApi } from "@/lib/dentistApi";
 
+const fmtDate = (d) => {
+  if (!d) return "—";
+  try { return new Date(d + "T00:00:00").toLocaleDateString("en-PK"); } catch { return d; }
+};
+
 const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription }) => {
   const store = usePrescriptionStore();
-  const saving = usePrescriptionStore((s) => s.saving);
-  const error = usePrescriptionStore((s) => s.error);
+  const saving   = usePrescriptionStore((s) => s.saving);
+  const error    = usePrescriptionStore((s) => s.error);
+  const storeId  = usePrescriptionStore((s) => s._id);
 
-  // ✅ When modal opens:
-  // - if editing: hydrate from backend prescription
-  // - if new: reset and prefill patientId/date
+  const [history, setHistory] = useState([]);
+
+  const patientId = appointment?.patientId || appointment?.patient?.publicId || "";
+
+  // On open: hydrate or reset; fetch history.
+  // On close: reset store and clear history so the next patient starts clean.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      store.reset();
+      setHistory([]);
+      return;
+    }
 
     if (prescription) {
       store.hydrateFromBackend(prescription);
     } else {
       store.reset();
-      store.setPatientId(appointment?.patient?.publicId || appointment?.patientId || "");
+      store.setPatientId(patientId);
       store.setDate(appointment?.date || new Date().toISOString().slice(0, 10));
+    }
+
+    if (patientId) {
+      dentistApi
+        .getPatientPrescriptionHistory(patientId)
+        .then((res) => setHistory(res?.data || []))
+        .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // ✅ Reset on close to avoid leaking data between patients
-  useEffect(() => {
-    if (!open) store.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Reset store and start a blank prescription for this patient/date.
+  const handleNewPrescription = () => {
+    store.reset();
+    store.setPatientId(patientId);
+    store.setDate(appointment?.date || new Date().toISOString().slice(0, 10));
+  };
 
-const handleSave = async () => {
-  try {
-    await store.saveOrUpdate({
-      patientId:
-        appointment?.patient?.publicId ||
-        appointment?.patientId ||
-        "",
-      date: appointment?.date || "",
-    });
+  const handleSave = async () => {
+    try {
+      const isNew = !storeId;
+      await store.saveOrUpdate({
+        patientId,
+        date: appointment?.date || "",
+      });
 
-    toast.success(
-      store._id
-        ? "Prescription updated successfully"
-        : "Prescription saved successfully"
-    );
-
-    onOpenChange(false);
-  } catch (e) {
-    toast.error(e.message || "Failed to save prescription");
-  }
-};
-
+      toast.success(isNew ? "Prescription saved" : "Prescription updated");
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e.message || "Failed to save prescription");
+    }
+  };
 
   const handlePrint = () => {
     printPrescription({
@@ -79,15 +92,64 @@ const handleSave = async () => {
     });
   };
 
+  const modalTitle = store.patientType
+    ? (storeId ? "Edit Prescription" : "New Prescription")
+    : "Select Patient Type";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {store.patientType ? "Create Prescription" : "Select Patient Type"}
-          </DialogTitle>
+          <DialogTitle>{modalTitle}</DialogTitle>
         </DialogHeader>
 
+        {/* ── Patient history panel ── */}
+        {history.length > 0 && (
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              Patient History
+            </p>
+
+            <div className="space-y-0.5">
+              {history.map((rx) => {
+                const rxId   = rx._id || rx.id;
+                const active = storeId === rxId;
+                return (
+                  <button
+                    key={rxId}
+                    type="button"
+                    onClick={() => store.hydrateFromBackend(rx)}
+                    className={[
+                      "w-full rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                      active
+                        ? "bg-[#2ec4b6] text-white"
+                        : "text-gray-600 hover:bg-white hover:text-gray-900",
+                    ].join(" ")}
+                  >
+                    <span className="font-semibold">{fmtDate(rx.date)}</span>
+                    {rx.diagnosis && (
+                      <span className={active ? "ml-2 opacity-80" : "ml-2 text-gray-400"}>
+                        {rx.diagnosis.length > 50
+                          ? rx.diagnosis.slice(0, 50) + "…"
+                          : rx.diagnosis}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNewPrescription}
+              className="mt-2 block text-xs font-medium text-[#2ec4b6] hover:text-[#26a699]"
+            >
+              + New Prescription
+            </button>
+          </div>
+        )}
+
+        {/* ── Main form ── */}
         {!store.patientType ? (
           <PatientTypeSelector onSelect={store.setPatientType} />
         ) : (
@@ -104,14 +166,10 @@ const handleSave = async () => {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? "Saving..." : store._id ? "Update Prescription" : "Save Prescription"}
+                {saving ? "Saving…" : storeId ? "Update Prescription" : "Save Prescription"}
               </Button>
 
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handlePrint}
-              >
+              <Button variant="outline" className="flex-1" onClick={handlePrint}>
                 Print
               </Button>
             </div>

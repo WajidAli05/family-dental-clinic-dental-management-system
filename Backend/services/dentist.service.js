@@ -283,6 +283,34 @@ export async function dentistUpdatePrescription(user, rxId, body) {
   return rx.toJSON();
 }
 
+// Return the single most-recent prescription for each patientId in the list.
+// No date filter — covers all history so button state is correct on any day.
+export async function dentistGetLatestByPatients(user, patientIds = []) {
+  const dentistName = user?.name || "";
+  const ids = patientIds.filter(Boolean);
+  if (!ids.length) return [];
+
+  const rxs = await Prescription.find({ dentistName, patientId: { $in: ids } })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Keep only the most-recent prescription per patient
+  const map = {};
+  for (const rx of rxs) {
+    if (!map[rx.patientId]) map[rx.patientId] = rx;
+  }
+  return Object.values(map);
+}
+
+// Full prescription history for one patient, newest first.
+export async function dentistGetPatientHistory(user, patientId) {
+  const dentistName = user?.name || "";
+  if (!patientId) throw new Error("patientId is required");
+  return Prescription.find({ dentistName, patientId: String(patientId) })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
 // ✅ used by FE to build rxMap for today appointments:
 // GET /dentist/prescriptions?date=YYYY-MM-DD&patientIds=PT-1,PT-2
 export async function dentistGetPrescriptions(user, query = {}) {

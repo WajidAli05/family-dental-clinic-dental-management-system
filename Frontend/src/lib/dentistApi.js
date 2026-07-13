@@ -178,6 +178,16 @@ export const dentistApi = {
 
   getPrescriptionById: (id) => req(`/prescriptions/${id}`),
 
+  // Latest prescription per patient (no date filter) — drives button state for all rows
+  getPrescriptionsLatestByPatients: (patientIds = []) => {
+    const qs = new URLSearchParams({ patientIds: patientIds.join(",") }).toString();
+    return req(`/prescriptions/latest-by-patients?${qs}`);
+  },
+
+  // Full history for one patient, newest first — used in modal history panel
+  getPatientPrescriptionHistory: (patientId) =>
+    req(`/prescriptions/patient-history/${encodeURIComponent(patientId)}`),
+
   getClinicalMaster: () =>
     req("/clinical-master"),
 

@@ -17,6 +17,8 @@ import {
   updateDentistPrescription,
   getDentistPrescriptions,
   getDentistPrescriptionById,
+  getLatestByPatientsCtrl,
+  getPatientHistoryCtrl,
   getDentistClinicalMaster,
   getCatalogTreatments,
   getCatalogSampleTypes,
@@ -57,9 +59,12 @@ router.patch("/cases/:id/status", requirePermission("tab_dentist_lab_samples"), 
 router.get("/labs", requirePermission("tab_dentist_lab_samples"), getDentistLabsCtrl);
 
 // prescriptions (part of appointments workflow)
-router.post("/prescriptions", requirePermission("tab_dentist_appointments"), createDentistPrescription);
-router.get("/prescriptions", requirePermission("tab_dentist_appointments"), getDentistPrescriptions);
-router.get("/prescriptions/:id", requirePermission("tab_dentist_appointments"), getDentistPrescriptionById);
+router.post("/prescriptions",   requirePermission("tab_dentist_appointments"), createDentistPrescription);
+router.get("/prescriptions",    requirePermission("tab_dentist_appointments"), getDentistPrescriptions);
+// Static sub-paths must be registered before /:id so Express doesn't absorb them as an id param
+router.get("/prescriptions/latest-by-patients",         requirePermission("tab_dentist_appointments"), getLatestByPatientsCtrl);
+router.get("/prescriptions/patient-history/:patientId", requirePermission("tab_dentist_appointments"), getPatientHistoryCtrl);
+router.get("/prescriptions/:id",   requirePermission("tab_dentist_appointments"), getDentistPrescriptionById);
 router.patch("/prescriptions/:id", requirePermission("tab_dentist_appointments"), updateDentistPrescription);
 
 // price catalog (read-only — dentist sees prices when choosing treatments / lab samples)

@@ -15,6 +15,8 @@
   dentistUpdatePrescription,
   dentistGetPrescriptions,
   dentistGetPrescriptionById,
+  dentistGetLatestByPatients,
+  dentistGetPatientHistory,
   dentistGetClinicalMaster,
   dentistGetPatients,
   dentistGetFinance,
@@ -181,6 +183,30 @@ export const getDentistPrescriptionById = async (req, res) => {
   try {
     const row = await dentistGetPrescriptionById(req.user, req.params.id);
     res.json({ success: true, data: row });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// Latest prescription per patient (batch, no date filter) — for button-state hydration
+export const getLatestByPatientsCtrl = async (req, res) => {
+  try {
+    const patientIds = String(req.query.patientIds || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const data = await dentistGetLatestByPatients(req.user, patientIds);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// Full prescription history for one patient, newest first — for the modal history panel
+export const getPatientHistoryCtrl = async (req, res) => {
+  try {
+    const data = await dentistGetPatientHistory(req.user, req.params.patientId);
+    res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }
