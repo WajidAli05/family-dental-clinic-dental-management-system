@@ -194,4 +194,16 @@ export const dentistApi = {
 
   // ── My Finance ──
   getFinance: () => req("/finance"),
+
+  // ── Medications ──
+  searchMedications: (q) => {
+    const qs = new URLSearchParams({ q: q || "" }).toString();
+    return req(`/medications/search?${qs}`);
+  },
+  createMedication: (body) =>
+    req("/medications", { method: "POST", body: JSON.stringify(body) }),
+  listMedications: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req(`/medications${qs ? `?${qs}` : ""}`);
+  },
 };

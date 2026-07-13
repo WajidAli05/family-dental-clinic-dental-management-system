@@ -332,8 +332,11 @@ const DentistAppointments = () => {
         clinicalFinding: rx.clinicalFinding || "",
         visualStatus: rx.visualStatus || "none",
         notes: rx.notes || "",
+        medications: Array.isArray(rx.medications) ? rx.medications : [],
         patientId: rx.patientId || "",
         date: rx.date || "",
+        // resolve patient name from the table row (row.patient = patientName)
+        patientName: row.patient || row.patientName || "",
       });
     } catch (e) {
       toast.error(e.message || "Failed to print");

@@ -85,6 +85,10 @@ import {
     ownerGetSettingsController,
   ownerUpdateSettingsController,
   ownerChangePasswordController,
+
+  ownerSearchMedicationsCtrl,
+  ownerCreateMedicationCtrl,
+  ownerListMedicationsCtrl,
 } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -202,5 +206,12 @@ router.delete("/clinical-master/findings/:id", ownerClinicalDeleteFindingControl
 router.get("/settings", ownerGetSettingsController);
 router.patch("/settings", ownerUpdateSettingsController);
 router.patch("/settings/password", ownerChangePasswordController);
+
+// =====================================================
+// ✅ MEDICATIONS
+// =====================================================
+router.get("/medications/search", ownerSearchMedicationsCtrl);
+router.post("/medications",        ownerCreateMedicationCtrl);
+router.get("/medications",         ownerListMedicationsCtrl);
 
 export default router;

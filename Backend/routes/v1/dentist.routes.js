@@ -21,6 +21,9 @@ import {
   getCatalogTreatments,
   getCatalogSampleTypes,
   getDentistFinanceCtrl,
+  dentistSearchMedicationsCtrl,
+  dentistCreateMedicationCtrl,
+  dentistListMedicationsCtrl,
 } from "../../controllers/dentist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
@@ -65,5 +68,10 @@ router.get("/catalog/sample-types", requirePermission("tab_dentist_lab_samples")
 
 // my finance
 router.get("/finance", requirePermission("tab_dentist_finance"), getDentistFinanceCtrl);
+
+// medications catalog (used in prescription flow)
+router.get("/medications/search", requirePermission("tab_dentist_appointments"), dentistSearchMedicationsCtrl);
+router.post("/medications",        requirePermission("tab_dentist_appointments"), dentistCreateMedicationCtrl);
+router.get("/medications",         requirePermission("tab_dentist_appointments"), dentistListMedicationsCtrl);
 
 export default router;

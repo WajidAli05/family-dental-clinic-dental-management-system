@@ -1,24 +1,19 @@
-// utils/printPrescription.js
 import jsPDF from "jspdf";
+import { drawPdfLetterhead, drawPdfDentistFooterPanel } from "./letterhead";
+
+const BRAND_BLUE = [20, 70, 140];
 
 const QUADRANTS = ["Q1", "Q2", "Q3", "Q4"];
 
-/**
- * selectedTeeth values are like: "Q1-T1"
- * We print them grouped by quadrant, with 4 teeth per line.
- */
 const groupSelectedTeeth = (selectedTeeth = []) => {
   const grouped = { Q1: [], Q2: [], Q3: [], Q4: [] };
-
   selectedTeeth.forEach((item) => {
     const match = String(item).match(/^(Q[1-4])-T(\d+)$/);
     if (!match) return;
-
     const q = match[1];
     const t = Number(match[2]);
     if (Number.isFinite(t)) grouped[q].push(t);
   });
-
   QUADRANTS.forEach((q) => grouped[q].sort((a, b) => a - b));
   return grouped;
 };
@@ -32,104 +27,14 @@ const formatTeethLines = (arr, perLine = 4) => {
   return lines;
 };
 
-// --- Letterhead helpers (matches the photo layout) ---
-const BRAND_BLUE = [20, 70, 140]; // close to the printed blue
-
-const drawSimpleLogo = (doc, x, y) => {
-  doc.setDrawColor(...BRAND_BLUE);
-  doc.setLineWidth(0.6);
-
-  // heads
-  doc.circle(x + 6, y + 4, 2, "S");
-  doc.circle(x + 14, y + 4, 2, "S");
-
-  // bodies / arms
-  doc.line(x + 6, y + 6.5, x + 10, y + 10);
-  doc.line(x + 14, y + 6.5, x + 10, y + 10);
-
-  // tooth-ish outline
-  doc.setLineWidth(0.7);
-  doc.roundedRect(x + 7.2, y + 8, 5.6, 7.5, 2, 2, "S");
-  doc.line(x + 10, y + 10.2, x + 10, y + 14.6);
-};
-
-const drawLetterhead = (doc) => {
-  const pageW = doc.internal.pageSize.getWidth();
-  const margin = 18;
-
-  // Left: logo + clinic name
-  drawSimpleLogo(doc, margin, 12);
-
-  doc.setTextColor(...BRAND_BLUE);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("FAMILY DENTAL CLINIC", margin + 22, 22);
-
-  doc.setFont("times", "italic");
-  doc.setFontSize(12);
-  doc.setTextColor(120);
-  doc.text("Spreading Smile", margin + 22, 29);
-
-  // Right: doctor block
-  const rightX = pageW - margin;
-  doc.setTextColor(30);
-  doc.setFont("times", "bold");
-  doc.setFontSize(18);
-  doc.text("DR. SAIFULLAH", rightX, 20, { align: "right" });
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(9);
-  const creds = [
-    "BDS, RDS",
-    "MCPS (PERIODONTOLOGY PGT)",
-    "MSC (PERIODONTOLOGY PGT)",
-    "IMPLANTS (USA TATUM) DIPLOMA",
-    "MEMBER OF AMERICAN DENTAL ASSOCIATION",
-  ];
-
-  let cy = 25;
-  creds.forEach((line) => {
-    doc.text(line, rightX, cy, { align: "right" });
-    cy += 4;
-  });
-
-  // Light top divider (very subtle like printed paper)
-  doc.setDrawColor(230);
-  doc.setLineWidth(0.3);
-  doc.line(margin, 36, pageW - margin, 36);
-
-  // Footer (address + contact)
-  const footerY = 285; // A4 in mm is 297, keep some bottom padding
-  doc.setDrawColor(200);
-  doc.setLineWidth(0.4);
-  doc.line(margin, footerY - 8, pageW - margin, footerY - 8);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(80);
-  doc.text(
-    "Address: House # 09, Main Harlay Street Rawalpindi Cantt.",
-    pageW / 2,
-    footerY - 2,
-    { align: "center" }
-  );
-  doc.text("Contact No: 0335-3400001", pageW / 2, footerY + 3, {
-    align: "center",
-  });
-
-  // Reset body defaults
-  doc.setTextColor(0);
-};
-
 const labelValue = (doc, label, value, xLabel, xValue, y) => {
+  doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(70);
+  doc.setTextColor(100);
   doc.text(label, xLabel, y);
-
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(20);
+  doc.setTextColor(25);
   doc.text(String(value || "-"), xValue, y);
-
   doc.setTextColor(0);
 };
 
@@ -138,62 +43,82 @@ export const printPrescription = (data) => {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
 
-  // ===== Letterhead =====
-  drawLetterhead(doc);
+  // ===== LETTERHEAD (from shared source) =====
+  drawPdfLetterhead(doc);
 
-  // ===== Top row: Name (left) + Date (right) =====
-  let y = 50;
+  // ===== PATIENT INFO LINE =====
+  let y = 53;
 
-  doc.setFontSize(12);
-  labelValue(doc, "Name:", data?.patientName || data?.name, margin, margin + 18, y);
+  // Fixed value column shared with the body rows below
+  const VALUE_X = margin + 58;
+  const BODY_LH  = 9; // mm between baselines, used for all body rows
 
+  const patientDisplay = data?.patientName || data?.name || "";
+  labelValue(doc, "Name:", patientDisplay, margin, VALUE_X, y);
+
+  // Date + Patient ID — same font size, combined into one right-aligned string
+  // so they can never overlap each other regardless of ID length.
+  const dateDisplay = data?.date
+    ? new Date(data.date + "T00:00:00").toLocaleDateString("en-PK")
+    : new Date().toLocaleDateString("en-PK");
+  const rightInfo = data?.patientId
+    ? `ID: ${data.patientId}   ${dateDisplay}`
+    : dateDisplay;
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(60);
-  doc.text(new Date().toLocaleDateString(), pageW - margin, y, { align: "right" });
+  doc.setTextColor(110);
+  doc.text(rightInfo, pageW - margin, y, { align: "right" });
+
   doc.setTextColor(0);
 
-  y += 10;
+  // ===== Rx HEADING — section marker before clinical body =====
+  y += 8;
+  doc.setFont("times", "bolditalic");
+  doc.setFontSize(20);
+  doc.setTextColor(...BRAND_BLUE);
+  doc.text("Rx", margin, y);
+  // subtle underline
+  doc.setDrawColor(...BRAND_BLUE);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y + 1.5, margin + doc.getTextWidth("Rx") + 1, y + 1.5);
+  doc.setTextColor(0);
+  y += 8;
 
-  // ===== Body fields =====
+  // ===== CLINICAL BODY FIELDS =====
   const row = (label, value) => {
-    labelValue(doc, `${label}:`, value, margin, margin + 50, y);
-    y += 8;
+    labelValue(doc, `${label}:`, value, margin, VALUE_X, y);
+    y += BODY_LH;
   };
 
-  row("Patient Type", data.patientType);
-  row("Diagnosis", data.diagnosis);
-  row("Treatment", data.treatment);
-  row("Clinical Findings", data.clinicalFinding);
+  row("Patient Type",     data.patientType);
+  row("Diagnosis",        data.diagnosis);
+  row("Treatment",        data.treatment);
+  row("Clinical Findings",data.clinicalFinding);
   row("Treatment Status", data.visualStatus);
 
-  // ===== Selected Teeth label (left) + SMALL quadrant box (top-right, 1/4 page) =====
-  y += 2;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(70);
+  // ===== SELECTED TEETH — label left + quadrant box top-right =====
+  y += 4;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(60);
   doc.text("Selected Teeth:", margin, y);
+  doc.setTextColor(0);
 
   const grouped = groupSelectedTeeth(data.selectedTeeth || []);
 
-// ✅ smaller box on top-right + moved upwards
-const boxW = (pageW - margin * 2) * 0.38; // was 0.48
-const boxH = 30; // was 38
-const boxX = pageW - margin - boxW;
-const boxY = y - 12; // was y - 6 (moves it UP)
+  const boxW = (pageW - margin * 2) * 0.38;
+  const boxH = 30;
+  const boxX = pageW - margin - boxW;
+  const boxY = y - 12;
 
-  // thin + light grey
   doc.setDrawColor(210);
   doc.setLineWidth(0.2);
   doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2);
-
-  // center cross
   doc.line(boxX + boxW / 2, boxY, boxX + boxW / 2, boxY + boxH);
   doc.line(boxX, boxY + boxH / 2, boxX + boxW, boxY + boxH / 2);
 
-  // quadrant labels + teeth (smaller text)
   doc.setFontSize(7);
   doc.setTextColor(90);
-
   const pad = 2;
   const qW = boxW / 2;
   const qH = boxH / 2;
@@ -201,53 +126,104 @@ const boxY = y - 12; // was y - 6 (moves it UP)
   const drawQuadrant = (qKey, qx, qy) => {
     doc.setFont("helvetica", "bold");
     doc.text(qKey, qx + pad, qy + pad + 2);
-
     doc.setFont("helvetica", "normal");
     doc.setTextColor(60);
-
-    // ✅ 3 per line to fit compact box
     const lines = formatTeethLines(grouped[qKey], 2);
     const startY = qy + pad + 7;
-
     doc.text(lines[0] ?? "-", qx + pad, startY);
-    doc.text(lines[1] ?? "", qx + pad, startY + 4);
-
+    doc.text(lines[1] ?? "",  qx + pad, startY + 4);
     doc.setTextColor(90);
   };
 
-  drawQuadrant("Q1", boxX, boxY);
+  drawQuadrant("Q1", boxX,      boxY);
   drawQuadrant("Q2", boxX + qW, boxY);
-  drawQuadrant("Q3", boxX, boxY + qH);
+  drawQuadrant("Q3", boxX,      boxY + qH);
   drawQuadrant("Q4", boxX + qW, boxY + qH);
-
   doc.setTextColor(0);
 
-  // ✅ Continue content BELOW the box (so it doesn't overlap)
-y = Math.max(y + 6, boxY + boxH + 10);
+  y = Math.max(y + 6, boxY + boxH + 10);
 
-  // ===== Notes =====
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(70);
+  // ===== NOTES =====
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(60);
   doc.text("Notes:", margin, y);
-  y += 6;
+  doc.setTextColor(0);
+  y += BODY_LH;
 
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(40);
   const bodyW = pageW - margin * 2;
   doc.text(data.notes || "-", margin, y, { maxWidth: bodyW });
 
-  // ===== Signature area =====
-  const sigY = 265;
+  // ===== MEDICATIONS =====
+  const meds = Array.isArray(data.medications) ? data.medications : [];
+
+  // Always render the Medications section header so there is space to write by hand
+  y += 10;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(60);
+  doc.text("Medications:", margin, y);
+  doc.setTextColor(0);
+  y += BODY_LH;
+
+  if (meds.length > 0) {
+    const FOOD_LABEL = { before: "before food", after: "after food", with: "with food" };
+
+    meds.forEach((med, i) => {
+      if (y > 232) {
+        doc.addPage();
+        drawPdfLetterhead(doc);
+        drawPdfDentistFooterPanel(doc);
+        y = 53;
+      }
+
+      const m = med.m !== undefined ? (med.m | 0) : parseInt(String(med.dose || "0").split("+")[0]) || 0;
+      const n = med.n !== undefined ? (med.n | 0) : parseInt(String(med.dose || "0+0").split("+")[1]) || 0;
+      const e = med.e !== undefined ? (med.e | 0) : parseInt(String(med.dose || "0+0+0").split("+")[2]) || 0;
+
+      const nameStr  = med.name + (med.strength ? ` ${med.strength}` : "") + (med.form ? ` (${med.form})` : "");
+      const doseStr  = `${m}+${n}+${e}` + (med.durationDays ? ` × ${med.durationDays} days` : "");
+      const foodStr  = FOOD_LABEL[med.withFood] ? `, ${FOOD_LABEL[med.withFood]}` : "";
+      const instrStr = med.instructions ? ` — ${med.instructions}` : "";
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(25);
+      doc.text(`${i + 1}. ${nameStr}`, margin, y);
+      y += 5;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      doc.text(`   ${doseStr}${foodStr}${instrStr}`, margin, y);
+      y += 6;
+    });
+  } else {
+    // blank lines for hand-written medications
+    doc.setDrawColor(210);
+    doc.setLineWidth(0.2);
+    for (let i = 0; i < 3; i++) {
+      doc.line(margin, y + i * 10, pageW - margin, y + i * 10);
+    }
+    y += 32;
+  }
+
+  // ===== SIGNATURE =====
+  const sigY = 235;
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
   doc.line(margin, sigY, margin + 70, sigY);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(80);
   doc.text("Doctor Signature", margin, sigY + 6);
 
-  // ===== Download =====
+  // ===== DENTIST ROSTER PANEL (prescription only, last page) =====
+  drawPdfDentistFooterPanel(doc);
+
+  // ===== SAVE =====
   doc.save(`Prescription_${new Date().toISOString().split("T")[0]}.pdf`);
 };

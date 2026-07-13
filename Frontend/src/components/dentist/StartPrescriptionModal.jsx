@@ -69,8 +69,14 @@ const handleSave = async () => {
 
 
   const handlePrint = () => {
-    // prints current values (same as modal print)
-    printPrescription(store);
+    printPrescription({
+      ...store,
+      patientName:
+        appointment?.patientName ||
+        appointment?.patient?.name ||
+        appointment?.patient ||
+        "",
+    });
   };
 
   return (

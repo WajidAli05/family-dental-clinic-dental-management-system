@@ -81,6 +81,10 @@ import {
     ownerSettingsGet,
   ownerSettingsUpdate,
   ownerSettingsChangePassword,
+
+  ownerSearchMedications,
+  ownerCreateOrGetMedication,
+  ownerListMedications,
 } from "../services/owner.service.js";
 
 // Dashboard overview
@@ -765,5 +769,34 @@ export const ownerFinanceLabBillsByLab = async (req, res) => {
     return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// -------------------- MEDICATIONS --------------------
+export const ownerSearchMedicationsCtrl = async (req, res) => {
+  try {
+    const { q, limit } = req.query;
+    const data = await ownerSearchMedications(q, limit);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerCreateMedicationCtrl = async (req, res) => {
+  try {
+    const data = await ownerCreateOrGetMedication(req.user, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerListMedicationsCtrl = async (req, res) => {
+  try {
+    const result = await ownerListMedications(req.query);
+    return res.json({ success: true, ...result });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 };

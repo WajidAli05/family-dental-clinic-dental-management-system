@@ -18,6 +18,9 @@
   dentistGetClinicalMaster,
   dentistGetPatients,
   dentistGetFinance,
+  dentistSearchMedications,
+  dentistCreateOrGetMedication,
+  dentistListMedications,
 } from "../services/dentist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
@@ -219,5 +222,34 @@ export const getDentistFinanceCtrl = async (req, res) => {
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
+// -------------------- MEDICATIONS --------------------
+export const dentistSearchMedicationsCtrl = async (req, res) => {
+  try {
+    const { q, limit } = req.query;
+    const data = await dentistSearchMedications(q, limit);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const dentistCreateMedicationCtrl = async (req, res) => {
+  try {
+    const data = await dentistCreateOrGetMedication(req.user, req.body);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const dentistListMedicationsCtrl = async (req, res) => {
+  try {
+    const result = await dentistListMedications(req.query);
+    return res.json({ success: true, ...result });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 };

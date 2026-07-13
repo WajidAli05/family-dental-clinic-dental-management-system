@@ -12,14 +12,16 @@ const colors = {
   Paid: "bg-green-100 text-green-700",
 };
 
+const pkr = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+
 const InvoiceTable = ({ data, onPay, onPrint }) => (
   <Table>
     <TableHeader>
       <TableRow>
         <TableHead>Invoice</TableHead>
         <TableHead>Patient</TableHead>
-        <TableHead>Total</TableHead>
-        <TableHead>Paid</TableHead>
+        <TableHead className="text-right">Total</TableHead>
+        <TableHead className="text-right">Paid</TableHead>
         <TableHead>Status</TableHead>
         <TableHead>Actions</TableHead>
       </TableRow>
@@ -28,10 +30,10 @@ const InvoiceTable = ({ data, onPay, onPrint }) => (
     <TableBody>
       {data.map(inv => (
         <TableRow key={inv.id}>
-          <TableCell>{inv.id}</TableCell>
+          <TableCell className="font-mono text-xs">{inv.id}</TableCell>
           <TableCell>{inv.patientName}</TableCell>
-          <TableCell>{inv.total}</TableCell>
-          <TableCell>{inv.paid}</TableCell>
+          <TableCell className="text-right tabular-nums">{pkr(inv.total)}</TableCell>
+          <TableCell className="text-right tabular-nums">{pkr(inv.paid)}</TableCell>
           <TableCell>
             <Badge className={colors[inv.status]}>{inv.status}</Badge>
           </TableCell>

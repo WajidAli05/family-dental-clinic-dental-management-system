@@ -1,6 +1,7 @@
 //dentist services
 import User from "../models/User.model.js";
 import { dentistFinance } from "./shared/finance.js";
+import { searchMedications, createOrGetMedication, listMedications } from "./shared/medications.js";
 import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
 import LabCase from "../models/LabCase.model.js";
@@ -204,6 +205,7 @@ export async function dentistCreatePrescription(user, body) {
     clinicalFinding: body?.clinicalFinding || "",
     visualStatus: body?.visualStatus || "none",
     notes: body?.notes || "",
+    medications: Array.isArray(body?.medications) ? body.medications : [],
     patientId,
     dentistName,
     date,
@@ -259,6 +261,7 @@ export async function dentistUpdatePrescription(user, rxId, body) {
     "clinicalFinding",
     "visualStatus",
     "notes",
+    "medications",
     "patientId",
     "date",
   ]);
@@ -266,6 +269,9 @@ export async function dentistUpdatePrescription(user, rxId, body) {
   // enforce array if present
   if (allowed.selectedTeeth && !Array.isArray(allowed.selectedTeeth)) {
     throw new Error("selectedTeeth must be an array");
+  }
+  if (allowed.medications !== undefined && !Array.isArray(allowed.medications)) {
+    throw new Error("medications must be an array");
   }
 
   Object.assign(rx, allowed);
@@ -413,4 +419,17 @@ export async function dentistGetFinance(dentistId) {
   const user = await User.findById(dentistId).lean();
   if (!user) throw new Error("Dentist not found");
   return dentistFinance(user.publicId);
+}
+
+// -------------------- MEDICATIONS --------------------
+export async function dentistSearchMedications(q, limit) {
+  return searchMedications(q, limit);
+}
+
+export async function dentistCreateOrGetMedication(user, body) {
+  return createOrGetMedication(body, user);
+}
+
+export async function dentistListMedications(query = {}) {
+  return listMedications(query);
 }

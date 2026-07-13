@@ -21,10 +21,23 @@ const initialState = () => ({
   visualStatus: "none",
   notes: "",
 
+  // medication rows (UI shape: {medicationId, name, form, strength, m, n, e, durationDays, withFood, instructions})
+  medications: [],
+
   // ui flags
   saving: false,
   error: null,
 });
+
+// Derive frequencyLabel from m/n/e counts and form
+function frequencyLabel(m, n, e, form = "tablet") {
+  const parts = [];
+  if (m) parts.push(`${m} morning`);
+  if (n) parts.push(`${n} noon`);
+  if (e) parts.push(`${e} evening`);
+  if (!parts.length) return "";
+  return `${parts.join(", ")} (${form})`;
+}
 
 export const usePrescriptionStore = create((set, get) => ({
   ...initialState(),
@@ -46,6 +59,15 @@ export const usePrescriptionStore = create((set, get) => ({
   setSaving: (saving) => set({ saving }),
   setError: (error) => set({ error }),
 
+  // medication list mutations
+  addMedication: (med) => set((s) => ({ medications: [...s.medications, med] })),
+  updateMedication: (idx, patch) =>
+    set((s) => ({
+      medications: s.medications.map((m, i) => (i === idx ? { ...m, ...patch } : m)),
+    })),
+  removeMedication: (idx) =>
+    set((s) => ({ medications: s.medications.filter((_, i) => i !== idx) })),
+
   toggleTooth: (tooth) =>
     set((state) => {
       const exists = state.selectedTeeth.includes(tooth);
@@ -64,6 +86,17 @@ export const usePrescriptionStore = create((set, get) => ({
   // Build payload in one place so modal + table stay consistent
   toPayload: () => {
     const s = get();
+    const medications = (s.medications || []).map((med) => ({
+      medicationId:   med.medicationId || "",
+      name:           med.name || "",
+      form:           med.form || "tablet",
+      strength:       med.strength || "",
+      dose:           `${med.m || 0}+${med.n || 0}+${med.e || 0}`,
+      frequencyLabel: frequencyLabel(med.m || 0, med.n || 0, med.e || 0, med.form || "tablet"),
+      durationDays:   med.durationDays || 0,
+      withFood:       med.withFood || "any",
+      instructions:   med.instructions || "",
+    }));
     return {
       patientType: s.patientType,
       selectedTeeth: s.selectedTeeth,
@@ -72,6 +105,7 @@ export const usePrescriptionStore = create((set, get) => ({
       clinicalFinding: s.clinicalFinding,
       visualStatus: s.visualStatus,
       notes: s.notes,
+      medications,
       patientId: s.patientId,
       date: s.date || todayISO(),
     };
@@ -144,6 +178,22 @@ export const usePrescriptionStore = create((set, get) => ({
       clinicalFinding: rx?.clinicalFinding || "",
       visualStatus: rx?.visualStatus || "none",
       notes: rx?.notes || "",
+
+      medications: Array.isArray(rx?.medications) ? rx.medications.map((med) => {
+        const parts = String(med.dose || "0+0+0").split("+");
+        return {
+          medicationId: med.medicationId || "",
+          name:         med.name || "",
+          form:         med.form || "tablet",
+          strength:     med.strength || "",
+          m:            parseInt(parts[0]) || 0,
+          n:            parseInt(parts[1]) || 0,
+          e:            parseInt(parts[2]) || 0,
+          durationDays: med.durationDays || 0,
+          withFood:     med.withFood || "any",
+          instructions: med.instructions || "",
+        };
+      }) : [],
 
       patientId: rx?.patientId || "",
       date: rx?.date || "",

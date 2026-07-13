@@ -12,6 +12,7 @@ import { BadgeDollarSign } from "lucide-react";
 import { VISUAL_STATUS_OPTIONS } from "./options";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { useDentistClinicalMasterStore } from "@/store/dentistClinicalMasterStore";
+import MedicationPicker from "./MedicationPicker";
 
 const PrescriptionForm = () => {
   const {
@@ -174,6 +175,9 @@ const PrescriptionForm = () => {
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />
+
+      {/* Medications */}
+      <MedicationPicker />
     </div>
   );
 };

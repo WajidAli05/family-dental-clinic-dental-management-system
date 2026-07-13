@@ -29,6 +29,7 @@ import {
   labDuesSummary,
   labBillsForLab,
 } from "./shared/finance.js";
+import { searchMedications, createOrGetMedication, listMedications } from "./shared/medications.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import {
   createAppointmentCore,
@@ -2086,4 +2087,17 @@ export async function ownerRecordLabPayment(_ownerId, { labId, labName, amount, 
 
 export async function ownerLabBillsByLab(_ownerId, labId, { page, limit } = {}) {
   return labBillsForLab(labId, { page, limit });
+}
+
+// -------------------- MEDICATIONS --------------------
+export async function ownerSearchMedications(q, limit) {
+  return searchMedications(q, limit);
+}
+
+export async function ownerCreateOrGetMedication(user, body) {
+  return createOrGetMedication(body, user);
+}
+
+export async function ownerListMedications(query = {}) {
+  return listMedications(query);
 }
