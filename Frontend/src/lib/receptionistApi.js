@@ -45,6 +45,7 @@ export const receptionistApi = {
   updatePatient: (id, body) =>
     request(`/receptionist/patients/${id}`, { method: "PATCH", body }),
   lookupPatient: (params) => request("/receptionist/patients/lookup", { params }),
+  checkPhone: (phone) => request("/receptionist/patients/phone-check", { params: { phone } }),
 
   // Dentists
   getDentists: () => request("/receptionist/dentists"),

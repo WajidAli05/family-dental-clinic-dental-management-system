@@ -22,8 +22,13 @@ const AddEditPatientModal = ({ open, patient, onOpenChange, onSuccess }) => {
   const [form, setForm] = useState({ ...EMPTY });
   const [submitting, setSubmitting] = useState(false);
 
+  const [phoneWarning, setPhoneWarning] = useState([]);
+  const [acknowledgedDuplicate, setAcknowledgedDuplicate] = useState(false);
+
   useEffect(() => {
     if (open) {
+      setPhoneWarning([]);
+      setAcknowledgedDuplicate(false);
       setForm(patient
         ? {
             name:      patient.name      || "",
@@ -40,7 +45,26 @@ const AddEditPatientModal = ({ open, patient, onOpenChange, onSuccess }) => {
     }
   }, [open, patient]);
 
-  const f = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const f = (key) => (e) => {
+    const value = e.target.value;
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "phone") {
+      setPhoneWarning([]);
+      setAcknowledgedDuplicate(false);
+    }
+  };
+
+  const handlePhoneBlur = async () => {
+    if (isEdit) return; // warning only on add
+    const phone = form.phone.trim();
+    if (!phone) return;
+    try {
+      const res = await ownerApi.checkPhone(phone);
+      setPhoneWarning(res?.data || []);
+    } catch {
+      // silently ignore
+    }
+  };
 
   const handleSubmit = async () => {
     if (!form.name.trim())    return toast.error("Name is required");
@@ -64,6 +88,8 @@ const AddEditPatientModal = ({ open, patient, onOpenChange, onSuccess }) => {
         lastVisit: form.lastVisit,
         ...(ageNum !== null ? { age: ageNum } : {}),
       };
+
+      if (!isEdit && acknowledgedDuplicate) body.allowDuplicatePhone = true;
 
       if (isEdit) {
         await ownerApi.updatePatient(patient.id, body);
@@ -95,7 +121,39 @@ const AddEditPatientModal = ({ open, patient, onOpenChange, onSuccess }) => {
 
           <div className="space-y-1">
             <Label>Phone *</Label>
-            <Input value={form.phone} onChange={f("phone")} disabled={submitting} placeholder="0300..." />
+            <Input
+              value={form.phone}
+              onChange={f("phone")}
+              onBlur={handlePhoneBlur}
+              disabled={submitting}
+              placeholder="0300..."
+            />
+            {/* Family-sharing warning (add only) */}
+            {!isEdit && phoneWarning.length > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs mt-1">
+                <p className="font-medium text-amber-800 mb-1">
+                  {phoneWarning.length} patient{phoneWarning.length > 1 ? "s" : ""} already use this number:
+                </p>
+                <ul className="list-disc list-inside text-amber-700 mb-2 space-y-0.5">
+                  {phoneWarning.map((p) => (
+                    <li key={p.publicId}>
+                      {p.name}
+                      {p.publicId ? ` (${p.publicId})` : ""}
+                      {p.age ? `, age ${p.age}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <label className="flex items-center gap-2 cursor-pointer text-amber-900 select-none">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgedDuplicate}
+                    onChange={(e) => setAcknowledgedDuplicate(e.target.checked)}
+                    className="accent-amber-600"
+                  />
+                  Different family member — register anyway
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">

@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePatientStore } from "@/store/patientStore";
+import { receptionistApi } from "@/lib/receptionistApi";
 import Wavify from "react-wavify";
 import {
   User,
@@ -32,7 +33,6 @@ import {
 } from "lucide-react";
 
 const AddPatientModal = ({ open, onOpenChange }) => {
-  // ✅ DO NOT remove addPatient (other dashboards may rely on it)
   const { addPatient, createPatient, fetchPatients, fetchPatientStats } =
     usePatientStore();
 
@@ -46,14 +46,31 @@ const AddPatientModal = ({ open, onOpenChange }) => {
   });
 
   const [errors, setErrors] = useState({});
-  const [notification, setNotification] = useState(null); // { type, message }
+  const [notification, setNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [phoneWarning, setPhoneWarning] = useState([]);
+  const [acknowledgedDuplicate, setAcknowledgedDuplicate] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
     if (notification) setNotification(null);
+    if (field === "phone") {
+      setPhoneWarning([]);
+      setAcknowledgedDuplicate(false);
+    }
+  };
+
+  const handlePhoneBlur = async () => {
+    const phone = formData.phone.trim();
+    if (!phone) return;
+    try {
+      const res = await receptionistApi.checkPhone(phone);
+      setPhoneWarning(res?.data || []);
+    } catch {
+      // silently ignore — the submit will catch real errors
+    }
   };
 
   const validateForm = () => {
@@ -96,26 +113,18 @@ const AddPatientModal = ({ open, onOpenChange }) => {
   };
 
   const resetAndClose = () => {
-    setFormData({
-      name: "",
-      age: "",
-      gender: "",
-      phone: "",
-      email: "",
-      address: "",
-    });
+    setFormData({ name: "", age: "", gender: "", phone: "", email: "", address: "" });
     setErrors({});
     setNotification(null);
     setIsLoading(false);
+    setPhoneWarning([]);
+    setAcknowledgedDuplicate(false);
     onOpenChange(false);
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      setNotification({
-        type: "error",
-        message: "Please fill in all required fields correctly.",
-      });
+      setNotification({ type: "error", message: "Please fill in all required fields correctly." });
       return;
     }
 
@@ -128,11 +137,11 @@ const AddPatientModal = ({ open, onOpenChange }) => {
         lastVisit: new Date().toISOString().split("T")[0],
       };
 
-      // ✅ Prefer DB create if available (new flow)
+      if (acknowledgedDuplicate) payload.allowDuplicatePhone = true;
+
       if (typeof createPatient === "function") {
         await createPatient(payload);
       } else {
-        // fallback to old local store behavior (won’t break other dashboards)
         addPatient(payload);
       }
 
@@ -141,14 +150,10 @@ const AddPatientModal = ({ open, onOpenChange }) => {
         message: `Patient ${formData.name} has been registered successfully!`,
       });
 
-      // ✅ refresh list & stats if available
       if (typeof fetchPatients === "function") await fetchPatients();
       if (typeof fetchPatientStats === "function") await fetchPatientStats();
 
-      // close after a short delay so user sees success
-      setTimeout(() => {
-        resetAndClose();
-      }, 900);
+      setTimeout(() => { resetAndClose(); }, 900);
     } catch (error) {
       setIsLoading(false);
       setNotification({
@@ -215,9 +220,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.name ? (
-              <p className="text-sm text-red-500">{errors.name}</p>
-            ) : null}
+            {errors.name ? <p className="text-sm text-red-500">{errors.name}</p> : null}
           </div>
 
           {/* Age and Gender */}
@@ -241,9 +244,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   disabled={isLoading}
                 />
               </div>
-              {errors.age ? (
-                <p className="text-sm text-red-500">{errors.age}</p>
-              ) : null}
+              {errors.age ? <p className="text-sm text-red-500">{errors.age}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -264,9 +265,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.gender ? (
-                <p className="text-sm text-red-500">{errors.gender}</p>
-              ) : null}
+              {errors.gender ? <p className="text-sm text-red-500">{errors.gender}</p> : null}
             </div>
           </div>
 
@@ -282,14 +281,40 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 placeholder="03XX XXXXXXX or +92 3XX XXXXXXX"
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
+                onBlur={handlePhoneBlur}
                 onKeyPress={handleKeyPress}
                 className={`pl-10 ${errors.phone ? "border-red-500" : ""}`}
                 disabled={isLoading}
               />
             </div>
-            {errors.phone ? (
-              <p className="text-sm text-red-500">{errors.phone}</p>
-            ) : null}
+            {errors.phone ? <p className="text-sm text-red-500">{errors.phone}</p> : null}
+
+            {/* Phone-duplicate family warning */}
+            {phoneWarning.length > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm">
+                <p className="font-medium text-amber-800 mb-1">
+                  {phoneWarning.length} patient{phoneWarning.length > 1 ? "s" : ""} already registered with this number:
+                </p>
+                <ul className="list-disc list-inside text-amber-700 mb-2 space-y-0.5">
+                  {phoneWarning.map((p) => (
+                    <li key={p.publicId}>
+                      {p.name}
+                      {p.publicId ? ` (${p.publicId})` : ""}
+                      {p.age ? `, age ${p.age}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <label className="flex items-center gap-2 cursor-pointer text-amber-900 select-none">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgedDuplicate}
+                    onChange={(e) => setAcknowledgedDuplicate(e.target.checked)}
+                    className="accent-amber-600"
+                  />
+                  This is a different family member — register anyway
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Email */}
@@ -310,9 +335,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 disabled={isLoading}
               />
             </div>
-            {errors.email ? (
-              <p className="text-sm text-red-500">{errors.email}</p>
-            ) : null}
+            {errors.email ? <p className="text-sm text-red-500">{errors.email}</p> : null}
           </div>
 
           {/* Address */}
@@ -327,15 +350,11 @@ const AddPatientModal = ({ open, onOpenChange }) => {
                 placeholder="Enter complete address"
                 value={formData.address}
                 onChange={(e) => handleChange("address", e.target.value)}
-                className={`pl-10 min-h-[80px] ${
-                  errors.address ? "border-red-500" : ""
-                }`}
+                className={`pl-10 min-h-[80px] ${errors.address ? "border-red-500" : ""}`}
                 disabled={isLoading}
               />
             </div>
-            {errors.address ? (
-              <p className="text-sm text-red-500">{errors.address}</p>
-            ) : null}
+            {errors.address ? <p className="text-sm text-red-500">{errors.address}</p> : null}
           </div>
 
           {/* Notification */}
@@ -352,9 +371,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
               ) : (
                 <XCircle className="h-4 w-4 text-red-600" />
               )}
-              <AlertDescription className="ml-2">
-                {notification.message}
-              </AlertDescription>
+              <AlertDescription className="ml-2">{notification.message}</AlertDescription>
             </Alert>
           ) : null}
 

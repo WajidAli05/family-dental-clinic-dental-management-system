@@ -10,6 +10,7 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
+import { findPatientsByPhone } from "./shared/patients.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -293,9 +294,21 @@ export async function receptionistCreatePatient(_user, body) {
     throw new Error("Valid age is required (1-120)");
   }
 
-  // prevent duplicates by phone (compare digits-only so "+92 300..." and "0300..." don't both slip in)
-  const existing = await findPatientByPhoneDigits(phone);
-  if (existing) throw new Error("Patient with this phone already exists");
+  // Phone-duplicate guard: block only if exact same name + same number and not acknowledged.
+  // Different-name same-number is allowed (families share a phone).
+  const phoneMatches = await findPatientsByPhone(phone);
+  if (phoneMatches.length > 0) {
+    const nameLower = name.toLowerCase();
+    const exactMatch = phoneMatches.find(
+      (p) => String(p.name || "").toLowerCase() === nameLower
+    );
+    if (exactMatch && !body?.allowDuplicatePhone) {
+      throw new Error(
+        `A patient named "${exactMatch.name}" is already registered with this phone number. ` +
+        `If this is really a different person, please confirm on the form.`
+      );
+    }
+  }
 
   const { publicId, mr } = await generatePatientPublicId();
 
@@ -324,18 +337,6 @@ export async function receptionistCreatePatient(_user, body) {
     status: "Active",
     original: created.toJSON(),
   };
-}
-
-// Find a patient whose phone matches by digits-only comparison (so
-// "+92 300 1234567" and "03001234567" are treated as the same number).
-async function findPatientByPhoneDigits(phone, excludeId) {
-  const target = cleanPhone(phone);
-  if (!target) return null;
-
-  const query = excludeId ? { _id: { $ne: excludeId } } : {};
-  const candidates = await Patient.find(query).select("phone").lean();
-
-  return candidates.find((p) => cleanPhone(p.phone) === target) || null;
 }
 
 // ---------- UPDATE ----------
@@ -369,8 +370,19 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     const phone = String(updates.phone).trim();
     if (!phone) throw new Error("phone is required");
 
-    const duplicate = await findPatientByPhoneDigits(phone, patient._id);
-    if (duplicate) throw new Error("Patient with this phone already exists");
+    const phoneMatches = await findPatientsByPhone(phone, patient._id);
+    if (phoneMatches.length > 0) {
+      const nameLower = String(updates.name || patient.name || "").toLowerCase();
+      const exactMatch = phoneMatches.find(
+        (p) => String(p.name || "").toLowerCase() === nameLower
+      );
+      if (exactMatch && !body?.allowDuplicatePhone) {
+        throw new Error(
+          `A patient named "${exactMatch.name}" is already registered with this phone number. ` +
+          `If this is really a different person, please confirm on the form.`
+        );
+      }
+    }
 
     updates.phone = phone;
   }

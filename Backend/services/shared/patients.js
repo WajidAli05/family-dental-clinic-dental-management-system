@@ -17,6 +17,16 @@ export async function findPatientByPhoneDigits(phone, excludeId = null) {
   return candidates.find((p) => cleanPhone(p.phone) === target) || null;
 }
 
+// Return ALL patients whose digits-only phone matches, with the fields needed
+// for the "family on this number" warning in registration forms.
+export async function findPatientsByPhone(phone, excludeId = null) {
+  const target = cleanPhone(phone);
+  if (!target) return [];
+  const query = excludeId ? { _id: { $ne: excludeId } } : {};
+  const candidates = await Patient.find(query).select("phone name publicId age gender").lean();
+  return candidates.filter((p) => cleanPhone(p.phone) === target);
+}
+
 export async function generatePatientPublicId() {
   let n = (await Patient.countDocuments({})) + 1;
   while (true) {
@@ -44,8 +54,24 @@ export async function createPatientCore(body) {
     throw new Error("Valid age is required (1-120)");
   }
 
-  const existing = await findPatientByPhoneDigits(phone);
-  if (existing) throw new Error("Patient with this phone already exists");
+  // Phone-duplicate guard:
+  //   - allowDuplicatePhone=true  → always allow (user acknowledged family sharing)
+  //   - same name + same number   → always block (very likely accidental re-entry)
+  //   - different name, same #    → allow (different family member)
+  const phoneMatches = await findPatientsByPhone(phone);
+  if (phoneMatches.length > 0) {
+    const nameLower = name.toLowerCase();
+    const exactMatch = phoneMatches.find(
+      (p) => String(p.name || "").toLowerCase() === nameLower
+    );
+    if (exactMatch && !body?.allowDuplicatePhone) {
+      throw new Error(
+        `A patient named "${exactMatch.name}" is already registered with this phone number. ` +
+        `If this is really a different person, please confirm on the form.`
+      );
+    }
+    // Different name → proceed (family sharing).  If exactMatch but flag is set → also proceed.
+  }
 
   const { publicId, mr } = await generatePatientPublicId();
 
@@ -78,8 +104,21 @@ export async function updatePatientCore(patientPublicId, body) {
   if (updates.phone !== undefined) {
     const phone = String(updates.phone).trim();
     if (!phone) throw new Error("phone is required");
-    const dup = await findPatientByPhoneDigits(phone, patient._id);
-    if (dup) throw new Error("Patient with this phone already exists");
+    // On update we only guard against exact-same-name matches on a different record.
+    // Family sharing (different names, same #) is always allowed on update too.
+    const phoneMatches = await findPatientsByPhone(phone, patient._id);
+    if (phoneMatches.length > 0) {
+      const nameLower = String(updates.name || patient.name || "").toLowerCase();
+      const exactMatch = phoneMatches.find(
+        (p) => String(p.name || "").toLowerCase() === nameLower
+      );
+      if (exactMatch && !body?.allowDuplicatePhone) {
+        throw new Error(
+          `A patient named "${exactMatch.name}" is already registered with this phone number. ` +
+          `If this is really a different person, please confirm on the form.`
+        );
+      }
+    }
     updates.phone = phone;
   }
 

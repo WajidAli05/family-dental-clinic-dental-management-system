@@ -41,6 +41,7 @@
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+import { findPatientsByPhone } from "../services/shared/patients.js";
 
 export const getReceptionistMe = async (req, res) => {
   try {
@@ -158,6 +159,17 @@ export const getReceptionistPatientStats = async (req, res) => {
     return res.json({ success: true, data: stats });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const phoneCheckReceptionistPatients = async (req, res) => {
+  try {
+    const phone = String(req.query.phone || "").trim();
+    if (!phone) return res.json({ success: true, data: [] });
+    const matches = await findPatientsByPhone(phone);
+    return res.json({ success: true, data: matches });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 };
 

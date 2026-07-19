@@ -87,6 +87,19 @@ import {
   ownerListMedications,
 } from "../services/owner.service.js";
 
+import { findPatientsByPhone } from "../services/shared/patients.js";
+
+export const phoneCheckOwnerPatients = async (req, res) => {
+  try {
+    const phone = String(req.query.phone || "").trim();
+    if (!phone) return res.json({ success: true, data: [] });
+    const matches = await findPatientsByPhone(phone);
+    return res.json({ success: true, data: matches });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
 // Dashboard overview
 export const ownerGetDashboardOverview = async (req, res) => {
   try {

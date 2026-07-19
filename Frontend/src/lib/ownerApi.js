@@ -51,6 +51,7 @@ export const ownerApi = {
 
   // patients
   listPatients: (params) => request("/owner/patients", { params }),
+  checkPhone: (phone) => request("/owner/patients/phone-check", { params: { phone } }),
   createPatient: (body) => request("/owner/patients", { method: "POST", body }),
   updatePatient: (id, body) => request(`/owner/patients/${id}`, { method: "PATCH", body }),
   getPatientProfile: (patientId) => request(`/owner/patients/${patientId}/profile`),

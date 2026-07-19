@@ -38,6 +38,7 @@ import {
   deleteInventoryItem,
   getCatalogTreatments,
   getCatalogSampleTypes,
+  phoneCheckReceptionistPatients,
 } from "../../controllers/receptionist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
 
@@ -60,6 +61,7 @@ router.patch("/appointments/:id/status", requirePermission("tab_receptionist_app
 router.get("/patients", requirePermission("tab_receptionist_patients"), getReceptionistPatients);
 router.get("/patients/stats", requirePermission("tab_receptionist_patients"), getReceptionistPatientStats);
 router.get("/patients/lookup", requirePermission("tab_receptionist_patients"), lookupReceptionistPatient);
+router.get("/patients/phone-check", requirePermission("tab_receptionist_patients"), phoneCheckReceptionistPatients);
 router.post("/patients", requirePermission("tab_receptionist_patients"), createReceptionistPatient);
 router.patch("/patients/:id", requirePermission("tab_receptionist_patients"), updateReceptionistPatient);
 

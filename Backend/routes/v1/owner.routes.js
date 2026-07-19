@@ -89,6 +89,7 @@ import {
   ownerSearchMedicationsCtrl,
   ownerCreateMedicationCtrl,
   ownerListMedicationsCtrl,
+  phoneCheckOwnerPatients,
 } from "../../controllers/owner.controller.js";
 
 const router = express.Router();
@@ -104,9 +105,10 @@ router.patch("/appointments/:id/status", ownerUpdateAppointmentStatusCtrl);
 router.delete("/appointments/:id",       ownerDeleteAppointmentCtrl);
 
 // Patients
-router.get("/patients",            ownerListPatients);
-router.post("/patients",           ownerCreatePatientCtrl);
-router.get("/patients/:id/profile", ownerGetPatientProfile);
+router.get("/patients",                  ownerListPatients);
+router.get("/patients/phone-check",      phoneCheckOwnerPatients);
+router.post("/patients",                 ownerCreatePatientCtrl);
+router.get("/patients/:id/profile",      ownerGetPatientProfile);
 router.patch("/patients/:id",      ownerUpdatePatientCtrl);
 router.delete("/patients/:id",     ownerDeletePatient);
 
