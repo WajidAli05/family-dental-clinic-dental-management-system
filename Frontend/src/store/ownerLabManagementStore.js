@@ -15,8 +15,7 @@ const defaultFilters = {
   sampleTypes: { query: "" },
 };
 
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
+const baseURL = import.meta.env.VITE_API_BASE_URL;
 
 function buildUrl(path, params) {
   const url = new URL(baseURL + path);

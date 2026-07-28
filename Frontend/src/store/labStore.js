@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const API = "http://localhost:3000/api/v1/lab";
+const API = `${import.meta.env.VITE_API_BASE_URL}/lab`;
 
 const authFetch = (url, options = {}) => {
   const token = localStorage.getItem("token");

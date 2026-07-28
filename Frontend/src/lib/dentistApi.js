@@ -1,5 +1,3 @@
-// const BASE = "http://localhost:3000/api/v1/dentist";
-
 // const authHeaders = () => {
 //   const token = localStorage.getItem("token");
 //   return {
@@ -71,7 +69,7 @@
 //   }),
 // };
 
-const BASE = "http://localhost:3000/api/v1/dentist";
+const BASE = `${import.meta.env.VITE_API_BASE_URL}/dentist`;
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
