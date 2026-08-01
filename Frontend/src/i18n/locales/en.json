@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "appointments": "Appointments",
+    "patients": "Patients",
+    "billing": "Billing & Payments",
+    "billingFinancials": "Billing & Financials",
+    "labSamples": "Lab Samples",
+    "inventory": "Inventory",
+    "profile": "Profile",
+    "settings": "Settings",
+    "staffPermissions": "Staff & Permissions",
+    "clinicalLibrary": "Clinical Library",
+    "labManagement": "Lab Management",
+    "myFinance": "My Finance",
+    "logout": "Logout",
+    "ownerPanel": "Owner Panel",
+    "dentistPanel": "Dentist Panel",
+    "receptionistPanel": "Receptionist Panel",
+    "labPanel": "Lab Panel"
+  },
+  "auth": {
+    "welcomeTitle": "Welcome to FDC",
+    "welcomeText": "The future of dental practice management. Streamlined, efficient, and secure.",
+    "signIn": "Sign In",
+    "subtitle": "Enter your credentials to access your account.",
+    "emailLabel": "Email Address",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "loginButton": "Sign In"
+  },
+  "market": {
+    "label": "Market"
+  },
+  "language": {
+    "label": "Language"
+  }
+}

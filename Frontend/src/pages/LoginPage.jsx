@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Float } from "@react-three/drei";
 import Wavify from "react-wavify";
@@ -7,11 +8,13 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { toast } from "sonner";
 
 import DentalChart from "../components/DentalCavityModel";
+import LoginLanguageSwitcher from "../components/login/LoginLanguageSwitcher";
 
 // Zustand store
 import { useUserStore } from "../store/userStore";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const toothRef = useRef();
   const navigate = useNavigate();
 
@@ -19,13 +22,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ✅ optional: keep inline error for non-credential errors
   const [inlineError, setInlineError] = useState("");
 
   // Zustand actions + state
   const { login, error } = useUserStore();
 
-  // ✅ show toast when store error is "Invalid credentials"
   useEffect(() => {
     if (!error) return;
 
@@ -33,19 +34,18 @@ export default function LoginPage() {
 
     if (msg.toLowerCase().includes("invalid credentials")) {
       toast.error("Invalid credentials");
-      setInlineError(""); // don't show inline for this one
+      setInlineError("");
     } else {
-      setInlineError(msg); // show other errors inline (optional)
+      setInlineError(msg);
     }
   }, [error]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setInlineError(""); // clear previous inline error
+    setInlineError("");
 
     const ok = await login(email, password);
 
-    // ✅ if login failed, store will set `error` and useEffect will toast
     if (!ok) return;
 
     const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -86,10 +86,8 @@ export default function LoginPage() {
           </Canvas>
         </div>
 
-        <h1 className="welcome-title">Welcome to FDC</h1>
-        <p className="welcome-text">
-          The future of dental practice management. Streamlined, efficient, and secure.
-        </p>
+        <h1 className="welcome-title">{t("auth.welcomeTitle")}</h1>
+        <p className="welcome-text">{t("auth.welcomeText")}</p>
 
         <div className="wave-wrapper">
           <Wavify
@@ -104,18 +102,16 @@ export default function LoginPage() {
       {/* RIGHT SECTION */}
       <div className="right-side">
         <div className="form-box">
-          <h2 className="signin-title">Sign In</h2>
-          <p className="signin-subtitle">
-            Enter your credentials to access your account.
-          </p>
+          <h2 className="signin-title">{t("auth.signIn")}</h2>
+          <p className="signin-subtitle">{t("auth.subtitle")}</p>
 
           <form onSubmit={handleLogin}>
             {/* EMAIL */}
             <div className="input-group">
-              <label>Email Address</label>
+              <label>{t("auth.emailLabel")}</label>
               <input
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -124,10 +120,10 @@ export default function LoginPage() {
 
             {/* PASSWORD */}
             <div className="input-group" style={{ position: "relative" }}>
-              <label>Password</label>
+              <label>{t("auth.passwordLabel")}</label>
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder={t("auth.passwordPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -140,14 +136,14 @@ export default function LoginPage() {
               </span>
             </div>
 
-            {/* ✅ INLINE ERROR (optional) */}
             {inlineError && <p className="error-text">{inlineError}</p>}
 
-            {/* SUBMIT */}
             <button className="login-btn" type="submit">
-              Sign In
+              {t("auth.loginButton")}
             </button>
           </form>
+
+          <LoginLanguageSwitcher />
         </div>
       </div>
     </div>

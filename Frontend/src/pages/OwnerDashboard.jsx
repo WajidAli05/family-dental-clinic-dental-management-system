@@ -1,5 +1,6 @@
 // src/pages/owner/OwnerDashboard.jsx
 import { Outlet, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -18,23 +19,22 @@ import {
 import { useUserStore } from "@/store/userStore";
 
 const OwnerDashboard = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const logout = useUserStore((s) => s.logout);
 
   const ownerMenu = [
-    { title: "Dashboard", url: "/owner-dashboard/dashboard", icon: Home },
-    { title: "Appointments", url: "/owner-dashboard/appointments", icon: CalendarDays },
-    { title: "Patients", url: "/owner-dashboard/patients", icon: Users },
-    { title: "Clinical Library", url: "/owner-dashboard/clinical-master", icon: ClipboardList },
-    { title: "Lab Management", url: "/owner-dashboard/lab-management", icon: FlaskConical },
-    { title: "Billing & Financials", url: "/owner-dashboard/billing", icon: CreditCard },
-    { title: "Staff & Permissions", url: "/owner-dashboard/staff", icon: Shield },
-    { title: "Inventory", url: "/owner-dashboard/inventory", icon: Boxes },
-    { title: "Settings", url: "/owner-dashboard/settings", icon: Settings },
-
-    // ✅ Logout: clear auth + replace navigation (prevents back-to-dashboard)
+    { titleKey: "nav.dashboard",         url: "/owner-dashboard/dashboard",      icon: Home },
+    { titleKey: "nav.appointments",       url: "/owner-dashboard/appointments",   icon: CalendarDays },
+    { titleKey: "nav.patients",           url: "/owner-dashboard/patients",       icon: Users },
+    { titleKey: "nav.clinicalLibrary",    url: "/owner-dashboard/clinical-master", icon: ClipboardList },
+    { titleKey: "nav.labManagement",      url: "/owner-dashboard/lab-management", icon: FlaskConical },
+    { titleKey: "nav.billingFinancials",  url: "/owner-dashboard/billing",        icon: CreditCard },
+    { titleKey: "nav.staffPermissions",   url: "/owner-dashboard/staff",          icon: Shield },
+    { titleKey: "nav.inventory",          url: "/owner-dashboard/inventory",      icon: Boxes },
+    { titleKey: "nav.settings",           url: "/owner-dashboard/settings",       icon: Settings },
     {
-      title: "Logout",
+      titleKey: "nav.logout",
       icon: LogOut,
       onClick: () => {
         logout();
@@ -46,10 +46,10 @@ const OwnerDashboard = () => {
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen bg-gray-50">
-        <SideBar title="Owner Panel" items={ownerMenu} />
+        <SideBar title={t("nav.ownerPanel")} items={ownerMenu} />
 
         <main className="flex-1 relative min-w-0">
-          <div className="lg:hidden fixed top-4 left-5 z-50">
+          <div className="lg:hidden fixed top-4 start-5 z-50">
             <SidebarTrigger
               className="text-[#2ec4b6] bg-white p-2.5 rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
             />

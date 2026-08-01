@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -13,12 +14,19 @@ import {
 } from "@/components/ui/sidebar";
 import Wavify from "react-wavify";
 import CountryToggle from "@/components/common/CountryToggle";
+import LanguageToggle from "@/components/common/LanguageToggle";
+import { useClinicConfigStore } from "@/store/clinicConfigStore";
+
+const RTL_LOCALES = new Set(["ar", "ur"]);
 
 const SideBar = ({ title = "Menu", items = [] }) => {
+  const { t } = useTranslation();
   const location = useLocation();
+  const locale = useClinicConfigStore((s) => s.locale);
+  const isRTL = RTL_LOCALES.has(locale);
 
   return (
-    <Sidebar className="bg-white shadow-lg border-r border-gray-100">
+    <Sidebar side={isRTL ? "right" : "left"} className="bg-white shadow-lg border-gray-100">
       <SidebarContent>
         <SidebarGroup>
           {/* Sidebar Title with Wave */}
@@ -43,6 +51,8 @@ const SideBar = ({ title = "Menu", items = [] }) => {
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 md:space-y-2">
               {items.map((item) => {
+                const displayTitle = item.titleKey ? t(item.titleKey) : (item.title || "");
+                const itemKey = item.titleKey ?? item.title;
                 const isActive =
                   item.url &&
                   (location.pathname === item.url ||
@@ -68,12 +78,12 @@ const SideBar = ({ title = "Menu", items = [] }) => {
                         isActive ? "text-white" : "text-[#2ec4b6]"
                       }`}
                     />
-                    <span className="truncate">{item.title}</span>
+                    <span className="truncate">{displayTitle}</span>
                   </>
                 );
 
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={itemKey}>
                     <SidebarMenuButton asChild>
                       {item.onClick ? (
                         <button
@@ -99,6 +109,7 @@ const SideBar = ({ title = "Menu", items = [] }) => {
 
       <SidebarFooter className="p-0">
         <CountryToggle />
+        <LanguageToggle />
       </SidebarFooter>
     </Sidebar>
   );

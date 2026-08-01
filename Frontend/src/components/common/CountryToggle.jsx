@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
 import { useUserStore } from "@/store/userStore";
@@ -28,6 +29,7 @@ const OPTIONS = [
  * without a page reload.
  */
 const CountryToggle = () => {
+  const { t } = useTranslation();
   const country     = useClinicConfigStore((s) => s.country);
   const applyConfig = useClinicConfigStore((s) => s.applyConfig);
   const [busy, setBusy] = useState(false);
@@ -52,7 +54,7 @@ const CountryToggle = () => {
   return (
     <div className="px-3 py-3 border-t border-gray-100" title="Switch clinic market">
       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-        Market
+        {t("market.label")}
       </p>
       <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
         {OPTIONS.map(({ value, flag, label }) => {

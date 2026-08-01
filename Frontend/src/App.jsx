@@ -35,11 +35,13 @@ import LabDashboard from "./pages/LabDashboard";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionRoute from "./components/PermissionRoute";
+import LocaleSync from "./components/common/LocaleSync";
 import { Toaster } from "sonner";
 
 function App() {
   return (
     <Router>
+      <LocaleSync />
       <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />

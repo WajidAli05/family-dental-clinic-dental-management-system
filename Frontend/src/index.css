@@ -84,3 +84,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+:lang(ar),
+:lang(ur) {
+  font-family: 'Noto Naskh Arabic', system-ui, sans-serif;
+}

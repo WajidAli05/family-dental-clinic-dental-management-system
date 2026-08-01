@@ -2,6 +2,7 @@
 import React from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 // Layout
 import SideBar from "@/components/SideBar";
@@ -24,10 +25,10 @@ import {
 } from "lucide-react";
 
 const ReceptionistDashboard = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const logout = useUserStore((s) => s.logout);
 
-  // ✅ permissions
   const fetchMyPermissions = usePermissionsStore((s) => s.fetchMyPermissions);
   const canAccessTab = usePermissionsStore((s) => s.canAccessTab);
 
@@ -35,27 +36,17 @@ const ReceptionistDashboard = () => {
     fetchMyPermissions?.();
   }, []);
 
-  const permMapReceptionist = {
-    Dashboard: "tab_receptionist_dashboard",
-    Patients: "tab_receptionist_patients",
-    Appointments: "tab_receptionist_appointments",
-    "Lab Samples": "tab_receptionist_lab_samples",
-    "Billing & Payments": "tab_receptionist_billing",
-    Inventory: "tab_receptionist_inventory",
-    Profile: "tab_receptionist_profile",
-  };
-
   const receptionistMenu = useMemo(() => {
     const base = [
-      { title: "Dashboard", url: "/receptionist-dashboard/dashboard", icon: Home },
-      { title: "Patients", url: "/receptionist-dashboard/patients", icon: Users },
-      { title: "Appointments", url: "/receptionist-dashboard/appointments", icon: Calendar },
-      { title: "Lab Samples", url: "/receptionist-dashboard/lab-samples", icon: FlaskConical },
-      { title: "Billing & Payments", url: "/receptionist-dashboard/billing", icon: CreditCard },
-      { title: "Inventory", url: "/receptionist-dashboard/inventory", icon: Package },
-      { title: "Profile", url: "/receptionist-dashboard/profile", icon: User },
+      { titleKey: "nav.dashboard",   permKey: "tab_receptionist_dashboard",    url: "/receptionist-dashboard/dashboard",   icon: Home },
+      { titleKey: "nav.patients",    permKey: "tab_receptionist_patients",      url: "/receptionist-dashboard/patients",    icon: Users },
+      { titleKey: "nav.appointments",permKey: "tab_receptionist_appointments",  url: "/receptionist-dashboard/appointments", icon: Calendar },
+      { titleKey: "nav.labSamples",  permKey: "tab_receptionist_lab_samples",   url: "/receptionist-dashboard/lab-samples", icon: FlaskConical },
+      { titleKey: "nav.billing",     permKey: "tab_receptionist_billing",       url: "/receptionist-dashboard/billing",     icon: CreditCard },
+      { titleKey: "nav.inventory",   permKey: "tab_receptionist_inventory",     url: "/receptionist-dashboard/inventory",   icon: Package },
+      { titleKey: "nav.profile",     permKey: "tab_receptionist_profile",       url: "/receptionist-dashboard/profile",     icon: User },
       {
-        title: "Logout",
+        titleKey: "nav.logout",
         icon: LogOut,
         onClick: () => {
           logout();
@@ -65,26 +56,21 @@ const ReceptionistDashboard = () => {
     ];
 
     return base.filter((item) => {
-      if (item.title === "Logout") return true;
-      const key = permMapReceptionist[item.title];
-      return canAccessTab?.(key);
+      if (!item.permKey) return true;
+      return canAccessTab?.(item.permKey);
     });
   }, [canAccessTab, logout, navigate]);
 
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen bg-gray-50">
-        {/* Sidebar */}
-        <SideBar title="Receptionist Panel" items={receptionistMenu} />
+        <SideBar title={t("nav.receptionistPanel")} items={receptionistMenu} />
 
-        {/* Main Content */}
         <main className="flex-1 relative min-w-0">
-          {/* Mobile Sidebar Toggle */}
-          <div className="lg:hidden fixed top-4 left-5 z-50">
+          <div className="lg:hidden fixed top-4 start-5 z-50">
             <SidebarTrigger className="text-[#2ec4b6] bg-white p-2.5 rounded-lg shadow-lg hover:bg-gray-50 transition-colors" />
           </div>
 
-          {/* Page Content */}
           <div className="px-4 md:px-6 lg:px-8 py-6">
             <Outlet />
           </div>

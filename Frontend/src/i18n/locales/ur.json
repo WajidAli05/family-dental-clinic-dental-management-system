@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "dashboard": "ڈیش بورڈ",
+    "appointments": "ملاقاتیں",
+    "patients": "مریض",
+    "billing": "بلنگ اور ادائیگیاں",
+    "billingFinancials": "بلنگ اور مالیات",
+    "labSamples": "لیب نمونے",
+    "inventory": "انوینٹری",
+    "profile": "پروفائل",
+    "settings": "ترتیبات",
+    "staffPermissions": "عملہ اور اجازات",
+    "clinicalLibrary": "کلینیکل لائبریری",
+    "labManagement": "لیب مینجمنٹ",
+    "myFinance": "میری مالیات",
+    "logout": "لاگ آؤٹ",
+    "ownerPanel": "مالک پینل",
+    "dentistPanel": "دندان ساز پینل",
+    "receptionistPanel": "ریسیپشنسٹ پینل",
+    "labPanel": "لیب پینل"
+  },
+  "auth": {
+    "welcomeTitle": "FDC میں خوش آمدید",
+    "welcomeText": "دندان ساز مشق مینجمنٹ کا مستقبل۔ ہموار، موثر، اور محفوظ۔",
+    "signIn": "سائن ان",
+    "subtitle": "اپنے اکاؤنٹ تک رسائی کے لیے اپنی اسناد درج کریں۔",
+    "emailLabel": "ای میل پتہ",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "پاس ورڈ",
+    "passwordPlaceholder": "••••••••",
+    "loginButton": "سائن ان"
+  },
+  "market": {
+    "label": "مارکیٹ"
+  },
+  "language": {
+    "label": "زبان"
+  }
+}

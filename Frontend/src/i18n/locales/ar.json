@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "appointments": "المواعيد",
+    "patients": "المرضى",
+    "billing": "الفواتير والمدفوعات",
+    "billingFinancials": "الفواتير والمالية",
+    "labSamples": "عينات المختبر",
+    "inventory": "المخزون",
+    "profile": "الملف الشخصي",
+    "settings": "الإعدادات",
+    "staffPermissions": "الموظفون والصلاحيات",
+    "clinicalLibrary": "المكتبة السريرية",
+    "labManagement": "إدارة المختبر",
+    "myFinance": "ماليتي",
+    "logout": "تسجيل الخروج",
+    "ownerPanel": "لوحة المالك",
+    "dentistPanel": "لوحة طبيب الأسنان",
+    "receptionistPanel": "لوحة الاستقبال",
+    "labPanel": "لوحة المختبر"
+  },
+  "auth": {
+    "welcomeTitle": "مرحباً بك في FDC",
+    "welcomeText": "مستقبل إدارة عيادات الأسنان. مبسّط وفعّال وآمن.",
+    "signIn": "تسجيل الدخول",
+    "subtitle": "أدخل بيانات اعتمادك للوصول إلى حسابك.",
+    "emailLabel": "عنوان البريد الإلكتروني",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "كلمة المرور",
+    "passwordPlaceholder": "••••••••",
+    "loginButton": "تسجيل الدخول"
+  },
+  "market": {
+    "label": "السوق"
+  },
+  "language": {
+    "label": "اللغة"
+  }
+}
