@@ -1773,6 +1773,36 @@ const DEFAULT_LOCALE = {
   weekStart:      0,
 };
 
+// Full presets applied server-side when a country switch is requested.
+// The client only sends { country }; all currency/tax/timezone fields
+// are derived here so they are always internally consistent.
+const COUNTRY_PRESETS = {
+  PK: {
+    country:        "PK",
+    locale:         "en",
+    currency:       "PKR",
+    currencySymbol: "₨",
+    taxEnabled:     false,
+    taxRate:        0,
+    taxLabel:       "Tax",
+    timezone:       "Asia/Karachi",
+    dateFormat:     "DD/MM/YYYY",
+    weekStart:      0,
+  },
+  SA: {
+    country:        "SA",
+    locale:         "en",
+    currency:       "SAR",
+    currencySymbol: "SR",
+    taxEnabled:     true,
+    taxRate:        15,
+    taxLabel:       "VAT",
+    timezone:       "Asia/Riyadh",
+    dateFormat:     "DD/MM/YYYY",
+    weekStart:      0,
+  },
+};
+
 async function ensureClinicSettingsDoc() {
   let doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID);
   if (!doc) {
@@ -1867,6 +1897,22 @@ export async function getClinicConfig() {
   await ensureClinicSettingsDoc();
   const doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
   return serializeLocale(doc?.locale);
+}
+
+/**
+ * Owner-only: atomically apply the full preset for the given country.
+ * Client only sends { country }; all currency/tax/timezone fields are
+ * derived server-side from COUNTRY_PRESETS so they stay consistent.
+ */
+export async function ownerSwitchCountry(_ownerId, country) {
+  if (!COUNTRY_PRESETS[country]) {
+    throw new Error(`Unsupported country "${country}". Valid values: ${Object.keys(COUNTRY_PRESETS).join(", ")}`);
+  }
+  const doc = await ensureClinicSettingsDoc();
+  doc.set("locale", { ...COUNTRY_PRESETS[country] });
+  await doc.save();
+  const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
+  return serializeLocale(saved?.locale);
 }
 
 export async function ownerSettingsUpdate(_ownerId, payload = {}) {

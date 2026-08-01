@@ -85,6 +85,7 @@ import {
   ownerSearchMedications,
   ownerCreateOrGetMedication,
   ownerListMedications,
+  ownerSwitchCountry,
 } from "../services/owner.service.js";
 
 import { findPatientsByPhone } from "../services/shared/patients.js";
@@ -626,6 +627,17 @@ export const ownerClinicalDeleteFindingController = async (req, res) => {
 // =========================
 // OWNER SETTINGS CONTROLLERS
 // =========================
+export const ownerSwitchCountryController = async (req, res) => {
+  try {
+    const { country } = req.body || {};
+    if (!country) return res.status(400).json({ success: false, message: "country is required" });
+    const data = await ownerSwitchCountry(req.user?._id, country);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
 export const ownerGetSettingsController = async (req, res) => {
   try {
     const data = await ownerSettingsGet(req.user?._id);

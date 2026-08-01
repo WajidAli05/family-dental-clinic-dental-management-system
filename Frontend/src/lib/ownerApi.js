@@ -124,6 +124,7 @@ export const ownerApi = {
   // =====================================================
   getOwnerSettings: () => request("/owner/settings"),
   updateOwnerSettings: (body) => request("/owner/settings", { method: "PATCH", body }),
+  switchCountry: (country) => request("/owner/settings/country", { method: "PATCH", body: { country } }),
   changeOwnerPassword: (body) => request("/owner/settings/password", { method: "PATCH", body }),
 
   // =====================================================

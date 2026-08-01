@@ -85,6 +85,7 @@ import {
     ownerGetSettingsController,
   ownerUpdateSettingsController,
   ownerChangePasswordController,
+  ownerSwitchCountryController,
 
   ownerSearchMedicationsCtrl,
   ownerCreateMedicationCtrl,
@@ -207,6 +208,7 @@ router.delete("/clinical-master/findings/:id", ownerClinicalDeleteFindingControl
 // =====================================================
 router.get("/settings", ownerGetSettingsController);
 router.patch("/settings", ownerUpdateSettingsController);
+router.patch("/settings/country", ownerSwitchCountryController);
 router.patch("/settings/password", ownerChangePasswordController);
 
 // =====================================================

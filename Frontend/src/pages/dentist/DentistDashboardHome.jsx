@@ -12,13 +12,14 @@ import { useDentistFinanceStore } from "@/store/dentistFinanceStore";
 import DentistStatCard from "@/components/dentist/StatCard";
 import DentistAppointmentsTable from "@/components/dentist/AppointmentsTable";
 import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal";
-
-const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+import CountrySwitcher from "@/components/common/CountrySwitcher";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const DentistDashboardHome = () => {
   const navigate = useNavigate();
   const { stats, appointments, fetchDashboard } = useDentistDashboardStore();
   const { data: financeData, fetch: fetchFinance } = useDentistFinanceStore();
+  const money = useFormatMoney();
 
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -127,8 +128,13 @@ const DentistDashboardHome = () => {
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dentist Dashboard</h1>
-        <p className="text-gray-500">Today’s clinical overview</p>
+        <div className="relative z-10 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dentist Dashboard</h1>
+            <p className="text-gray-500">Today’s clinical overview</p>
+          </div>
+          <CountrySwitcher />
+        </div>
 
         <Wave
           fill="#2ec4b6"

@@ -46,6 +46,10 @@ export const useClinicConfigStore = create((set, get) => ({
     }
   },
 
+  // Apply a config object received from the server (e.g. after a country switch)
+  // without a full re-fetch so the update is instant app-wide.
+  applyConfig: (data) => set((s) => ({ ...s, ...data })),
+
   // Called on logout so the next user starts fresh
   reset: () => set({ ...PK_DEFAULTS, ready: false, loading: false }),
 
