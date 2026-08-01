@@ -6,7 +6,6 @@ import LabStats from "@/components/lab/LabStats";
 import LabSamplesTable from "@/components/lab/LabSamplesTable";
 import LabProfile from "@/pages/lab/LabProfile";
 import { useUserStore } from "@/store/userStore";
-import CountrySwitcher from "@/components/common/CountrySwitcher";
 
 export default function LabDashboard() {
   const navigate = useNavigate();
@@ -49,18 +48,13 @@ export default function LabDashboard() {
                 path="dashboard"
                 element={
                   <>
-                    <div className="relative">
-                      <div className="text-center">
-                        <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
-                          Lab Dashboard
-                        </h1>
-                        <p className="text-sm md:text-base text-white/90 mt-1">
-                          Technician Portal
-                        </p>
-                      </div>
-                      <div className="absolute top-0 right-0">
-                        <CountrySwitcher />
-                      </div>
+                    <div className="text-center">
+                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold">
+                        Lab Dashboard
+                      </h1>
+                      <p className="text-sm md:text-base text-white/90 mt-1">
+                        Technician Portal
+                      </p>
                     </div>
 
                     <LabStats />

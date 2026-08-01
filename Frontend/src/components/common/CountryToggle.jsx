@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
+import { useUserStore } from "@/store/userStore";
 import { ownerApi } from "@/lib/ownerApi";
 
 const OPTIONS = [
@@ -10,16 +11,21 @@ const OPTIONS = [
 
 /**
  * Compact country/currency toggle for the sidebar footer.
- * Owner: interactive — switches config server-side.
- * Others: read-only indicator.
+ * Owner: interactive — switches config server-side and updates clinicConfigStore
+ *   in-place so every subscribed component re-renders without a page reload.
+ * Others: read-only indicator of the current market.
  */
 const CountryToggle = () => {
   const country     = useClinicConfigStore((s) => s.country);
   const applyConfig = useClinicConfigStore((s) => s.applyConfig);
   const [busy, setBusy] = useState(false);
 
-  const user    = JSON.parse(localStorage.getItem("user") || "null");
-  const isOwner = user?.role === "owner";
+  // Use Zustand store (reactive) instead of a one-time localStorage read.
+  // The localStorage read is non-reactive and was the root cause of isOwner
+  // evaluating to false when the component mounted before the store hydrated,
+  // making every button appear disabled (canChange = false → !canChange && !active = true).
+  const currentUser = useUserStore((s) => s.currentUser);
+  const isOwner     = currentUser?.role === "owner";
 
   const handleSwitch = async (next) => {
     if (!isOwner || busy || next === country) return;

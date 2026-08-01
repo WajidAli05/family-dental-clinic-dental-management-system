@@ -12,7 +12,6 @@ import { useDentistFinanceStore } from "@/store/dentistFinanceStore";
 import DentistStatCard from "@/components/dentist/StatCard";
 import DentistAppointmentsTable from "@/components/dentist/AppointmentsTable";
 import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal";
-import CountrySwitcher from "@/components/common/CountrySwitcher";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const DentistDashboardHome = () => {
@@ -128,12 +127,9 @@ const DentistDashboardHome = () => {
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dentist Dashboard</h1>
-            <p className="text-gray-500">Today’s clinical overview</p>
-          </div>
-          <CountrySwitcher />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold text-gray-900">Dentist Dashboard</h1>
+          <p className="text-gray-500">Today’s clinical overview</p>
         </div>
 
         <Wave

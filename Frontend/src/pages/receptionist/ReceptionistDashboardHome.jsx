@@ -7,7 +7,6 @@ import { useReceptionistStore } from "@/store/receptionistStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import { localISODate } from "@/utils/localISODate";
 import { useFormatMoney } from "@/store/clinicConfigStore";
-import CountrySwitcher from "@/components/common/CountrySwitcher";
 
 const ReceptionistDashboardHome = () => {
   const { stats, fetchDashboard, loading } = useReceptionistStore();
@@ -35,12 +34,9 @@ const ReceptionistDashboardHome = () => {
     <div className="space-y-8">
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Receptionist Dashboard</h1>
-            <p className="text-gray-500">Front-desk overview — appointments, patients, and revenue</p>
-          </div>
-          <CountrySwitcher />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold text-gray-900">Receptionist Dashboard</h1>
+          <p className="text-gray-500">Front-desk overview — appointments, patients, and revenue</p>
         </div>
         <Wave
           fill="#2ec4b6"

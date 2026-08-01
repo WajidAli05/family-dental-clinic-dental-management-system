@@ -6,7 +6,6 @@ import AppointmentsSummaryCard from "@/components/owner/AppointmentsSummaryCard"
 import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
 import { Users, FlaskConical, Banknote, Calendar } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
-import CountrySwitcher from "@/components/common/CountrySwitcher";
 
 const OwnerDashboardHome = () => {
   const { stats, appointmentsSummary, init, loading, error } = useOwnerDashboardStore();
@@ -20,12 +19,9 @@ const OwnerDashboardHome = () => {
     <div className="space-y-8">
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
-            <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
-          </div>
-          <CountrySwitcher />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
+          <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
         </div>
 
         <Wave
