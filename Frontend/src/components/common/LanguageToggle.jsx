@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
 import { useUserStore } from "@/store/userStore";
 
@@ -19,9 +26,9 @@ async function switchLocaleApi(locale) {
 }
 
 const OPTIONS = [
-  { value: "en", label: "EN" },
-  { value: "ur", label: "UR" },
-  { value: "ar", label: "AR" },
+  { value: "en", labelKey: "language.en" },
+  { value: "ur", labelKey: "language.ur" },
+  { value: "ar", labelKey: "language.ar" },
 ];
 
 const LanguageToggle = () => {
@@ -46,32 +53,22 @@ const LanguageToggle = () => {
   };
 
   return (
-    <div className="px-3 py-3 border-t border-gray-100" title="Switch language">
+    <div className="px-3 py-3 border-t border-gray-100">
       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
         {t("language.label")}
       </p>
-      <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
-        {OPTIONS.map(({ value, label }) => {
-          const active    = locale === value;
-          const canChange = !busy && value !== locale;
-          return (
-            <button
-              key={value}
-              type="button"
-              disabled={busy && !active}
-              onClick={() => handleSwitch(value)}
-              className={[
-                "flex-1 flex items-center justify-center px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 select-none",
-                active    ? "bg-[#2ec4b6] text-white shadow-sm" : "text-gray-500",
-                canChange ? "hover:bg-white hover:text-gray-800 hover:shadow-sm cursor-pointer" : "cursor-default",
-                busy ? "opacity-60" : "",
-              ].join(" ")}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      <Select value={locale} onValueChange={handleSwitch} disabled={busy}>
+        <SelectTrigger className="h-8 w-full text-xs border-gray-200 bg-gray-50 focus:ring-[#2ec4b6]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {OPTIONS.map(({ value, labelKey }) => (
+            <SelectItem key={value} value={value} className="text-xs">
+              {t(labelKey)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };
