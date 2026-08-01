@@ -2,7 +2,19 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
 import { useUserStore } from "@/store/userStore";
-import { ownerApi } from "@/lib/ownerApi";
+
+const BASE = import.meta.env.VITE_API_BASE_URL;
+async function switchCountryApi(country) {
+  const token = useUserStore.getState().token || localStorage.getItem("token");
+  const res = await fetch(`${BASE}/clinic-config/country`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ country }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) throw new Error(json?.message || `Request failed: ${res.status}`);
+  return json;
+}
 
 const OPTIONS = [
   { value: "PK", flag: "🇵🇰", label: "PKR" },
@@ -11,27 +23,20 @@ const OPTIONS = [
 
 /**
  * Compact country/currency toggle for the sidebar footer.
- * Owner: interactive — switches config server-side and updates clinicConfigStore
- *   in-place so every subscribed component re-renders without a page reload.
- * Others: read-only indicator of the current market.
+ * All roles: interactive — switches config server-side via /clinic-config/country
+ * and updates clinicConfigStore in-place so every subscribed component re-renders
+ * without a page reload.
  */
 const CountryToggle = () => {
   const country     = useClinicConfigStore((s) => s.country);
   const applyConfig = useClinicConfigStore((s) => s.applyConfig);
   const [busy, setBusy] = useState(false);
 
-  // Use Zustand store (reactive) instead of a one-time localStorage read.
-  // The localStorage read is non-reactive and was the root cause of isOwner
-  // evaluating to false when the component mounted before the store hydrated,
-  // making every button appear disabled (canChange = false → !canChange && !active = true).
-  const currentUser = useUserStore((s) => s.currentUser);
-  const isOwner     = currentUser?.role === "owner";
-
   const handleSwitch = async (next) => {
-    if (!isOwner || busy || next === country) return;
+    if (busy || next === country) return;
     setBusy(true);
     try {
-      const res = await ownerApi.switchCountry(next);
+      const res = await switchCountryApi(next);
       if (res?.success && res.data) {
         applyConfig(res.data);
         const label = next === "PK" ? "Pakistan (PKR)" : "Saudi Arabia (SAR)";
@@ -45,23 +50,20 @@ const CountryToggle = () => {
   };
 
   return (
-    <div
-      className="px-3 py-3 border-t border-gray-100"
-      title={isOwner ? "Switch clinic market" : "Market set by owner — read-only"}
-    >
+    <div className="px-3 py-3 border-t border-gray-100" title="Switch clinic market">
       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
         Market
       </p>
       <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
         {OPTIONS.map(({ value, flag, label }) => {
           const active    = country === value;
-          const canChange = isOwner && !busy && value !== country;
+          const canChange = !busy && value !== country;
 
           return (
             <button
               key={value}
               type="button"
-              disabled={!canChange && !active}
+              disabled={busy && !active}
               onClick={() => handleSwitch(value)}
               className={[
                 "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 select-none",

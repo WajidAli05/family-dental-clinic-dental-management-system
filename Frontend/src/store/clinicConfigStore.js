@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { formatMoney } from "@/utils/formatMoney";
 
 const PK_DEFAULTS = {
@@ -12,6 +13,7 @@ const PK_DEFAULTS = {
   timezone:       "Asia/Karachi",
   dateFormat:     "DD/MM/YYYY",
   weekStart:      0,
+  exchangeRate:   1,
 };
 
 export const useClinicConfigStore = create((set, get) => ({
@@ -58,8 +60,8 @@ export const useClinicConfigStore = create((set, get) => ({
    * Use the useFormatMoney() hook inside React components instead.
    */
   fmt: (n) => {
-    const { currency, country } = get();
-    return formatMoney(n, { currency, country });
+    const { currency, country, exchangeRate } = get();
+    return formatMoney(n, { currency, country, exchangeRate });
   },
 }));
 
@@ -68,16 +70,18 @@ export const useClinicConfigStore = create((set, get) => ({
  * Re-computes only when currency or country changes.
  */
 export function useFormatMoney() {
-  const currency = useClinicConfigStore((s) => s.currency);
-  const country  = useClinicConfigStore((s) => s.country);
-  return (n) => formatMoney(n, { currency, country });
+  const currency     = useClinicConfigStore((s) => s.currency);
+  const country      = useClinicConfigStore((s) => s.country);
+  const exchangeRate = useClinicConfigStore((s) => s.exchangeRate);
+  return (n) => formatMoney(n, { currency, country, exchangeRate });
 }
 
 /**
  * React hook — returns the full clinic locale config.
+ * useShallow prevents infinite re-render loops caused by new object references.
  */
 export function useClinicConfig() {
-  return useClinicConfigStore((s) => ({
+  return useClinicConfigStore(useShallow((s) => ({
     country:        s.country,
     locale:         s.locale,
     currency:       s.currency,
@@ -89,5 +93,5 @@ export function useClinicConfig() {
     dateFormat:     s.dateFormat,
     weekStart:      s.weekStart,
     ready:          s.ready,
-  }));
+  })));
 }

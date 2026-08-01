@@ -30,6 +30,7 @@ const clinicSettingsSchema = new Schema(
       timezone:       { type: String, default: "Asia/Karachi" },
       dateFormat:     { type: String, default: "DD/MM/YYYY" },
       weekStart:      { type: Number, default: 0, min: 0, max: 1 },
+      exchangeRate:   { type: Number, default: 1, min: 0 },
     },
   },
   { timestamps: true }

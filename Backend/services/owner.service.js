@@ -1771,6 +1771,7 @@ const DEFAULT_LOCALE = {
   timezone:       "Asia/Karachi",
   dateFormat:     "DD/MM/YYYY",
   weekStart:      0,
+  exchangeRate:   1,
 };
 
 // Full presets applied server-side when a country switch is requested.
@@ -1788,6 +1789,7 @@ const COUNTRY_PRESETS = {
     timezone:       "Asia/Karachi",
     dateFormat:     "DD/MM/YYYY",
     weekStart:      0,
+    exchangeRate:   1,
   },
   SA: {
     country:        "SA",
@@ -1800,6 +1802,7 @@ const COUNTRY_PRESETS = {
     timezone:       "Asia/Riyadh",
     dateFormat:     "DD/MM/YYYY",
     weekStart:      0,
+    exchangeRate:   0.01353,
   },
 };
 
@@ -1850,6 +1853,7 @@ function serializeLocale(raw = {}) {
     timezone:       raw.timezone       || DEFAULT_LOCALE.timezone,
     dateFormat:     raw.dateFormat     || DEFAULT_LOCALE.dateFormat,
     weekStart:      Number(raw.weekStart) || 0,
+    exchangeRate:   Number(raw.exchangeRate) || 1,
   };
 }
 
