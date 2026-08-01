@@ -10,10 +10,10 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-
-const fmt = (v) => `PKR ${Number(v || 0).toLocaleString("en-PK")}`;
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesRows = [] }) => {
+  const fmt = useFormatMoney();
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 md:p-5">
       <div className="text-sm font-semibold text-gray-900">Financial Chart</div>

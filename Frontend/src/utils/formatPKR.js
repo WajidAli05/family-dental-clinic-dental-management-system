@@ -1,5 +1,9 @@
 import { formatMoney } from "./formatMoney";
+import { useClinicConfigStore } from "@/store/clinicConfigStore";
 
-// Backward-compatible wrapper — always formats as PKR.
-// Existing callers can keep importing formatPKR unchanged.
-export const formatPKR = (n) => formatMoney(n, { currency: "PKR", country: "PK" });
+// Config-aware wrapper — reads live currency/country from the Zustand store.
+// Safe to call in any context (React render, PDF utils, non-React code).
+export const formatPKR = (n) => {
+  const { currency, country } = useClinicConfigStore.getState();
+  return formatMoney(n, { currency, country });
+};

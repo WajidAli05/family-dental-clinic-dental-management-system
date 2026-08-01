@@ -5,6 +5,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Printer, Mail } from "lucide-react";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const colors = {
   Pending: "bg-red-100 text-red-700",
@@ -12,9 +13,9 @@ const colors = {
   Paid: "bg-green-100 text-green-700",
 };
 
-const pkr = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
-
-const InvoiceTable = ({ data, onPay, onPrint }) => (
+const InvoiceTable = ({ data, onPay, onPrint }) => {
+  const pkr = useFormatMoney();
+  return (
   <Table>
     <TableHeader>
       <TableRow>
@@ -51,6 +52,7 @@ const InvoiceTable = ({ data, onPay, onPrint }) => (
       ))}
     </TableBody>
   </Table>
-);
+  );
+};
 
 export default InvoiceTable;

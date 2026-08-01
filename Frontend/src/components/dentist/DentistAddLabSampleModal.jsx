@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { dentistApi } from "@/lib/dentistApi";
 import { useDentistCasesStore } from "@/store/dentistCasesStore";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 export default function DentistAddLabSampleModal({ open, onClose }) {
   const { addCase } = useDentistCasesStore();
+  const money = useFormatMoney();
 
   const [patients, setPatients]     = useState([]);
   const [labs, setLabs]             = useState([]);
@@ -141,7 +143,7 @@ export default function DentistAddLabSampleModal({ open, onClose }) {
               <SelectContent>
                 {sampleTypes.map((s) => (
                   <SelectItem key={s.id || s.publicId} value={s.id || s.publicId}>
-                    {s.name}{s.price > 0 ? ` — PKR ${Number(s.price).toLocaleString("en-PK")}` : ""}
+                    {s.name}{s.price > 0 ? ` — ${money(s.price)}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

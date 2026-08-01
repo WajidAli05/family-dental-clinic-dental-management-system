@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const Tag = ({ children }) => (
   <span className="rounded-full bg-[#2ec4b61a] px-3 py-1 text-xs font-semibold text-[#179c91]">
@@ -19,6 +20,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const OwnerPatientsTable = ({ data = [], onView, onEdit, onDelete }) => {
+  const money = useFormatMoney();
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -56,7 +58,7 @@ const OwnerPatientsTable = ({ data = [], onView, onEdit, onDelete }) => {
                 <td className="py-3 pr-4">{p.lastVisit || "-"}</td>
                 <td className="py-3 pr-4">{p.dentist || "-"}</td>
                 <td className="py-3 pr-4">{p.pendingLab ?? 0}</td>
-                <td className="py-3 pr-4">PKR {Number(p.totalSpent || 0).toLocaleString("en-PK")}</td>
+                <td className="py-3 pr-4">{money(p.totalSpent)}</td>
                 <td className="py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onView?.(p)}>

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ownerApi } from "@/lib/ownerApi";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const ALL_STATUSES = [
   { value: "sent", label: "Sent" },
@@ -27,6 +28,7 @@ export default function OwnerLabCaseModal({
   onSubmit,
 }) {
   const isEdit = mode === "edit";
+  const money = useFormatMoney();
 
   const [patientSearch, setPatientSearch] = useState("");
   const [patientId, setPatientId]         = useState("");
@@ -180,7 +182,7 @@ export default function OwnerLabCaseModal({
               <SelectContent>
                 {sampleTypes.map((s) => (
                   <SelectItem key={s.id || s.publicId} value={s.id || s.publicId}>
-                    {s.name}{s.price > 0 ? ` — PKR ${Number(s.price).toLocaleString("en-PK")}` : ""}
+                    {s.name}{s.price > 0 ? ` — ${money(s.price)}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

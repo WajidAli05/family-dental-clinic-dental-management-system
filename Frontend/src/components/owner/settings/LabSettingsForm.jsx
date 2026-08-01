@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useClinicConfig } from "@/store/clinicConfigStore";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
 const LabSettingsForm = ({ value, onSave }) => {
+  const { currency } = useClinicConfig();
   const [form, setForm] = useState(value);
 
   useEffect(() => setForm(value), [value]);
@@ -59,7 +61,7 @@ const LabSettingsForm = ({ value, onSave }) => {
           </div>
         </Field>
 
-        <Field label="Urgent Fee (PKR)">
+        <Field label={`Urgent Fee (${currency})`}>
           <input
             type="number"
             min={0}

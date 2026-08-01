@@ -1,4 +1,4 @@
-const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const modePill = (mode) => {
   const m = String(mode || "").toLowerCase();
@@ -8,7 +8,9 @@ const modePill = (mode) => {
   return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{mode || "—"}</span>;
 };
 
-const DailyCashbookTable = ({ data = [] }) => (
+const DailyCashbookTable = ({ data = [] }) => {
+  const money = useFormatMoney();
+  return (
   <div className="overflow-x-auto">
     <table className="w-full text-sm">
       <thead>
@@ -39,6 +41,7 @@ const DailyCashbookTable = ({ data = [] }) => (
       </tbody>
     </table>
   </div>
-);
+  );
+};
 
 export default DailyCashbookTable;

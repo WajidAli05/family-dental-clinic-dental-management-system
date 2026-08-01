@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
-const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
-
-const LabDuesTable = ({ data = [], onRecordPayment, onViewBills }) => (
+const LabDuesTable = ({ data = [], onRecordPayment, onViewBills }) => {
+  const money = useFormatMoney();
+  return (
   <div className="overflow-x-auto">
     <table className="w-full text-sm">
       <thead>
@@ -57,6 +58,7 @@ const LabDuesTable = ({ data = [], onRecordPayment, onViewBills }) => (
       </tbody>
     </table>
   </div>
-);
+  );
+};
 
 export default LabDuesTable;

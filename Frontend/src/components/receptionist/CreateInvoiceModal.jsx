@@ -32,6 +32,7 @@ import { useBillingStore } from "@/store/billingStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { useOwnerSettingsStore } from "@/store/ownerSettingsStore";
 import { receptionistApi } from "@/lib/receptionistApi";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 import {
   Search,
@@ -45,7 +46,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-const PKR = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const KIND_BADGE = {
@@ -60,6 +60,7 @@ const KIND_LABEL = {
 };
 
 const CreateInvoiceModal = ({ open, onOpenChange }) => {
+  const PKR = useFormatMoney();
   const { lookupPatient } = usePatientStore();
   const { createInvoice } = useBillingStore();
 

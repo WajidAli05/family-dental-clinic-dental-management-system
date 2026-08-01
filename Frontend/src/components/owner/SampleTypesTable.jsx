@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const Badge = ({ active }) => (
   <span
@@ -13,6 +14,7 @@ const Badge = ({ active }) => (
 );
 
 const SampleTypesTable = ({ data = [], onEdit, onDelete, onToggle }) => {
+  const money = useFormatMoney();
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -42,7 +44,7 @@ const SampleTypesTable = ({ data = [], onEdit, onDelete, onToggle }) => {
                 </td>
 
                 <td className="py-3 pr-4">
-                  PKR {Number(s.price || 0).toLocaleString("en-PK")}
+                  {money(s.price)}
                 </td>
 
                 <td className="py-3 pr-4">

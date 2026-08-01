@@ -1,4 +1,7 @@
+import { useFormatMoney } from "@/store/clinicConfigStore";
+
 const RevenueReportsTable = ({ data = [] }) => {
+  const money = useFormatMoney();
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -39,7 +42,7 @@ const RevenueReportsTable = ({ data = [] }) => {
                   {row.dentistName || "All"}
                 </td>
                 <td className="py-2 px-3 text-sm font-semibold text-gray-900">
-                  Rs. {row.revenue.toLocaleString()}
+                  {money(row.revenue)}
                 </td>
               </tr>
             ))

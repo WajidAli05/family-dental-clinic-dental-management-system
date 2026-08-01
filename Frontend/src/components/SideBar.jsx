@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -11,6 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import Wavify from "react-wavify";
+import CountryToggle from "@/components/common/CountryToggle";
 
 const SideBar = ({ title = "Menu", items = [] }) => {
   const location = useLocation();
@@ -94,6 +96,10 @@ const SideBar = ({ title = "Menu", items = [] }) => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-0">
+        <CountryToggle />
+      </SidebarFooter>
     </Sidebar>
   );
 };

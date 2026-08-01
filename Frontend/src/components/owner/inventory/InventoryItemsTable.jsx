@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => {
+  const money = useFormatMoney();
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -36,7 +38,7 @@ const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => 
                 </td>
                 <td className="py-2 px-3 text-sm text-gray-800">{i.reorderLevel}</td>
                 <td className="py-2 px-3 text-sm text-gray-800">
-                  Rs. {Number(i.unitCost || 0).toLocaleString()}
+                  {money(i.unitCost)}
                 </td>
 
                 <td className="py-2 px-3">

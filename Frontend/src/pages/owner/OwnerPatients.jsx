@@ -18,8 +18,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const OwnerPatients = () => {
+  const money = useFormatMoney();
   const filters = useOwnerPatientsStore((s) => s.filters);
   const patients = useOwnerPatientsStore((s) => s.patients);
   const loading = useOwnerPatientsStore((s) => s.loading);
@@ -135,7 +137,7 @@ const OwnerPatients = () => {
           <OwnerStatCard title="Pending Labs" value={dbStats.pendingLabs} icon={FlaskConical} />
           <OwnerStatCard
             title="Total Revenue (Patients)"
-            value={`PKR ${Number(dbStats.revenue || 0).toLocaleString("en-PK")}`}
+            value={money(dbStats.revenue)}
             icon={Banknote}
             subtitle="Sum of all invoices"
           />

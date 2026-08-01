@@ -37,8 +37,10 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const AddLabSampleModal = ({ open, onOpenChange }) => {
+  const money = useFormatMoney();
   const { patients, lookupPatient } = usePatientStore();
   const { addSample } = useLabSampleStore();
 
@@ -339,9 +341,7 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
                     {(sampleTypes || []).map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
-                        {t.price > 0
-                          ? ` — PKR ${Number(t.price).toLocaleString("en-PK")}`
-                          : ""}
+                        {t.price > 0 ? ` — ${money(t.price)}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -350,7 +350,7 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
                   const st = sampleTypes.find((t) => t.id === sample.sampleTypeId);
                   return st?.price > 0 ? (
                     <p className="text-xs text-purple-600 font-medium pt-0.5">
-                      Price: PKR {Number(st.price).toLocaleString("en-PK")}
+                      Price: {money(st.price)}
                     </p>
                   ) : null;
                 })()}

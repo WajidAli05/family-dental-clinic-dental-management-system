@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useClinicConfig } from "@/store/clinicConfigStore";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
 const TreatmentModal = ({ open, mode, initial, onClose, onSubmit }) => {
+  const { currency } = useClinicConfig();
   const [form, setForm] = useState({ name: "", code: "", fee: "", notes: "", active: true });
 
   useEffect(() => {
@@ -45,7 +47,7 @@ const TreatmentModal = ({ open, mode, initial, onClose, onSubmit }) => {
             <Field label="Code (optional)">
               <input className={inputClass} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </Field>
-            <Field label="Fee (PKR)">
+            <Field label={`Fee (${currency})`}>
               <input
                 type="number"
                 className={inputClass}

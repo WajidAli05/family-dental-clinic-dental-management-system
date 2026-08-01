@@ -13,8 +13,10 @@ import { VISUAL_STATUS_OPTIONS } from "./options";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { useDentistClinicalMasterStore } from "@/store/dentistClinicalMasterStore";
 import MedicationPicker from "./MedicationPicker";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const PrescriptionForm = () => {
+  const money = useFormatMoney();
   const {
     diagnosis,
     treatment,
@@ -127,7 +129,7 @@ const PrescriptionForm = () => {
         {selectedTreatmentFee !== null && (
           <p className="flex items-center gap-1 text-xs text-teal-600 font-medium pl-1">
             <BadgeDollarSign className="w-3.5 h-3.5" />
-            Fee: PKR {selectedTreatmentFee.toLocaleString("en-PK")}
+            Fee: {money(selectedTreatmentFee)}
           </p>
         )}
       </div>

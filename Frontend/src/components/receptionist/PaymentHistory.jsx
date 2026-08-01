@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import EditPaymentModal from "@/components/receptionist/EditPaymentModal";
 import { useState } from "react";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const PaymentHistory = ({ invoice, onEdit, onDelete }) => {
+  const money = useFormatMoney();
   const [editOpen, setEditOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
@@ -18,7 +20,7 @@ const PaymentHistory = ({ invoice, onEdit, onDelete }) => {
         >
           <div>
             <p className="font-medium">
-              PKR {p.amount} — {p.mode}
+              {money(p.amount)} — {p.mode}
             </p>
             <p className="text-sm text-gray-500">{p.date}</p>
           </div>

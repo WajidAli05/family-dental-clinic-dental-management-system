@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const Pill = ({ children }) => (
   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
@@ -10,6 +11,7 @@ const Pill = ({ children }) => (
 );
 
 const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
+  const money = useFormatMoney();
   const seedDemoProfile = useOwnerPatientsStore((s) => s.seedDemoProfile);
   const fetchProfile = useOwnerPatientsStore((s) => s.fetchProfile);
   const confirmAndDeletePatient = useOwnerPatientsStore((s) => s.confirmAndDeletePatient);
@@ -96,7 +98,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
             <SimpleList
               items={profile.invoices.map((x) => ({
                 left: x.id,
-                right: `${x.date} • PKR ${x.amount} • ${x.status}`,
+                right: `${x.date} • ${money(x.amount)} • ${x.status}`,
               }))}
               empty="No invoices found."
             />

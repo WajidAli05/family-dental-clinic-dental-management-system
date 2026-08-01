@@ -3,8 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, DollarSign, Calendar, Clock } from "lucide-react";
 import { useDentistFinanceStore } from "@/store/dentistFinanceStore";
 import TableSkeleton from "@/components/ui/TableSkeleton";
-
-const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const StatCard = ({ icon: Icon, label, value, sub, highlight }) => (
   <div className={`rounded-2xl border p-4 flex gap-3 items-start ${highlight ? "border-[#2ec4b6]/30 bg-[#f0fdfc]" : "border-gray-100 bg-white"}`}>
@@ -20,6 +19,7 @@ const StatCard = ({ icon: Icon, label, value, sub, highlight }) => (
 );
 
 const DentistMyFinance = () => {
+  const money = useFormatMoney();
   const { loading, error, data, fetch } = useDentistFinanceStore();
 
   useEffect(() => { fetch(); }, []);

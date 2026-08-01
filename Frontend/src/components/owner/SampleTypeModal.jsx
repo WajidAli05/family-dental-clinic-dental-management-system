@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useClinicConfig } from "@/store/clinicConfigStore";
 
 const overlay =
   "fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-3";
@@ -11,6 +12,7 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
 const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) => {
+  const { currency } = useClinicConfig();
   const isEdit = mode === "edit";
 
   const empty = useMemo(
@@ -75,7 +77,7 @@ const SampleTypeModal = ({ open, mode = "create", initial, onClose, onSubmit }) 
           </Field>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Price (PKR) *">
+            <Field label={`Price (${currency}) *`}>
               <input
                 type="number"
                 min="0"

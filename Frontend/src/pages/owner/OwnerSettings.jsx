@@ -11,8 +11,10 @@ import ChangePasswordForm from "@/components/owner/settings/ChangePasswordForm";
 
 import { useOwnerSettingsStore } from "@/store/ownerSettingsStore";
 import { toast } from "sonner";
+import { useClinicConfig } from "@/store/clinicConfigStore";
 
 const BillingSettingsForm = ({ value, onSave, loading }) => {
+  const { currency } = useClinicConfig();
   const [fee, setFee] = useState(String(value?.defaultConsultationFee ?? 0));
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const BillingSettingsForm = ({ value, onSave, loading }) => {
     <div className="space-y-4">
       <h3 className="text-base font-semibold text-gray-900">Billing Defaults</h3>
       <div className="max-w-xs space-y-1">
-        <Label htmlFor="consult-fee">Default Consultation Fee (PKR)</Label>
+        <Label htmlFor="consult-fee">Default Consultation Fee ({currency})</Label>
         <Input
           id="consult-fee"
           type="number"

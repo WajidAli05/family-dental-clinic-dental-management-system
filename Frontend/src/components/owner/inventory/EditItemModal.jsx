@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useClinicConfig } from "@/store/clinicConfigStore";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
@@ -19,6 +20,7 @@ const categories = [
 ];
 
 const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, loading }) => {
+  const { currency } = useClinicConfig();
   const [form, setForm] = useState({
     name: "",
     category: "consumables",
@@ -155,7 +157,7 @@ const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, lo
             />
           </Field>
 
-          <Field label="Unit Cost (PKR)">
+          <Field label={`Unit Cost (${currency})`}>
             <input
               type="number"
               className={inputClass}

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const statusStyles = {
   Sent: "bg-gray-100 text-gray-700",
@@ -24,6 +25,7 @@ const FINALIZED = new Set(["Approved", "Rejected"]);
 const REOPENABLE = new Set(["Approved", "Rejected", "Delivered"]);
 
 const LabSamplesTable = ({ data, onStatusChange }) => {
+  const money = useFormatMoney();
   return (
     <Table>
       <TableHeader>
@@ -52,7 +54,7 @@ const LabSamplesTable = ({ data, onStatusChange }) => {
                 <span className="text-sm">{s.type || "—"}</span>
                 {s.sampleTypePrice > 0 && (
                   <span className="ml-1 text-xs text-gray-500">
-                    PKR {Number(s.sampleTypePrice).toLocaleString("en-PK")}
+                    {money(s.sampleTypePrice)}
                   </span>
                 )}
               </TableCell>

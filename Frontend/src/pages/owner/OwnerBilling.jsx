@@ -11,7 +11,7 @@ import LabDuesTable from "@/components/owner/LabDuesTable";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import { useOwnerBillingStore } from "@/store/ownerBillingStore";
 
-const money = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const KPI = ({ label, value, sub, highlight }) => (
   <div className={`rounded-2xl border p-4 ${highlight ? "border-[#2ec4b6]/30 bg-[#f0fdfc]" : "border-gray-100 bg-white"}`}>
@@ -23,6 +23,7 @@ const KPI = ({ label, value, sub, highlight }) => (
 
 // ── Record Payment Modal ──────────────────────────────────────────────────────
 const RecordPaymentModal = ({ open, modal, onClose, onSubmit }) => {
+  const money = useFormatMoney();
   const [form, setForm] = useState({ amount: "", method: "cash", date: "", note: "" });
   const [err, setErr] = useState("");
 
@@ -78,7 +79,7 @@ const RecordPaymentModal = ({ open, modal, onClose, onSubmit }) => {
         <p className="text-xs text-gray-500 mb-4">Remaining: <span className="font-semibold text-orange-600">{money(maxAmount)}</span></p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">Amount (PKR)</label>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Amount</label>
             <input type="number" min="1" max={maxAmount} value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30"
@@ -137,6 +138,7 @@ const Drawer = ({ open, onClose, title, children }) => {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const OwnerBilling = () => {
+  const money = useFormatMoney();
   const activeTab      = useOwnerBillingStore((s) => s.activeTab);
   const setActiveTab   = useOwnerBillingStore((s) => s.setActiveTab);
   const filters        = useOwnerBillingStore((s) => s.filters);

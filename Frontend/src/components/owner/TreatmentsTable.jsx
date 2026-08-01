@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import OwnerStatusPill from "@/components/owner/OwnerStatusPill";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const TreatmentsTable = ({ data, onEdit, onDelete, onToggle }) => {
+  const money = useFormatMoney();
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -31,7 +33,7 @@ const TreatmentsTable = ({ data, onEdit, onDelete, onToggle }) => {
                   <div className="text-xs text-gray-500">{t.id}</div>
                 </td>
                 <td className="py-3 pr-4">{t.code || "-"}</td>
-                <td className="py-3 pr-4">PKR {Number(t.fee || 0).toLocaleString("en-PK")}</td>
+                <td className="py-3 pr-4">{money(t.fee)}</td>
                 <td className="py-3 pr-4">
                   <OwnerStatusPill enabled={!!t.active} onToggle={() => onToggle(t)} labelOn="Active" labelOff="Inactive" />
                 </td>
