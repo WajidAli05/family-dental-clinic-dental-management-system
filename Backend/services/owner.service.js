@@ -1913,7 +1913,20 @@ export async function ownerSwitchCountry(_ownerId, country) {
     throw new Error(`Unsupported country "${country}". Valid values: ${Object.keys(COUNTRY_PRESETS).join(", ")}`);
   }
   const doc = await ensureClinicSettingsDoc();
-  doc.set("locale", { ...COUNTRY_PRESETS[country] });
+  const currentUILocale = doc.locale?.locale || "en";
+  doc.set("locale", { ...COUNTRY_PRESETS[country], locale: currentUILocale });
+  await doc.save();
+  const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
+  return serializeLocale(saved?.locale);
+}
+
+export async function updateClinicLocale(locale) {
+  const VALID_LOCALES = ["en", "ur", "ar"];
+  if (!VALID_LOCALES.includes(locale)) {
+    throw new Error(`Unsupported locale "${locale}". Valid values: ${VALID_LOCALES.join(", ")}`);
+  }
+  const doc = await ensureClinicSettingsDoc();
+  doc.locale.locale = locale;
   await doc.save();
   const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
   return serializeLocale(saved?.locale);
