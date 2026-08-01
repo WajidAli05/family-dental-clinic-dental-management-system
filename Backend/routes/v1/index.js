@@ -6,6 +6,7 @@ import receptionistRoutes from "./receptionist.routes.js";
 import ownerRoutes from "./owner.routes.js";
 import permissionsRoutes from "./permissions.routes.js";
 import { auth } from "../../middlewares/auth.middleware.js";
+import { getClinicConfigCtrl } from "../../controllers/clinicConfig.controller.js";
 
 // ✅ Register all mongoose models once at startup
 import "../../models/User.model.js";
@@ -25,6 +26,13 @@ import "../../models/Invoice.model.js";
 const router = express.Router();
 
 router.use("/auth", authRoutes);
+
+// Shared read-only config for all authenticated roles
+router.get(
+  "/clinic-config",
+  auth(["dentist", "receptionist", "owner", "lab"]),
+  getClinicConfigCtrl
+);
 
 router.use("/lab", auth(["lab", "owner"]), labRoutes);
 router.use("/dentist", auth(["dentist", "owner"]), dentistRoutes);

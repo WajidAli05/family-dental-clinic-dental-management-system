@@ -1,6 +1,7 @@
 import { htmlLetterheadStyles, htmlLetterheadHeader, htmlLetterheadFooter } from "./letterhead";
+import { useClinicConfigStore } from "@/store/clinicConfigStore";
 
-const pkr = (n) => `PKR ${Number(n || 0).toLocaleString("en-PK")}`;
+const pkr = (n) => useClinicConfigStore.getState().fmt(n);
 
 const fmtDate = (d) => {
   if (!d) return "—";

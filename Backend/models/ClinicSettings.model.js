@@ -18,6 +18,19 @@ const clinicSettingsSchema = new Schema(
     billing: {
       defaultConsultationFee: { type: Number, min: 0, default: 0 },
     },
+
+    locale: {
+      country:        { type: String, enum: ["PK", "SA"], default: "PK" },
+      locale:         { type: String, enum: ["en", "ur", "ar"], default: "en" },
+      currency:       { type: String, default: "PKR" },
+      currencySymbol: { type: String, default: "₨" },
+      taxEnabled:     { type: Boolean, default: false },
+      taxRate:        { type: Number, default: 0, min: 0, max: 100 },
+      taxLabel:       { type: String, default: "Tax" },
+      timezone:       { type: String, default: "Asia/Karachi" },
+      dateFormat:     { type: String, default: "DD/MM/YYYY" },
+      weekStart:      { type: Number, default: 0, min: 0, max: 1 },
+    },
   },
   { timestamps: true }
 );

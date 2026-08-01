@@ -5,11 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { useReceptionistStore } from "@/store/receptionistStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
-import { formatPKR } from "@/utils/formatPKR";
 import { localISODate } from "@/utils/localISODate";
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const ReceptionistDashboardHome = () => {
   const { stats, fetchDashboard, loading } = useReceptionistStore();
+  const fm = useFormatMoney();
 
   useEffect(() => {
     const refresh = () => {
@@ -67,13 +68,13 @@ const ReceptionistDashboardHome = () => {
         />
         <OwnerStatCard
           title="Revenue Today"
-          value={formatPKR(stats?.todayRevenue ?? 0)}
+          value={fm(stats?.todayRevenue ?? 0)}
           icon={Banknote}
           subtitle="Payments received today"
         />
         <OwnerStatCard
           title="Revenue This Month"
-          value={formatPKR(stats?.revenueThisMonth ?? 0)}
+          value={fm(stats?.revenueThisMonth ?? 0)}
           icon={Banknote}
           subtitle="Month-to-date"
         />

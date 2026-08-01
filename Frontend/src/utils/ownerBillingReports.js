@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
+import { useClinicConfigStore } from "@/store/clinicConfigStore";
 
-const money = (n) => `PKR ${Number(n || 0).toLocaleString()}`;
+const money = (n) => useClinicConfigStore.getState().fmt(n);
 
 const header = (doc, title, subtitle) => {
   doc.setFontSize(18);

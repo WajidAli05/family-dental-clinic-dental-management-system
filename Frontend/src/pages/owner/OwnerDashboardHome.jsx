@@ -5,16 +5,11 @@ import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import AppointmentsSummaryCard from "@/components/owner/AppointmentsSummaryCard";
 import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
 import { Users, FlaskConical, Banknote, Calendar } from "lucide-react";
-
-const formatPKR = (n) =>
-  new Intl.NumberFormat("en-PK", {
-    style: "currency",
-    currency: "PKR",
-    maximumFractionDigits: 0,
-  }).format(Number(n || 0));
+import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const OwnerDashboardHome = () => {
   const { stats, appointmentsSummary, init, loading, error } = useOwnerDashboardStore();
+  const fm = useFormatMoney();
 
   useEffect(() => {
     init();
@@ -34,12 +29,7 @@ const OwnerDashboardHome = () => {
         <Wave
           fill="#2ec4b6"
           paused={false}
-          options={{
-            height: 20,
-            amplitude: 30,
-            speed: 0.15,
-            points: 3,
-          }}
+          options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
           className="absolute bottom-0 left-0 w-full opacity-20"
         />
       </div>
@@ -65,13 +55,13 @@ const OwnerDashboardHome = () => {
           />
           <OwnerStatCard
             title="Revenue Today"
-            value={formatPKR(stats.revenueToday)}
+            value={fm(stats.revenueToday)}
             icon={Banknote}
             subtitle="Collected today"
           />
           <OwnerStatCard
             title="Revenue This Month"
-            value={formatPKR(stats.revenueThisMonth)}
+            value={fm(stats.revenueThisMonth)}
             icon={Calendar}
             subtitle="Month-to-date"
           />
@@ -84,11 +74,8 @@ const OwnerDashboardHome = () => {
           <AppointmentsSummaryCard summary={appointmentsSummary} />
         </div>
 
-        {/* Optional empty placeholder card for future charts (still overview-only) */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Snapshot
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Snapshot</h2>
           <p className="mt-2 text-sm text-gray-500">
             Charts can be added later (appointments trend, revenue trend).
             This page remains overview-only.

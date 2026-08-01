@@ -1760,6 +1760,19 @@ export async function ownerClinicalDeleteFinding(_ownerId, findingId) {
 // =========================
 const CLINIC_SETTINGS_ID = "CLINIC-SETTINGS";
 
+const DEFAULT_LOCALE = {
+  country:        "PK",
+  locale:         "en",
+  currency:       "PKR",
+  currencySymbol: "₨",
+  taxEnabled:     false,
+  taxRate:        0,
+  taxLabel:       "Tax",
+  timezone:       "Asia/Karachi",
+  dateFormat:     "DD/MM/YYYY",
+  weekStart:      0,
+};
+
 async function ensureClinicSettingsDoc() {
   let doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID);
   if (!doc) {
@@ -1772,22 +1785,42 @@ async function ensureClinicSettingsDoc() {
         whatsapp: "",
         address: "",
       },
+      locale: { ...DEFAULT_LOCALE },
     });
   }
 
+  let dirty = false;
+
   // Backfill clinic object if missing
   if (!doc.clinic || typeof doc.clinic !== "object") {
-    doc.clinic = {
-      name: "Clinic",
-      logoUrl: "",
-      phone: "",
-      whatsapp: "",
-      address: "",
-    };
-    await doc.save();
+    doc.clinic = { name: "Clinic", logoUrl: "", phone: "", whatsapp: "", address: "" };
+    dirty = true;
   }
 
+  // Backfill locale object if missing (additive migration for existing docs)
+  if (!doc.locale || typeof doc.locale !== "object") {
+    doc.locale = { ...DEFAULT_LOCALE };
+    dirty = true;
+  }
+
+  if (dirty) await doc.save();
+
   return doc;
+}
+
+function serializeLocale(raw = {}) {
+  return {
+    country:        raw.country        || DEFAULT_LOCALE.country,
+    locale:         raw.locale         || DEFAULT_LOCALE.locale,
+    currency:       raw.currency       || DEFAULT_LOCALE.currency,
+    currencySymbol: raw.currencySymbol || DEFAULT_LOCALE.currencySymbol,
+    taxEnabled:     Boolean(raw.taxEnabled),
+    taxRate:        Number(raw.taxRate) || 0,
+    taxLabel:       raw.taxLabel       || DEFAULT_LOCALE.taxLabel,
+    timezone:       raw.timezone       || DEFAULT_LOCALE.timezone,
+    dateFormat:     raw.dateFormat     || DEFAULT_LOCALE.dateFormat,
+    weekStart:      Number(raw.weekStart) || 0,
+  };
 }
 
 function sanitizeClinicPayload(payload = {}) {
@@ -1825,7 +1858,15 @@ export async function ownerSettingsGet(_ownerId) {
     billing: {
       defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
     },
+    locale: serializeLocale(doc?.locale),
   };
+}
+
+// Shared read-only accessor used by the public /clinic-config endpoint (all roles)
+export async function getClinicConfig() {
+  await ensureClinicSettingsDoc();
+  const doc = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
+  return serializeLocale(doc?.locale);
 }
 
 export async function ownerSettingsUpdate(_ownerId, payload = {}) {
@@ -1862,6 +1903,24 @@ export async function ownerSettingsUpdate(_ownerId, payload = {}) {
     doc.set("billing.defaultConsultationFee", Math.max(0, Number(payload.billing.defaultConsultationFee) || 0));
   }
 
+  // Update locale block if provided
+  if (payload?.locale && typeof payload.locale === "object") {
+    const l = payload.locale;
+    const current = doc.locale?.toObject?.() || doc.locale || {};
+    const next = { ...DEFAULT_LOCALE, ...current };
+    if (l.country         !== undefined) next.country        = l.country;
+    if (l.locale          !== undefined) next.locale         = l.locale;
+    if (l.currency        !== undefined) next.currency       = l.currency;
+    if (l.currencySymbol  !== undefined) next.currencySymbol = l.currencySymbol;
+    if (l.taxEnabled      !== undefined) next.taxEnabled     = Boolean(l.taxEnabled);
+    if (l.taxRate         !== undefined) next.taxRate        = Math.max(0, Math.min(100, Number(l.taxRate) || 0));
+    if (l.taxLabel        !== undefined) next.taxLabel       = l.taxLabel;
+    if (l.timezone        !== undefined) next.timezone       = l.timezone;
+    if (l.dateFormat      !== undefined) next.dateFormat     = l.dateFormat;
+    if (l.weekStart       !== undefined) next.weekStart      = Number(l.weekStart) === 1 ? 1 : 0;
+    doc.set("locale", next);
+  }
+
   await doc.save();
 
   const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
@@ -1879,6 +1938,7 @@ export async function ownerSettingsUpdate(_ownerId, payload = {}) {
     billing: {
       defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
     },
+    locale: serializeLocale(saved?.locale),
   };
 }
 
