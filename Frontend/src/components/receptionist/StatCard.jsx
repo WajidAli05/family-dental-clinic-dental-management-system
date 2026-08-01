@@ -2,13 +2,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import CountUp from "react-countup";
 
 export default function StatCard({ title, value, icon: Icon }) {
+  // Pre-formatted string values (e.g. from useFormatMoney) render directly;
+  // plain numbers animate via CountUp.
+  const isFormatted = typeof value === "string";
   return (
     <Card className="rounded-2xl shadow-sm group">
       <CardContent className="p-6 flex justify-between items-center">
         <div>
           <p className="text-sm text-gray-500">{title}</p>
           <p className="text-3xl font-bold mt-2">
-            <CountUp end={value} duration={2} separator="," />
+            {isFormatted
+              ? value
+              : <CountUp end={value} duration={2} separator="," />}
           </p>
         </div>
 
