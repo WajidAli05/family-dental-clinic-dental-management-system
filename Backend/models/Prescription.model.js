@@ -17,21 +17,13 @@ const PrescriptionSchema = new Schema(
     visualStatus: { type: String, enum: ["none", "planned", "progress", "completed", "urgent"], default: "none" },
     notes: { type: String, default: "" },
 
+    // Stored as AES-256-GCM encrypted JSON string ("v1:iv:tag:ct") after encryption
+    // is deployed. Legacy documents retain the plain array until the migration
+    // script (Backend/scripts/encryptPrescriptionFields.js) is run.
+    // Mixed type allows both the legacy array and the encrypted string to coexist
+    // during the transition window.
     medications: {
-      type: [
-        {
-          _id: false,
-          medicationId:   { type: String, default: "" },
-          name:           { type: String, default: "" },
-          form:           { type: String, default: "" },
-          strength:       { type: String, default: "" },
-          dose:           { type: String, default: "0+0+0" },    // "M+N+E"
-          frequencyLabel: { type: String, default: "" },
-          durationDays:   { type: Number, default: 0 },
-          withFood:       { type: String, enum: ["before", "after", "with", "any"], default: "any" },
-          instructions:   { type: String, default: "" },
-        },
-      ],
+      type: Schema.Types.Mixed,
       default: [],
     },
 

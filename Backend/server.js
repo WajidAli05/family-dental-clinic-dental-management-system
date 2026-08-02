@@ -7,6 +7,9 @@ import helmet from "helmet";
 // Load environment variables
 config();
 
+import { initEncryption } from "./utils/fieldEncryption.js";
+initEncryption(); // crash fast if FIELD_ENCRYPTION_KEY missing or malformed
+
 import "./models/index.js";
 
 // DB connection

@@ -20,6 +20,7 @@ import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
 import { revenueCollected, outstanding } from "./shared/billing.js";
+import { decryptPrescriptionDoc } from "../utils/fieldEncryption.js";
 import LabBillPayment from "../models/LabBillPayment.model.js";
 import {
   cashbookStats,
@@ -535,10 +536,11 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
     .limit(10)
     .lean();
 
-  const rx = await Prescription.find({ patientId: pid })
+  const rxRaw = await Prescription.find({ patientId: pid })
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();
+  const rx = rxRaw.map(decryptPrescriptionDoc);
 
   const mappedInvoices = invoices.map((inv) => ({
     id: inv.publicId,

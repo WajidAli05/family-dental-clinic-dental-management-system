@@ -16,6 +16,10 @@ import {
 } from "./shared/appointments.js";
 import { listPatientsCore } from "./shared/patients.js";
 import { updateLabCaseStatus } from "./shared/labCases.js";
+import {
+  encryptPrescriptionDoc,
+  decryptPrescriptionDoc,
+} from "../utils/fieldEncryption.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -190,6 +194,7 @@ export async function dentistUpdateCaseStatus(dentistId, casePublicId, uiAction)
 }
 
 // -------------------- PRESCRIPTIONS --------------------
+
 export async function dentistCreatePrescription(user, body) {
   const dentistName = user?.name || "";
   const date = body?.date || todayISO();
@@ -197,52 +202,53 @@ export async function dentistCreatePrescription(user, body) {
   const patientId = body?.patientId || "";
   if (!patientId) throw new Error("patientId is required");
 
-  const payload = {
-    patientType: body?.patientType ?? null,
+  // Build plaintext payload first (all PHI in the clear at this point)
+  const plain = {
+    patientType:   body?.patientType ?? null,
     selectedTeeth: Array.isArray(body?.selectedTeeth) ? body.selectedTeeth : [],
-    diagnosis: body?.diagnosis || "",
-    treatment: body?.treatment || "",
+    diagnosis:     body?.diagnosis     || "",
+    treatment:     body?.treatment     || "",
     clinicalFinding: body?.clinicalFinding || "",
-    visualStatus: body?.visualStatus || "none",
-    notes: body?.notes || "",
-    medications: Array.isArray(body?.medications) ? body.medications : [],
+    visualStatus:  body?.visualStatus  || "none",
+    notes:         body?.notes         || "",
+    medications:   Array.isArray(body?.medications) ? body.medications : [],
     patientId,
     dentistName,
     date,
   };
 
-  // ✅ if already exists for same dentist+patient+date => UPDATE instead of duplicate
+  // Encrypt PHI fields before any write
+  const encrypted = encryptPrescriptionDoc(plain);
+
+  // if already exists for same dentist+patient+date => UPDATE instead of duplicate
   const existing = await Prescription.findOne({ dentistName, patientId, date });
   if (existing) {
-    Object.assign(existing, payload);
+    Object.assign(existing, encrypted);
     await existing.save();
-    return existing.toJSON();
+    // Decrypt before returning so caller/controller always sees plaintext
+    return decryptPrescriptionDoc(existing.toJSON());
   }
 
-  const doc = await Prescription.create({
-    _id: makeRxId(),
-    ...payload,
-  });
-
-  return doc.toJSON();
+  const doc = await Prescription.create({ _id: makeRxId(), ...encrypted });
+  return decryptPrescriptionDoc(doc.toJSON());
 }
 
-// ✅ used by FE for Edit + Print (load by id)
+// used by FE for Edit + Print (load by id)
 export async function dentistGetPrescriptionById(user, rxId) {
   const dentistName = user?.name || "";
 
   const rx = await Prescription.findById(rxId).lean();
   if (!rx) throw new Error("Prescription not found");
 
-  // simple ownership check
   if (rx.dentistName && dentistName && rx.dentistName !== dentistName) {
     throw new Error("Forbidden");
   }
 
-  return rx;
+  // Decrypt PHI fields before returning (handles both encrypted and legacy plaintext)
+  return decryptPrescriptionDoc(rx);
 }
 
-// ✅ update route (PATCH /prescriptions/:id)
+// update route (PATCH /prescriptions/:id)
 export async function dentistUpdatePrescription(user, rxId, body) {
   const dentistName = user?.name || "";
 
@@ -266,7 +272,7 @@ export async function dentistUpdatePrescription(user, rxId, body) {
     "date",
   ]);
 
-  // enforce array if present
+  // Validate incoming body types before encrypting
   if (allowed.selectedTeeth && !Array.isArray(allowed.selectedTeeth)) {
     throw new Error("selectedTeeth must be an array");
   }
@@ -274,13 +280,15 @@ export async function dentistUpdatePrescription(user, rxId, body) {
     throw new Error("medications must be an array");
   }
 
-  Object.assign(rx, allowed);
+  // Encrypt PHI fields in the partial update object before writing
+  const encryptedAllowed = encryptPrescriptionDoc(allowed);
 
-  // keep dentistName consistent
+  Object.assign(rx, encryptedAllowed);
   if (dentistName) rx.dentistName = dentistName;
 
   await rx.save();
-  return rx.toJSON();
+  // Decrypt before returning so caller/controller always sees plaintext
+  return decryptPrescriptionDoc(rx.toJSON());
 }
 
 // Return the single most-recent prescription for each patientId in the list.
@@ -294,24 +302,25 @@ export async function dentistGetLatestByPatients(user, patientIds = []) {
     .sort({ createdAt: -1 })
     .lean();
 
-  // Keep only the most-recent prescription per patient
+  // Keep only the most-recent prescription per patient, then decrypt
   const map = {};
   for (const rx of rxs) {
     if (!map[rx.patientId]) map[rx.patientId] = rx;
   }
-  return Object.values(map);
+  return Object.values(map).map(decryptPrescriptionDoc);
 }
 
 // Full prescription history for one patient, newest first.
 export async function dentistGetPatientHistory(user, patientId) {
   const dentistName = user?.name || "";
   if (!patientId) throw new Error("patientId is required");
-  return Prescription.find({ dentistName, patientId: String(patientId) })
+  const rxs = await Prescription.find({ dentistName, patientId: String(patientId) })
     .sort({ createdAt: -1 })
     .lean();
+  return rxs.map(decryptPrescriptionDoc);
 }
 
-// ✅ used by FE to build rxMap for today appointments:
+// used by FE to build rxMap for today appointments:
 // GET /dentist/prescriptions?date=YYYY-MM-DD&patientIds=PT-1,PT-2
 export async function dentistGetPrescriptions(user, query = {}) {
   const { page: P, limit: L } = parsePagination(query);
@@ -333,7 +342,8 @@ export async function dentistGetPrescriptions(user, query = {}) {
     Prescription.find(q).sort({ createdAt: -1 }).skip((P - 1) * L).limit(L).lean(),
   ]);
 
-  return { rows, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+  // Decrypt PHI fields on every row before returning
+  return { rows: rows.map(decryptPrescriptionDoc), total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 // -------------------- APPOINTMENT CRUD (dentist self-service) --------------------
