@@ -26,6 +26,7 @@
 } from "../services/dentist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+import { recordAudit } from "../services/shared/audit.js";
 
 export const getDentistMe = async (req, res) => {
   try {
@@ -127,6 +128,7 @@ export const updateDentistCaseStatus = async (req, res) => {
     const { status } = req.body;
     if (!status) return res.status(400).json({ success: false, message: "status is required" });
     const updated = await dentistUpdateCaseStatus(req.user._id, id, status);
+    await recordAudit({ req, action: "labcase.status_change", entityType: "LabCase", entityId: id, entityLabel: id, after: { status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
@@ -145,6 +147,7 @@ export const getDentistLabsCtrl = async (req, res) => {
 export const createDentistCaseCtrl = async (req, res) => {
   try {
     const data = await dentistCreateCase(req.user._id, req.body);
+    await recordAudit({ req, action: "labcase.create", entityType: "LabCase", entityId: data?.id, entityLabel: data?.id, after: { status: data?.status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
@@ -155,6 +158,8 @@ export const createDentistCaseCtrl = async (req, res) => {
 export const createDentistPrescription = async (req, res) => {
   try {
     const created = await dentistCreatePrescription(req.user, req.body);
+    // PHI safety: omit diagnosis/clinicalFinding/treatment/notes from snapshot
+    await recordAudit({ req, action: "prescription.create", entityType: "Prescription", entityId: created?.id, entityLabel: created?.id, after: { id: created?.id, patientId: created?.patientId, date: created?.date, medicationCount: created?.medications?.length ?? 0 } });
     res.json({ success: true, data: created });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -164,6 +169,8 @@ export const createDentistPrescription = async (req, res) => {
 export const updateDentistPrescription = async (req, res) => {
   try {
     const updated = await dentistUpdatePrescription(req.user, req.params.id, req.body);
+    // PHI safety: omit diagnosis/clinicalFinding/treatment/notes from snapshot
+    await recordAudit({ req, action: "prescription.update", entityType: "Prescription", entityId: req.params.id, entityLabel: req.params.id, after: { id: updated?.id, patientId: updated?.patientId, date: updated?.date, medicationCount: updated?.medications?.length ?? 0 } });
     res.json({ success: true, data: updated });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

@@ -42,6 +42,7 @@
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
 import { findPatientsByPhone } from "../services/shared/patients.js";
+import { recordAudit } from "../services/shared/audit.js";
 
 export const getReceptionistMe = async (req, res) => {
   try {
@@ -99,6 +100,7 @@ export const getReceptionistLabSamples = async (req, res) => {
 export const createReceptionistPatient = async (req, res) => {
   try {
     const created = await receptionistCreatePatient(req.user, req.body);
+    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: created?.id, entityLabel: created?.name, after: { id: created?.id, name: created?.name, phone: created?.phone, status: created?.status } });
     return res.json({ success: true, data: created });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -108,6 +110,7 @@ export const createReceptionistPatient = async (req, res) => {
 export const updateReceptionistPatient = async (req, res) => {
   try {
     const updated = await receptionistUpdatePatient(req.user, req.params.id, req.body);
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: updated?.name, after: { id: updated?.id, name: updated?.name, phone: updated?.phone, status: updated?.status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
     const status = e.message === "Patient not found" ? 404 : 400;
@@ -137,6 +140,7 @@ export const lookupReceptionistPatient = async (req, res) => {
 export const createReceptionistAppointment = async (req, res) => {
   try {
     const created = await receptionistCreateAppointment(req.user, req.body);
+    await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: created?.id, entityLabel: created?.id, after: { status: created?.status, date: created?.date } });
     return res.json({ success: true, data: created });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -189,6 +193,7 @@ export const updateReceptionistAppointmentStatus = async (req, res) => {
     const { id } = req.params; // publicId e.g. APT-0001
     const { status } = req.body; // "Completed" | "Cancelled" | "Scheduled"
     const updated = await receptionistUpdateAppointmentStatus(req.user._id, id, { status });
+    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: id, entityLabel: id, after: { status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -288,6 +293,7 @@ export const listLabBills = async (req, res) => {
 export const addInvoicePayment = async (req, res) => {
   try {
     const data = await receptionistAddInvoicePayment(req.user._id, req.params.id, req.body);
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { amount: req.body?.amount, method: req.body?.method } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -302,6 +308,7 @@ export const updateInvoicePayment = async (req, res) => {
       req.params.paymentId,
       req.body
     );
+    await recordAudit({ req, action: "invoice.update", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { paymentId: req.params.paymentId, amount: req.body?.amount, method: req.body?.method } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -322,6 +329,7 @@ export const deleteInvoicePayment = async (req, res) => {
 export const createInvoice = async (req, res) => {
   try {
     const data = await receptionistCreateInvoice(req.user._id, req.body);
+    await recordAudit({ req, action: "invoice.create", entityType: "Invoice", entityId: data?.id, entityLabel: data?.id, after: { id: data?.id, totalAmount: data?.totalAmount, status: data?.status } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

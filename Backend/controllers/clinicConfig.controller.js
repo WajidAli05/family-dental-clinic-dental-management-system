@@ -1,4 +1,5 @@
 import { getClinicConfig, ownerSwitchCountry, updateClinicLocale } from "../services/owner.service.js";
+import { recordAudit } from "../services/shared/audit.js";
 
 // GET /api/v1/clinic-config — accessible to all authenticated roles
 export const getClinicConfigCtrl = async (req, res) => {
@@ -16,6 +17,7 @@ export const switchCountryCtrl = async (req, res) => {
     const { country } = req.body || {};
     if (!country) return res.status(400).json({ success: false, message: "country is required" });
     const data = await ownerSwitchCountry(req.user?._id, country);
+    await recordAudit({ req, action: "config.update", entityType: "ClinicConfig", entityLabel: "country", after: { country } });
     return res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -28,6 +30,7 @@ export const switchLocaleCtrl = async (req, res) => {
     const { locale } = req.body || {};
     if (!locale) return res.status(400).json({ success: false, message: "locale is required" });
     const data = await updateClinicLocale(locale);
+    await recordAudit({ req, action: "config.update", entityType: "ClinicConfig", entityLabel: "locale", after: { locale } });
     return res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

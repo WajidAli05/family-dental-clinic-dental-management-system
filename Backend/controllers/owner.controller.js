@@ -89,6 +89,7 @@ import {
 } from "../services/owner.service.js";
 
 import { findPatientsByPhone } from "../services/shared/patients.js";
+import { recordAudit } from "../services/shared/audit.js";
 
 export const phoneCheckOwnerPatients = async (req, res) => {
   try {
@@ -152,6 +153,7 @@ export const ownerGetPatientProfile = async (req, res) => {
 export const ownerDeletePatient = async (req, res) => {
   try {
     const data = await ownerPatientDelete(req.user?._id, req.params.id);
+    await recordAudit({ req, action: "patient.delete", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { status: data?.status, tags: data?.tags } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -219,6 +221,7 @@ export const ownerGetLabCaseController = async (req, res) => {
 export const ownerCreateLabCaseController = async (req, res) => {
   try {
     const data = await ownerCreateLabCase(req.user?._id, req.body);
+    await recordAudit({ req, action: "labcase.create", entityType: "LabCase", entityId: data?.id, entityLabel: data?.id, after: { status: data?.status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
@@ -248,6 +251,7 @@ export const ownerUpdateLabCaseStatusController = async (req, res) => {
     const { status } = req.body;
     if (!status) return res.status(400).json({ success: false, message: "status is required" });
     const data = await ownerUpdateLabCaseStatus(req.user?._id, req.params.id, status);
+    await recordAudit({ req, action: "labcase.status_change", entityType: "LabCase", entityId: req.params.id, entityLabel: req.params.id, after: { status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
@@ -415,6 +419,7 @@ export const ownerGetPermissions = async (req, res) => {
 export const ownerUpdatePermissions = async (req, res) => {
   try {
     const data = await ownerPermissionsUpdate(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "permission.change", entityType: "Permissions", entityLabel: "permissions", after: data });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -632,6 +637,7 @@ export const ownerSwitchCountryController = async (req, res) => {
     const { country } = req.body || {};
     if (!country) return res.status(400).json({ success: false, message: "country is required" });
     const data = await ownerSwitchCountry(req.user?._id, country);
+    await recordAudit({ req, action: "config.update", entityType: "ClinicConfig", entityLabel: "country", after: { country } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -650,6 +656,7 @@ export const ownerGetSettingsController = async (req, res) => {
 export const ownerUpdateSettingsController = async (req, res) => {
   try {
     const data = await ownerSettingsUpdate(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "settings.update", entityType: "ClinicSettings", entityLabel: "settings", after: { keys: Object.keys(req.body || {}) } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -671,6 +678,7 @@ export const ownerChangePasswordController = async (req, res) => {
 export const ownerCreateAppointmentCtrl = async (req, res) => {
   try {
     const data = await ownerCreateAppointment(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: data?.id, entityLabel: data?.id, after: { status: data?.status, date: data?.date } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -689,6 +697,7 @@ export const ownerUpdateAppointmentCtrl = async (req, res) => {
 export const ownerUpdateAppointmentStatusCtrl = async (req, res) => {
   try {
     const data = await ownerUpdateAppointmentStatus(req.user?._id, req.params.id, req.body?.status);
+    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { status: req.body?.status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -698,6 +707,7 @@ export const ownerUpdateAppointmentStatusCtrl = async (req, res) => {
 export const ownerDeleteAppointmentCtrl = async (req, res) => {
   try {
     const data = await ownerDeleteAppointment(req.user?._id, req.params.id);
+    await recordAudit({ req, action: "appointment.delete", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -710,6 +720,7 @@ export const ownerDeleteAppointmentCtrl = async (req, res) => {
 export const ownerCreatePatientCtrl = async (req, res) => {
   try {
     const data = await ownerCreatePatient(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: data?.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -719,6 +730,7 @@ export const ownerCreatePatientCtrl = async (req, res) => {
 export const ownerUpdatePatientCtrl = async (req, res) => {
   try {
     const data = await ownerUpdatePatient(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
