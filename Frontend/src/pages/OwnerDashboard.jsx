@@ -13,6 +13,7 @@ import {
   Shield,
   Settings,
   Boxes,
+  ScrollText,
   LogOut,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ const OwnerDashboard = () => {
     { titleKey: "nav.staffPermissions",   url: "/owner-dashboard/staff",          icon: Shield },
     { titleKey: "nav.inventory",          url: "/owner-dashboard/inventory",      icon: Boxes },
     { titleKey: "nav.settings",           url: "/owner-dashboard/settings",       icon: Settings },
+    { titleKey: "nav.logs",               url: "/owner-dashboard/logs",           icon: ScrollText },
     {
       titleKey: "nav.logout",
       icon: LogOut,

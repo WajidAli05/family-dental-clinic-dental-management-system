@@ -14,6 +14,7 @@ const ACTIONS = [
   "config.update",       "settings.update",
   "user.login",          "user.logout",
   "auth.login_failed",   "auth.lockout",          "session.revoke_all",
+  "audit.view",
 ];
 
 const auditLogSchema = new Schema(

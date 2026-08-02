@@ -5,6 +5,7 @@ import authRoutes from "./auth.routes.js";
 import receptionistRoutes from "./receptionist.routes.js";
 import ownerRoutes from "./owner.routes.js";
 import permissionsRoutes from "./permissions.routes.js";
+import auditRoutes from "./audit.routes.js";
 import { auth } from "../../middlewares/auth.middleware.js";
 import { getClinicConfigCtrl, switchCountryCtrl, switchLocaleCtrl } from "../../controllers/clinicConfig.controller.js";
 
@@ -52,5 +53,7 @@ router.use("/receptionist", auth(["receptionist", "owner"]), receptionistRoutes)
 router.use("/owner", auth(["owner"]), ownerRoutes);
 
 router.use("/permissions", auth(["dentist", "receptionist", "owner"]), permissionsRoutes);
+
+router.use("/audit", auth(["owner", "receptionist"]), auditRoutes);
 
 export default router;

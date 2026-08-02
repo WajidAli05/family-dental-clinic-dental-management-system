@@ -19,6 +19,7 @@ const PERMISSION_KEYS = [
   "tab_receptionist_billing",
   "tab_receptionist_inventory",
   "tab_receptionist_profile",
+  "tab_receptionist_logs",
 
   // dentist tabs
   "tab_dentist_dashboard",

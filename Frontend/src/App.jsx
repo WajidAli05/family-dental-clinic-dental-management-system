@@ -13,6 +13,7 @@ import OwnerBilling from "./pages/owner/OwnerBilling";
 import OwnerStaffManagement from "./pages/owner/OwnerStaffManagement";
 import OwnerSettings from "./pages/owner/OwnerSettings";
 import OwnerInventory from "./pages/owner/OwnerInventory";
+import OwnerActivityLog from "./pages/owner/OwnerActivityLog";
 
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
@@ -61,6 +62,7 @@ function App() {
             <Route path="staff" element={<OwnerStaffManagement />} />
             <Route path="settings" element={<OwnerSettings />} />
             <Route path="inventory" element={<OwnerInventory />} />
+            <Route path="logs" element={<OwnerActivityLog />} />
           </Route>
         </Route>
 
@@ -217,6 +219,17 @@ function App() {
               }
             >
               <Route path="profile" element={<Profile />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permKey="tab_receptionist_logs"
+                  fallback="/receptionist-dashboard/profile"
+                />
+              }
+            >
+              <Route path="logs" element={<OwnerActivityLog />} />
             </Route>
           </Route>
         </Route>

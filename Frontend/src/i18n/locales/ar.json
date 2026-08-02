@@ -17,7 +17,8 @@
     "ownerPanel": "لوحة المالك",
     "dentistPanel": "لوحة طبيب الأسنان",
     "receptionistPanel": "لوحة الاستقبال",
-    "labPanel": "لوحة المختبر"
+    "labPanel": "لوحة المختبر",
+    "logs": "سجل النشاط"
   },
   "auth": {
     "welcomeTitle": "مرحباً بك في FDC",

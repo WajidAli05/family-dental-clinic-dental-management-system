@@ -17,7 +17,8 @@
     "ownerPanel": "مالک پینل",
     "dentistPanel": "دندان ساز پینل",
     "receptionistPanel": "ریسیپشنسٹ پینل",
-    "labPanel": "لیب پینل"
+    "labPanel": "لیب پینل",
+    "logs": "سرگرمی لاگ"
   },
   "auth": {
     "welcomeTitle": "FDC میں خوش آمدید",

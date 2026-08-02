@@ -17,7 +17,8 @@
     "ownerPanel": "Owner Panel",
     "dentistPanel": "Dentist Panel",
     "receptionistPanel": "Receptionist Panel",
-    "labPanel": "Lab Panel"
+    "labPanel": "Lab Panel",
+    "logs": "Activity Log"
   },
   "auth": {
     "welcomeTitle": "Welcome to FDC",

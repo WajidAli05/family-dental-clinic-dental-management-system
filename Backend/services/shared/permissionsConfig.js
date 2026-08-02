@@ -13,6 +13,7 @@ export const OWNER_PERMISSION_KEYS = [
   "tab_receptionist_billing",
   "tab_receptionist_inventory",
   "tab_receptionist_profile",
+  "tab_receptionist_logs",
 
   // dentist tabs
   "tab_dentist_dashboard",
@@ -34,6 +35,7 @@ export const DEFAULT_ROLE_GRANTS = {
   tab_receptionist_billing:      ["receptionist"],
   tab_receptionist_inventory:    ["receptionist"],
   tab_receptionist_profile:      ["receptionist"],
+  tab_receptionist_logs:         [],
 
   tab_dentist_dashboard:         ["dentist"],
   tab_dentist_appointments:      ["dentist"],

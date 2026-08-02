@@ -21,6 +21,7 @@ import {
   CreditCard,
   Package,
   User,
+  ScrollText,
   LogOut,
 } from "lucide-react";
 
@@ -45,6 +46,7 @@ const ReceptionistDashboard = () => {
       { titleKey: "nav.billing",     permKey: "tab_receptionist_billing",       url: "/receptionist-dashboard/billing",     icon: CreditCard },
       { titleKey: "nav.inventory",   permKey: "tab_receptionist_inventory",     url: "/receptionist-dashboard/inventory",   icon: Package },
       { titleKey: "nav.profile",     permKey: "tab_receptionist_profile",       url: "/receptionist-dashboard/profile",     icon: User },
+      { titleKey: "nav.logs",       permKey: "tab_receptionist_logs",          url: "/receptionist-dashboard/logs",        icon: ScrollText },
       {
         titleKey: "nav.logout",
         icon: LogOut,
