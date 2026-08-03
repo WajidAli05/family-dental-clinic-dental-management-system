@@ -10,9 +10,107 @@ import { toast } from "sonner";
 import DentalChart from "../components/DentalCavityModel";
 import LoginLanguageSwitcher from "../components/login/LoginLanguageSwitcher";
 
-// Zustand store
 import { useUserStore } from "../store/userStore";
 
+function navigateByRole(navigate, role) {
+  switch (role) {
+    case "owner":        navigate("/owner-dashboard");        break;
+    case "dentist":      navigate("/dentist-dashboard");      break;
+    case "receptionist": navigate("/receptionist-dashboard"); break;
+    case "lab":          navigate("/lab-dashboard");          break;
+    default:             navigate("/login");
+  }
+}
+
+// ── 2FA code-entry step ───────────────────────────────────────────────────────
+function TwoFactorStep({ method, onBack }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { verify2faLogin, error } = useUserStore();
+
+  const [code,       setCode]       = useState("");
+  const [useBackup,  setUseBackup]  = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [inlineErr,  setInlineErr]  = useState("");
+
+  useEffect(() => {
+    if (error) setInlineErr(error);
+  }, [error]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setInlineErr("");
+    if (!code.trim()) return;
+
+    setSubmitting(true);
+    const codeType = useBackup ? "backup" : method;
+    const ok = await verify2faLogin(code.trim(), codeType);
+    setSubmitting(false);
+
+    if (ok) {
+      const stored = JSON.parse(localStorage.getItem("user"));
+      navigateByRole(navigate, stored?.role);
+    }
+  };
+
+  return (
+    <div className="form-box">
+      <h2 className="signin-title">{t("auth.twoFactor.title")}</h2>
+      <p className="signin-subtitle">
+        {useBackup
+          ? t("auth.twoFactor.backupSubtitle")
+          : method === "otp"
+            ? t("auth.twoFactor.otpSubtitle")
+            : t("auth.twoFactor.totpSubtitle")}
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div className="input-group">
+          <label>
+            {useBackup ? t("auth.twoFactor.backupCodeLabel") : t("auth.twoFactor.codeLabel")}
+          </label>
+          <input
+            type="text"
+            inputMode={useBackup ? "text" : "numeric"}
+            autoComplete="one-time-code"
+            placeholder={useBackup ? "XXXXXX-XXXXXX" : "000000"}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+            autoFocus
+          />
+        </div>
+
+        {inlineErr && <p className="error-text">{inlineErr}</p>}
+
+        <button className="login-btn" type="submit" disabled={submitting}>
+          {submitting ? t("auth.twoFactor.verifying") : t("auth.twoFactor.verify")}
+        </button>
+      </form>
+
+      <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => { setUseBackup((p) => !p); setCode(""); setInlineErr(""); }}
+          style={{ background: "none", border: "none", color: "#2ec4b6", cursor: "pointer", fontSize: "0.85rem" }}
+        >
+          {useBackup ? t("auth.twoFactor.useAppCode") : t("auth.twoFactor.useBackupCode")}
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: "0.8rem" }}
+        >
+          {t("auth.twoFactor.back")}
+        </button>
+      </div>
+
+      <LoginLanguageSwitcher />
+    </div>
+  );
+}
+
+// ── Main login page ───────────────────────────────────────────────────────────
 export default function LoginPage() {
   const { t } = useTranslation();
   const toothRef = useRef();
@@ -21,19 +119,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [inlineError, setInlineError] = useState("");
 
-  // Zustand actions + state
-  const { login, error } = useUserStore();
+  const { login, error, twoFactorChallenge, clearTwoFactorChallenge } = useUserStore();
 
   useEffect(() => {
     if (!error) return;
-
     const msg = String(error || "");
-
     if (msg.toLowerCase().includes("invalid credentials")) {
-      toast.error("Invalid credentials");
+      toast.error(t("auth.invalidCredentials"));
       setInlineError("");
     } else {
       setInlineError(msg);
@@ -44,28 +138,19 @@ export default function LoginPage() {
     e.preventDefault();
     setInlineError("");
 
-    const ok = await login(email, password);
+    const result = await login(email, password);
 
-    if (!ok) return;
+    if (!result) return;           // false → error already set
+    if (result === "2fa_required") return; // twoFactorChallenge set in store
 
     const storedUser = JSON.parse(localStorage.getItem("user"));
+    navigateByRole(navigate, storedUser?.role);
+  };
 
-    switch (storedUser?.role) {
-      case "owner":
-        navigate("/owner-dashboard");
-        break;
-      case "dentist":
-        navigate("/dentist-dashboard");
-        break;
-      case "receptionist":
-        navigate("/receptionist-dashboard");
-        break;
-      case "lab":
-        navigate("/lab-dashboard");
-        break;
-      default:
-        navigate("/login");
-    }
+  const handleBack = () => {
+    clearTwoFactorChallenge();
+    setPassword("");
+    setInlineError("");
   };
 
   return (
@@ -101,50 +186,52 @@ export default function LoginPage() {
 
       {/* RIGHT SECTION */}
       <div className="right-side">
-        <div className="form-box">
-          <h2 className="signin-title">{t("auth.signIn")}</h2>
-          <p className="signin-subtitle">{t("auth.subtitle")}</p>
+        {twoFactorChallenge ? (
+          <TwoFactorStep method={twoFactorChallenge.method} onBack={handleBack} />
+        ) : (
+          <div className="form-box">
+            <h2 className="signin-title">{t("auth.signIn")}</h2>
+            <p className="signin-subtitle">{t("auth.subtitle")}</p>
 
-          <form onSubmit={handleLogin}>
-            {/* EMAIL */}
-            <div className="input-group">
-              <label>{t("auth.emailLabel")}</label>
-              <input
-                type="email"
-                placeholder={t("auth.emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+            <form onSubmit={handleLogin}>
+              <div className="input-group">
+                <label>{t("auth.emailLabel")}</label>
+                <input
+                  type="email"
+                  placeholder={t("auth.emailPlaceholder")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-            {/* PASSWORD */}
-            <div className="input-group" style={{ position: "relative" }}>
-              <label>{t("auth.passwordLabel")}</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder={t("auth.passwordPlaceholder")}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <span
-                className="show-password-span"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
+              <div className="input-group" style={{ position: "relative" }}>
+                <label>{t("auth.passwordLabel")}</label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder={t("auth.passwordPlaceholder")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <span
+                  className="show-password-span"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </span>
+              </div>
 
-            {inlineError && <p className="error-text">{inlineError}</p>}
+              {inlineError && <p className="error-text">{inlineError}</p>}
 
-            <button className="login-btn" type="submit">
-              {t("auth.loginButton")}
-            </button>
-          </form>
+              <button className="login-btn" type="submit">
+                {t("auth.loginButton")}
+              </button>
+            </form>
 
-          <LoginLanguageSwitcher />
-        </div>
+            <LoginLanguageSwitcher />
+          </div>
+        )}
       </div>
     </div>
   );

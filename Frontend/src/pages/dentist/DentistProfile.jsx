@@ -4,6 +4,7 @@ import Wavify from "react-wavify";
 import { useDentistStore } from "@/store/dentistStore";
 import DentistProfileCard from "@/components/dentist/DentistProfileCard";
 import ChangePasswordCard from "@/components/dentist/ChangePasswordCard";
+import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
 
 const DentistProfile = () => {
   const { dentists, fetchMe } = useDentistStore();
@@ -34,6 +35,7 @@ const DentistProfile = () => {
         <DentistProfileCard dentist={loggedInDentist} />
         <ChangePasswordCard />
       </div>
+      <TwoFactorSettings />
     </div>
   );
 };

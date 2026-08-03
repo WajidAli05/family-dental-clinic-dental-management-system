@@ -81,6 +81,21 @@ const ACTION_TEMPLATES = {
   "user.logout":               ({ actorName, actorRole }) =>
     `${ROLE_LABELS[actorRole] || actorRole} ${actorName} logged out`,
 
+  "user.2fa_setup":            ({ actorName, after }) =>
+    `${actorName} started 2FA setup${after?.method ? ` (${after.method.toUpperCase()})` : ""}`,
+
+  "user.2fa_enabled":          ({ actorName, after }) =>
+    `${actorName} enabled two-factor authentication${after?.method ? ` (${after.method.toUpperCase()})` : ""}`,
+
+  "user.2fa_disabled":         ({ actorName }) =>
+    `${actorName} disabled two-factor authentication`,
+
+  "auth.2fa_verified":         ({ actorName, after }) =>
+    `2FA verified for ${actorName}${after?.codeType === "backup" ? " using a backup code" : ""}`,
+
+  "auth.2fa_failed":           ({ actorName, after }) =>
+    `Failed 2FA attempt for ${actorName}${after?.step ? ` (step: ${after.step})` : ""}`,
+
   "auth.login_failed":         ({ entityLabel }) =>
     `Failed login attempt for ${entityLabel || "unknown account"}`,
 

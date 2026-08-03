@@ -12,6 +12,11 @@ export const auth = (roles = []) => {
       const token = header.split(" ")[1];
       const payload = jwt.verify(token, process.env.JWT_SECRET);
 
+      // Reject challenge tokens — they are only accepted by verify-2fa-login
+      if (payload.type === "2fa_challenge") {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
       const user = await User.findById(payload.id);
       if (!user || !user.enabled) {
         return res.status(401).json({ success: false, message: "Unauthorized" });

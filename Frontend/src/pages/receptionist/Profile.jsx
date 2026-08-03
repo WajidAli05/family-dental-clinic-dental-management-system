@@ -6,6 +6,7 @@ import { useReceptionistStore } from "@/store/receptionistStore";
 import ProfileHeader from "@/components/receptionist/ProfileHeader";
 import ProfileDetails from "@/components/receptionist/ProfileDetails";
 import ChangePasswordModal from "@/components/receptionist/ChangePasswordModal";
+import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
 import { Button } from "@/components/ui/button";
 
 const Profile = () => {
@@ -68,6 +69,8 @@ const Profile = () => {
         onOpenChange={setIsPasswordOpen}
         onSubmit={changePassword}
       />
+
+      <TwoFactorSettings />
     </div>
   );
 };

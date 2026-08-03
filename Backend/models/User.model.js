@@ -34,6 +34,15 @@ const userSchema = new Schema(
 
     // auth
     passwordHash: { type: String, select: false },
+
+    // 2FA — all additive, default-disabled, backward-compatible
+    twoFactorEnabled:    { type: Boolean, default: false },
+    twoFactorMethod:     { type: String, enum: ["totp", "otp"], default: null },
+    twoFactorSecret:     { type: String, select: false, default: null }, // AES-256-GCM encrypted
+    backupCodes:         { type: [String], select: false, default: [] }, // bcrypt-hashed, consumed on use
+    otpHash:             { type: String, select: false, default: null },  // bcrypt-hashed OTP
+    otpExpiry:           { type: Date, default: null },
+    twoFactorVerifiedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

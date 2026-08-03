@@ -8,6 +8,7 @@ import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 
 import ClinicInfoForm from "@/components/owner/settings/ClinicInfoForm";
 import ChangePasswordForm from "@/components/owner/settings/ChangePasswordForm";
+import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
 
 import { useOwnerSettingsStore } from "@/store/ownerSettingsStore";
 import { toast } from "sonner";
@@ -102,6 +103,9 @@ const OwnerSettings = () => {
           <ChangePasswordForm onSave={changePassword} loading={loading} />
         </CardContent>
       </Card>
+
+      {/* Two-Factor Authentication */}
+      <TwoFactorSettings />
     </div>
   );
 };

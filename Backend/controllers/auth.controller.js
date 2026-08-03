@@ -1,11 +1,13 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import { recordAudit } from "../services/shared/audit.js";
+import { generateAndSendOtp } from "../services/twoFactor.service.js";
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email, enabled: true }).select("+passwordHash");
+  const user = await User.findOne({ email, enabled: true })
+    .select("+passwordHash +otpHash +otpExpiry");
   if (!user) {
     return res.status(401).json({ success: false, message: "Invalid credentials" });
   }
@@ -24,12 +26,34 @@ export const login = async (req, res) => {
     return res.status(401).json({ success: false, message: "Invalid credentials" });
   }
 
+  // ── Step 1 passed. Check if 2FA is required ─────────────────────────────────
+  if (user.twoFactorEnabled) {
+    // For OTP method: generate + send a fresh code now (before issuing challenge)
+    if (user.twoFactorMethod === "otp") {
+      await generateAndSendOtp(user).catch((err) => {
+        console.error("[auth] Failed to send OTP during login:", err.message);
+      });
+    }
+
+    // Issue a short-lived challenge token — NOT usable as a session token
+    const challengeToken = jwt.sign(
+      { type: "2fa_challenge", id: String(user._id) },
+      process.env.JWT_SECRET,
+      { expiresIn: "5m" }
+    );
+
+    // Do NOT log user.login yet — authentication is not complete
+    return res.json({
+      success:           true,
+      twoFactorRequired: true,
+      challengeToken,
+      method:            user.twoFactorMethod,
+    });
+  }
+
+  // ── No 2FA — issue JWT as before ────────────────────────────────────────────
   const token = jwt.sign(
-    {
-      id: user._id,
-      publicId: user.publicId,
-      role: user.role,
-    },
+    { id: user._id, publicId: user.publicId, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -51,9 +75,9 @@ export const login = async (req, res) => {
       token,
       user: {
         publicId: user.publicId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        name:     user.name,
+        email:    user.email,
+        role:     user.role,
       },
     },
   });
