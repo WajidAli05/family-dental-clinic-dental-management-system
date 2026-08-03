@@ -14,6 +14,7 @@ import OwnerStaffManagement from "./pages/owner/OwnerStaffManagement";
 import OwnerSettings from "./pages/owner/OwnerSettings";
 import OwnerInventory from "./pages/owner/OwnerInventory";
 import OwnerActivityLog from "./pages/owner/OwnerActivityLog";
+import OwnerSecurity from "./pages/owner/OwnerSecurity";
 
 import DentistDashboard from "./pages/DentistDashboard";
 import DentistDashboardHome from "./pages/dentist/DentistDashboardHome";
@@ -62,7 +63,8 @@ function App() {
             <Route path="staff" element={<OwnerStaffManagement />} />
             <Route path="settings" element={<OwnerSettings />} />
             <Route path="inventory" element={<OwnerInventory />} />
-            <Route path="logs" element={<OwnerActivityLog />} />
+            <Route path="logs"     element={<OwnerActivityLog />} />
+            <Route path="security" element={<OwnerSecurity />} />
           </Route>
         </Route>
 

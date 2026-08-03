@@ -18,7 +18,8 @@
     "dentistPanel": "Dentist Panel",
     "receptionistPanel": "Receptionist Panel",
     "labPanel": "Lab Panel",
-    "logs": "Activity Log"
+    "logs": "Activity Log",
+    "security": "Security"
   },
   "auth": {
     "welcomeTitle": "Welcome to FDC",
@@ -80,6 +81,33 @@
     "codeLabel": "Verification Code",
     "backupCodeLabel": "Backup Code",
     "backupCode": "Backup code"
+  },
+  "security": {
+    "title": "Security",
+    "subtitle": "Monitor locked accounts and manage login security",
+    "lockedAccountsTitle": "Currently Locked Accounts",
+    "noLockedAccounts": "No accounts are currently locked.",
+    "refresh": "Refresh",
+    "autoRefreshNote": "List refreshes automatically every 30 seconds.",
+    "colName": "Name",
+    "colEmail": "Email",
+    "colRole": "Role",
+    "colAttempts": "Failed Attempts",
+    "colUnlockIn": "Auto-unlocks in",
+    "colAction": "Action",
+    "minutes": "min",
+    "unlockBtn": "Unlock",
+    "unlocking": "Unlocking…",
+    "unlockSuccess": "Account unlocked for {{email}}",
+    "unlockError": "Failed to unlock account",
+    "policyTitle": "Lockout Policy",
+    "policy1": "3 consecutive failed login or 2FA attempts lock the account.",
+    "policy2": "Locks auto-expire after 15 minutes — never permanent.",
+    "policy3": "Lockout is per-account; a shared clinic IP cannot lock all staff.",
+    "policy4": "Manual unlock is audit-logged.",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet.",
+    "markAllRead": "Mark all read"
   },
   "market": {
     "label": "Market"

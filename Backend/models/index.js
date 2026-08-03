@@ -17,3 +17,4 @@ export { default as ClinicalMaster } from "./ClinicalMaster.model.js";
 export { default as Prescription } from "./Prescription.model.js";
 export { default as Permissions } from "./Permissions.model.js";
 export { default as AuditLog } from "./AuditLog.model.js";
+export { default as Notification } from "./Notification.model.js";

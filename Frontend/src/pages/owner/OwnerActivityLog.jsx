@@ -28,7 +28,7 @@ const ALL_ACTIONS = [
   "config.update",       "settings.update",
   "user.login",          "user.logout",
   "user.2fa_setup",      "user.2fa_enabled",         "user.2fa_disabled",
-  "auth.login_failed",   "auth.lockout",             "session.revoke_all",
+  "auth.login_failed",   "auth.lockout",             "auth.account_unlocked", "session.revoke_all",
   "auth.2fa_verified",   "auth.2fa_failed",
   "audit.view",
 ];

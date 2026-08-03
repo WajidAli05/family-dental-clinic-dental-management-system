@@ -18,7 +18,8 @@
     "dentistPanel": "لوحة طبيب الأسنان",
     "receptionistPanel": "لوحة الاستقبال",
     "labPanel": "لوحة المختبر",
-    "logs": "سجل النشاط"
+    "logs": "سجل النشاط",
+    "security": "الأمان"
   },
   "auth": {
     "welcomeTitle": "مرحباً بك في FDC",
@@ -80,6 +81,33 @@
     "codeLabel": "رمز التحقق",
     "backupCodeLabel": "رمز الاسترداد",
     "backupCode": "رمز احتياطي"
+  },
+  "security": {
+    "title": "الأمان",
+    "subtitle": "مراقبة الحسابات المقفلة وإدارة أمان تسجيل الدخول",
+    "lockedAccountsTitle": "الحسابات المقفلة حالياً",
+    "noLockedAccounts": "لا توجد حسابات مقفلة حالياً.",
+    "refresh": "تحديث",
+    "autoRefreshNote": "تتجدد القائمة تلقائياً كل 30 ثانية.",
+    "colName": "الاسم",
+    "colEmail": "البريد الإلكتروني",
+    "colRole": "الدور",
+    "colAttempts": "المحاولات الفاشلة",
+    "colUnlockIn": "يُفتح تلقائياً بعد",
+    "colAction": "إجراء",
+    "minutes": "دقيقة",
+    "unlockBtn": "فتح",
+    "unlocking": "جارٍ الفتح…",
+    "unlockSuccess": "تم فتح حساب {{email}}",
+    "unlockError": "فشل في فتح الحساب",
+    "policyTitle": "سياسة القفل",
+    "policy1": "3 محاولات فاشلة متتالية لتسجيل الدخول أو 2FA تُقفل الحساب.",
+    "policy2": "يُفتح القفل تلقائياً بعد 15 دقيقة — ليس قفلاً دائماً.",
+    "policy3": "القفل خاص بالحساب؛ عنوان IP المشترك لا يقفل جميع الموظفين.",
+    "policy4": "فتح القفل اليدوي مُسجَّل في سجل التدقيق.",
+    "notifications": "الإشعارات",
+    "noNotifications": "لا توجد إشعارات بعد.",
+    "markAllRead": "تعيين الكل كمقروء"
   },
   "market": {
     "label": "السوق"

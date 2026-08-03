@@ -43,6 +43,17 @@ const userSchema = new Schema(
     otpHash:             { type: String, select: false, default: null },  // bcrypt-hashed OTP
     otpExpiry:           { type: Date, default: null },
     twoFactorVerifiedAt: { type: Date, default: null },
+
+    // Brute-force lockout — additive, backward-compatible (default 0 / null = unlocked)
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockedUntil:         { type: Date, default: null },
+
+    // Login history — last 20 entries; not selected by default to keep normal queries lean
+    loginHistory: {
+      type: [{ at: Date, ip: String, ua: String, success: Boolean }],
+      select:  false,
+      default: [],
+    },
   },
   { timestamps: true }
 );

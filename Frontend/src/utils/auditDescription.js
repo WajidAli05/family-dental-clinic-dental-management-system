@@ -102,6 +102,9 @@ const ACTION_TEMPLATES = {
   "auth.lockout":              ({ entityLabel }) =>
     `Account locked: ${entityLabel || "unknown"}`,
 
+  "auth.account_unlocked":     ({ actorName, entityLabel }) =>
+    `${actorName} manually unlocked account${entityLabel ? ` "${entityLabel}"` : ""}`,
+
   "session.revoke_all":        ({ actorName }) =>
     `${actorName} revoked all active sessions`,
 

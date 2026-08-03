@@ -24,6 +24,7 @@ import "../../models/Prescription.model.js";
 // ✅ ADD THIS (owner patients uses invoices)
 import "../../models/Invoice.model.js";
 import "../../models/AuditLog.model.js";
+import "../../models/Notification.model.js";
 
 const router = express.Router();
 

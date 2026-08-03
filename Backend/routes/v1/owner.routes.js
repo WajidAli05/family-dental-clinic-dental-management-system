@@ -92,6 +92,8 @@ import {
   ownerListMedicationsCtrl,
   phoneCheckOwnerPatients,
 } from "../../controllers/owner.controller.js";
+import { getLockedAccounts, manualUnlock } from "../../controllers/security.controller.js";
+import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 
 const router = express.Router();
 
@@ -217,5 +219,18 @@ router.patch("/settings/password", ownerChangePasswordController);
 router.get("/medications/search", ownerSearchMedicationsCtrl);
 router.post("/medications",        ownerCreateMedicationCtrl);
 router.get("/medications",         ownerListMedicationsCtrl);
+
+// =====================================================
+// ✅ SECURITY (lockout management)
+// =====================================================
+router.get("/security/locked-accounts",    getLockedAccounts);
+router.post("/security/unlock/:userId",    manualUnlock);
+
+// =====================================================
+// ✅ NOTIFICATIONS
+// =====================================================
+router.get("/notifications",               getNotifications);
+router.patch("/notifications/read-all",    markAllRead);
+router.patch("/notifications/:id/read",    markRead);
 
 export default router;

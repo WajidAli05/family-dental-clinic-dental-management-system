@@ -10,6 +10,12 @@ import {
   generateAndSendOtp,
   clear2fa,
 } from "../services/twoFactor.service.js";
+import {
+  isLocked,
+  minutesLeft,
+  recordFailedAttempt,
+  recordSuccess,
+} from "../services/lockout.service.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +164,17 @@ export const verify2faLogin = async (req, res) => {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
+  // Check lockout — 2FA brute-force counts toward the same per-account threshold
+  if (isLocked(user)) {
+    const mins = minutesLeft(user);
+    return res.status(423).json({
+      success:     false,
+      locked:      true,
+      minutesLeft: mins,
+      message:     `Account temporarily locked. Try again in ${mins} minute(s).`,
+    });
+  }
+
   if (!user.twoFactorEnabled) {
     return res.status(400).json({ success: false, message: "2FA not enabled for this account" });
   }
@@ -184,10 +201,17 @@ export const verify2faLogin = async (req, res) => {
       ...userAuditCtx(user),
       after: { step: "login", codeType },
     });
+    // 2FA failure counts toward the lockout threshold (prevents 2FA bypass via brute-force)
+    await recordFailedAttempt(user, req);
     return res.status(401).json({ success: false, message: "Invalid 2FA code" });
   }
 
-  // 2FA passed — issue full JWT
+  // 2FA passed — reset failure counter + record successful login history
+  recordSuccess(user, req).catch((err) =>
+    console.error("[2fa] recordSuccess failed (non-fatal):", err.message)
+  );
+
+  // Issue full JWT
   const token = jwt.sign(
     { id: user._id, publicId: user.publicId, role: user.role },
     process.env.JWT_SECRET,

@@ -18,7 +18,8 @@
     "dentistPanel": "دندان ساز پینل",
     "receptionistPanel": "ریسیپشنسٹ پینل",
     "labPanel": "لیب پینل",
-    "logs": "سرگرمی لاگ"
+    "logs": "سرگرمی لاگ",
+    "security": "سیکیورٹی"
   },
   "auth": {
     "welcomeTitle": "FDC میں خوش آمدید",
@@ -80,6 +81,33 @@
     "codeLabel": "تصدیقی کوڈ",
     "backupCodeLabel": "بیک اپ کوڈ",
     "backupCode": "بیک اپ کوڈ"
+  },
+  "security": {
+    "title": "سیکیورٹی",
+    "subtitle": "بند اکاؤنٹس کی نگرانی کریں اور لاگ ان سیکیورٹی منظم کریں",
+    "lockedAccountsTitle": "اس وقت بند اکاؤنٹس",
+    "noLockedAccounts": "فی الحال کوئی اکاؤنٹ بند نہیں ہے۔",
+    "refresh": "تازہ کریں",
+    "autoRefreshNote": "فہرست ہر 30 سیکنڈ میں خود بخود تازہ ہو جاتی ہے۔",
+    "colName": "نام",
+    "colEmail": "ای میل",
+    "colRole": "کردار",
+    "colAttempts": "ناکام کوششیں",
+    "colUnlockIn": "خودکار کھلے گا",
+    "colAction": "عمل",
+    "minutes": "منٹ",
+    "unlockBtn": "کھولیں",
+    "unlocking": "کھل رہا ہے…",
+    "unlockSuccess": "{{email}} کا اکاؤنٹ کھول دیا گیا",
+    "unlockError": "اکاؤنٹ کھولنے میں ناکامی",
+    "policyTitle": "لاک آؤٹ پالیسی",
+    "policy1": "3 لگاتار ناکام لاگ ان یا 2FA کوششیں اکاؤنٹ بند کر دیتی ہیں۔",
+    "policy2": "بندش 15 منٹ بعد خود بخود ختم ہو جاتی ہے — مستقل نہیں۔",
+    "policy3": "بندش فی اکاؤنٹ ہے؛ مشترکہ IP سے تمام عملہ بند نہیں ہوتا۔",
+    "policy4": "دستی بندش کھولنا آڈٹ لاگ میں درج ہوتا ہے۔",
+    "notifications": "اطلاعات",
+    "noNotifications": "ابھی کوئی اطلاع نہیں۔",
+    "markAllRead": "سب پڑھا ہوا کریں"
   },
   "market": {
     "label": "مارکیٹ"
