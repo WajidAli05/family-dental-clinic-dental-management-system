@@ -34,8 +34,15 @@ function TwoFactorStep({ method, onBack }) {
   const [inlineErr,  setInlineErr]  = useState("");
 
   useEffect(() => {
-    if (error) setInlineErr(error);
-  }, [error]);
+    if (!error) return;
+    const msg = String(error).toLowerCase();
+    // Known wrong-code patterns → friendly retry message; anything else passes through
+    if (msg.includes("invalid 2fa") || msg.includes("invalid code") || msg.includes("invalid or expired")) {
+      setInlineErr(t("auth.twoFactor.invalidCode"));
+    } else {
+      setInlineErr(error);
+    }
+  }, [error, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +57,11 @@ function TwoFactorStep({ method, onBack }) {
     if (ok) {
       const stored = JSON.parse(localStorage.getItem("user"));
       navigateByRole(navigate, stored?.role);
+    } else if (!error) {
+      // verify2faLogin returned false but store error wasn't set (shouldn't happen, but guard it)
+      setInlineErr(t("auth.twoFactor.invalidCode"));
     }
+    // When error IS set, the useEffect above will fire and show the friendly message
   };
 
   return (

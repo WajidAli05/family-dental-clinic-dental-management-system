@@ -57,9 +57,9 @@ export async function setupTotp(user) {
     throw new Error("2FA is already enabled. Disable it first before changing method.");
   }
 
-  const secret     = generateSecret();
+  const secret = generateSecret();
   const otpauthUrl = generateURI({ label: user.email, issuer: APP_NAME, secret });
-  const qrDataUrl  = await QRCode.toDataURL(otpauthUrl);
+  const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
 
   const backupCodes = generateBackupCodes();
   const hashedCodes = await hashAll(backupCodes);

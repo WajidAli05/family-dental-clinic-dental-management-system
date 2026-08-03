@@ -42,7 +42,8 @@
       "verifying": "Verifying…",
       "useBackupCode": "Use a backup code instead",
       "useAppCode": "Use authenticator app code",
-      "back": "← Back to login"
+      "back": "← Back to login",
+      "invalidCode": "Invalid code — please try again, or use a backup code"
     }
   },
   "twoFactor": {

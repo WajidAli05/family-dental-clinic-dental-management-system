@@ -54,10 +54,16 @@ export const setup2fa = async (req, res) => {
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
   let result;
-  if (method === "totp") {
-    result = await setupTotp(user);
-  } else {
-    result = await setupOtp(user);
+  try {
+    if (method === "totp") {
+      result = await setupTotp(user);
+    } else {
+      result = await setupOtp(user);
+    }
+  } catch (err) {
+    // Covers: email delivery not configured, SMTP failures, already-enabled guard
+    const status = err.message?.toLowerCase().includes("already enabled") ? 409 : 503;
+    return res.status(status).json({ success: false, message: err.message });
   }
 
   await recordAudit({
@@ -117,7 +123,11 @@ export const sendOtpForUser = async (req, res) => {
   const user = await User.findById(req.user._id).select("+otpHash +otpExpiry");
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-  await generateAndSendOtp(user);
+  try {
+    await generateAndSendOtp(user);
+  } catch (err) {
+    return res.status(503).json({ success: false, message: err.message });
+  }
 
   return res.json({ success: true, message: "Code sent to your registered email" });
 };
