@@ -213,7 +213,7 @@ export const verify2faLogin = async (req, res) => {
 
   // Issue full JWT
   const token = jwt.sign(
-    { id: user._id, publicId: user.publicId, role: user.role },
+    { id: user._id, publicId: user.publicId, role: user.role, tokenVersion: user.tokenVersion || 0 },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );

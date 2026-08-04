@@ -1,3 +1,5 @@
+import { handleUnauthorized } from "./httpClient";
+
 const baseURL = import.meta.env.VITE_API_BASE_URL;
 
 function buildUrl(path, params) {
@@ -24,6 +26,8 @@ async function request(path, { method = "GET", params, body } = {}) {
   });
 
   const json = await res.json().catch(() => ({}));
+
+  if (res.status === 401) handleUnauthorized(path);
 
   if (!res.ok || json?.success === false) {
     throw new Error(json?.message || `Request failed: ${res.status}`);

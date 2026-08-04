@@ -107,7 +107,35 @@
     "policy4": "Manual unlock is audit-logged.",
     "notifications": "Notifications",
     "noNotifications": "No notifications yet.",
-    "markAllRead": "Mark all read"
+    "markAllRead": "Mark all read",
+    "loginHistoryTitle": "Login Activity",
+    "loadingHistory": "Loading login history…",
+    "noLoginHistory": "No login activity recorded yet.",
+    "loadHistoryError": "Failed to load login history",
+    "colTime": "Time",
+    "colIp": "IP Address",
+    "colDevice": "Device",
+    "colStatus": "Status",
+    "statusSuccess": "Success",
+    "statusFailed": "Failed",
+    "logoutAllBtn": "Log out of all devices",
+    "loggingOutAll": "Logging out…",
+    "logoutAllSuccess": "Logged out of all devices. Please sign in again.",
+    "logoutAllError": "Failed to log out of all devices",
+    "logoutAllConfirmTitle": "Log out of all devices?",
+    "logoutAllConfirmBody": "This will end every active session for your account, including this one. You'll need to sign in again.",
+    "staffHistoryTitle": "Staff Login History",
+    "staffHistoryPlaceholder": "Select a staff member…"
+  },
+  "session": {
+    "sessionExpired": "Your session ended — please sign in again.",
+    "idleWarningTitle": "You'll be logged out soon",
+    "idleWarningBody": "You'll be logged out in {{minutes}} minutes due to inactivity.",
+    "staySignedIn": "Stay signed in",
+    "logoutConfirmTitle": "Log out?",
+    "logoutConfirmBody": "Are you sure you want to log out?",
+    "logoutConfirmAction": "Log out",
+    "cancel": "Cancel"
   },
   "market": {
     "label": "Market"

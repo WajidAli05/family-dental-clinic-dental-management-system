@@ -1,5 +1,5 @@
 // src/pages/DentistDashboard.jsx
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -11,13 +11,12 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Home, Calendar, FlaskConical, User, Users, LogOut, Wallet } from "lucide-react";
 
 // Store
-import { useUserStore } from "@/store/userStore";
 import { usePermissionsStore } from "@/store/permissionsStore";
+import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
 
 const DentistDashboard = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const logout = useUserStore((s) => s.logout);
+  const { requestLogout, LogoutConfirmDialog } = useLogoutConfirm();
 
   const fetchMyPermissions = usePermissionsStore((s) => s.fetchMyPermissions);
   const canAccessTab = usePermissionsStore((s) => s.canAccessTab);
@@ -25,11 +24,6 @@ const DentistDashboard = () => {
   useEffect(() => {
     fetchMyPermissions?.();
   }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
 
   const dentistMenu = useMemo(() => {
     const base = [
@@ -39,14 +33,14 @@ const DentistDashboard = () => {
       { titleKey: "nav.patients",     permKey: "tab_dentist_patients",     url: "/dentist-dashboard/patients",     icon: Users },
       { titleKey: "nav.myFinance",    permKey: "tab_dentist_finance",      url: "/dentist-dashboard/finance",      icon: Wallet },
       { titleKey: "nav.profile",      permKey: "tab_dentist_profile",      url: "/dentist-dashboard/profile",      icon: User },
-      { titleKey: "nav.logout",       icon: LogOut, onClick: handleLogout },
+      { titleKey: "nav.logout",       icon: LogOut, onClick: requestLogout },
     ];
 
     return base.filter((item) => {
       if (!item.permKey) return true;
       return canAccessTab?.(item.permKey);
     });
-  }, [canAccessTab]);
+  }, [canAccessTab, requestLogout]);
 
   return (
     <SidebarProvider>
@@ -66,6 +60,7 @@ const DentistDashboard = () => {
           </div>
         </main>
       </div>
+      {LogoutConfirmDialog}
     </SidebarProvider>
   );
 };

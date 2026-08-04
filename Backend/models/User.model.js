@@ -48,6 +48,10 @@ const userSchema = new Schema(
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil:         { type: Date, default: null },
 
+    // Session revocation — bumped by "log out of all devices"; JWTs carry the
+    // version at issue time and are rejected once it no longer matches.
+    tokenVersion: { type: Number, default: 0 },
+
     // Login history — last 20 entries; not selected by default to keep normal queries lean
     loginHistory: {
       type: [{ at: Date, ip: String, ua: String, success: Boolean }],

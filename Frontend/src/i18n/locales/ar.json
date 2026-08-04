@@ -107,7 +107,35 @@
     "policy4": "فتح القفل اليدوي مُسجَّل في سجل التدقيق.",
     "notifications": "الإشعارات",
     "noNotifications": "لا توجد إشعارات بعد.",
-    "markAllRead": "تعيين الكل كمقروء"
+    "markAllRead": "تعيين الكل كمقروء",
+    "loginHistoryTitle": "نشاط تسجيل الدخول",
+    "loadingHistory": "جارٍ تحميل سجل تسجيل الدخول…",
+    "noLoginHistory": "لا يوجد نشاط تسجيل دخول مسجّل بعد.",
+    "loadHistoryError": "فشل تحميل سجل تسجيل الدخول",
+    "colTime": "الوقت",
+    "colIp": "عنوان IP",
+    "colDevice": "الجهاز",
+    "colStatus": "الحالة",
+    "statusSuccess": "نجاح",
+    "statusFailed": "فشل",
+    "logoutAllBtn": "تسجيل الخروج من جميع الأجهزة",
+    "loggingOutAll": "جارٍ تسجيل الخروج…",
+    "logoutAllSuccess": "تم تسجيل الخروج من جميع الأجهزة. الرجاء تسجيل الدخول مرة أخرى.",
+    "logoutAllError": "فشل تسجيل الخروج من جميع الأجهزة",
+    "logoutAllConfirmTitle": "تسجيل الخروج من جميع الأجهزة؟",
+    "logoutAllConfirmBody": "سيؤدي هذا إلى إنهاء كل جلسة نشطة لحسابك، بما في ذلك هذه الجلسة. ستحتاج إلى تسجيل الدخول مرة أخرى.",
+    "staffHistoryTitle": "سجل تسجيل دخول الموظفين",
+    "staffHistoryPlaceholder": "اختر أحد الموظفين…"
+  },
+  "session": {
+    "sessionExpired": "انتهت جلستك — الرجاء تسجيل الدخول مرة أخرى.",
+    "idleWarningTitle": "سيتم تسجيل خروجك قريباً",
+    "idleWarningBody": "سيتم تسجيل خروجك خلال {{minutes}} دقيقة بسبب عدم النشاط.",
+    "staySignedIn": "البقاء مسجلاً للدخول",
+    "logoutConfirmTitle": "تسجيل الخروج؟",
+    "logoutConfirmBody": "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
+    "logoutConfirmAction": "تسجيل الخروج",
+    "cancel": "إلغاء"
   },
   "market": {
     "label": "السوق"

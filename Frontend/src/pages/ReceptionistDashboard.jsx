@@ -1,6 +1,6 @@
 // src/pages/ReceptionistDashboard.jsx
 import React from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,8 +9,8 @@ import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 // Store
-import { useUserStore } from "@/store/userStore";
 import { usePermissionsStore } from "@/store/permissionsStore";
+import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
 
 // Icons
 import {
@@ -27,8 +27,7 @@ import {
 
 const ReceptionistDashboard = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const logout = useUserStore((s) => s.logout);
+  const { requestLogout, LogoutConfirmDialog } = useLogoutConfirm();
 
   const fetchMyPermissions = usePermissionsStore((s) => s.fetchMyPermissions);
   const canAccessTab = usePermissionsStore((s) => s.canAccessTab);
@@ -47,21 +46,14 @@ const ReceptionistDashboard = () => {
       { titleKey: "nav.inventory",   permKey: "tab_receptionist_inventory",     url: "/receptionist-dashboard/inventory",   icon: Package },
       { titleKey: "nav.profile",     permKey: "tab_receptionist_profile",       url: "/receptionist-dashboard/profile",     icon: User },
       { titleKey: "nav.logs",       permKey: "tab_receptionist_logs",          url: "/receptionist-dashboard/logs",        icon: ScrollText },
-      {
-        titleKey: "nav.logout",
-        icon: LogOut,
-        onClick: () => {
-          logout();
-          navigate("/login", { replace: true });
-        },
-      },
+      { titleKey: "nav.logout", icon: LogOut, onClick: requestLogout },
     ];
 
     return base.filter((item) => {
       if (!item.permKey) return true;
       return canAccessTab?.(item.permKey);
     });
-  }, [canAccessTab, logout, navigate]);
+  }, [canAccessTab, requestLogout]);
 
   return (
     <SidebarProvider>
@@ -78,6 +70,7 @@ const ReceptionistDashboard = () => {
           </div>
         </main>
       </div>
+      {LogoutConfirmDialog}
     </SidebarProvider>
   );
 };

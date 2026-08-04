@@ -1,5 +1,5 @@
 // src/pages/owner/OwnerDashboard.jsx
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -19,12 +19,11 @@ import {
   LogOut,
 } from "lucide-react";
 
-import { useUserStore } from "@/store/userStore";
+import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
 
 const OwnerDashboard = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const logout = useUserStore((s) => s.logout);
+  const { requestLogout, LogoutConfirmDialog } = useLogoutConfirm();
 
   const ownerMenu = [
     { titleKey: "nav.dashboard",         url: "/owner-dashboard/dashboard",       icon: Home },
@@ -38,14 +37,7 @@ const OwnerDashboard = () => {
     { titleKey: "nav.settings",           url: "/owner-dashboard/settings",        icon: Settings },
     { titleKey: "nav.logs",               url: "/owner-dashboard/logs",            icon: ScrollText },
     { titleKey: "nav.security",           url: "/owner-dashboard/security",        icon: LockKeyhole },
-    {
-      titleKey: "nav.logout",
-      icon: LogOut,
-      onClick: () => {
-        logout();
-        navigate("/login", { replace: true });
-      },
-    },
+    { titleKey: "nav.logout", icon: LogOut, onClick: requestLogout },
   ];
 
   return (
@@ -70,6 +62,7 @@ const OwnerDashboard = () => {
           </div>
         </main>
       </div>
+      {LogoutConfirmDialog}
     </SidebarProvider>
   );
 };

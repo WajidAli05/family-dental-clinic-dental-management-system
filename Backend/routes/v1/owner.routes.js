@@ -92,7 +92,7 @@ import {
   ownerListMedicationsCtrl,
   phoneCheckOwnerPatients,
 } from "../../controllers/owner.controller.js";
-import { getLockedAccounts, manualUnlock } from "../../controllers/security.controller.js";
+import { getLockedAccounts, manualUnlock, getStaffLoginHistory } from "../../controllers/security.controller.js";
 import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 
 const router = express.Router();
@@ -223,8 +223,9 @@ router.get("/medications",         ownerListMedicationsCtrl);
 // =====================================================
 // ✅ SECURITY (lockout management)
 // =====================================================
-router.get("/security/locked-accounts",    getLockedAccounts);
-router.post("/security/unlock/:userId",    manualUnlock);
+router.get("/security/locked-accounts",         getLockedAccounts);
+router.post("/security/unlock/:userId",         manualUnlock);
+router.get("/security/login-history/:publicId", getStaffLoginHistory);
 
 // =====================================================
 // ✅ NOTIFICATIONS

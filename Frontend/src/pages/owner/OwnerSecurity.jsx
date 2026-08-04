@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSecurityStore } from "@/store/securityStore";
+import { useOwnerStaffStore } from "@/store/ownerStaffStore";
+import { securityApi } from "@/lib/securityApi";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
+import LoginActivityCard from "@/components/profile/LoginActivityCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { ShieldAlert, LockOpen, RefreshCw } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ShieldAlert, LockOpen, RefreshCw, History, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const ROLE_COLOR = {
@@ -16,6 +22,103 @@ const ROLE_COLOR = {
   dentist:      "bg-green-100 text-green-800",
   lab:          "bg-orange-100 text-orange-800",
 };
+
+// Owner viewing any staff member's login history — reuses existing
+// User.loginHistory data via GET /owner/security/login-history/:publicId.
+function StaffLoginHistory({ t }) {
+  const { staff, fetchStaff } = useOwnerStaffStore();
+  const [selectedId, setSelectedId] = useState("");
+  const [entry, setEntry] = useState(null); // { user, history }
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { fetchStaff(); }, [fetchStaff]);
+
+  const loadHistory = useCallback(async (publicId) => {
+    if (!publicId) return;
+    setLoading(true);
+    try {
+      const json = await securityApi.getStaffLoginHistory(publicId);
+      setEntry(json.data);
+    } catch (err) {
+      toast.error(err.message || t("security.loadHistoryError"));
+      setEntry(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  const handleSelect = (id) => {
+    setSelectedId(id);
+    loadHistory(id);
+  };
+
+  return (
+    <Card className="rounded-2xl">
+      <CardContent className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <History className="w-5 h-5 text-[#2ec4b6]" />
+          <h2 className="text-base font-semibold">{t("security.staffHistoryTitle")}</h2>
+        </div>
+
+        <Select value={selectedId} onValueChange={handleSelect}>
+          <SelectTrigger className="max-w-xs mb-4">
+            <SelectValue placeholder={t("security.staffHistoryPlaceholder")} />
+          </SelectTrigger>
+          <SelectContent>
+            {staff.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name} ({s.role})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {loading && <p className="text-sm text-gray-400">{t("security.loadingHistory")}</p>}
+
+        {!loading && entry && entry.history.length === 0 && (
+          <p className="text-sm text-gray-400">{t("security.noLoginHistory")}</p>
+        )}
+
+        {!loading && entry && entry.history.length > 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("security.colTime")}</TableHead>
+                  <TableHead>{t("security.colIp")}</TableHead>
+                  <TableHead>{t("security.colDevice")}</TableHead>
+                  <TableHead>{t("security.colStatus")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entry.history.map((h, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm text-gray-600">
+                      {h.at ? new Date(h.at).toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">{h.ip || "—"}</TableCell>
+                    <TableCell className="text-xs text-gray-500 max-w-[240px] truncate">{h.ua || "—"}</TableCell>
+                    <TableCell>
+                      {h.success ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> {t("security.statusSuccess")}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                          <XCircle className="w-3.5 h-3.5" /> {t("security.statusFailed")}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function OwnerSecurity() {
   const { t } = useTranslation();
@@ -150,6 +253,12 @@ export default function OwnerSecurity() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Owner's own login history + log out of all devices */}
+      <LoginActivityCard />
+
+      {/* Owner viewing any staff member's login history */}
+      <StaffLoginHistory t={t} />
     </div>
   );
 }

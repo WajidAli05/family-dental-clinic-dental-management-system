@@ -69,6 +69,8 @@
 //   }),
 // };
 
+import { handleUnauthorized } from "./httpClient";
+
 const BASE = `${import.meta.env.VITE_API_BASE_URL}/dentist`;
 
 const authHeaders = () => {
@@ -99,6 +101,8 @@ async function req(path, options = {}) {
       `API returned non-JSON response (${res.status}). ${preview}`
     );
   }
+
+  if (res.status === 401) handleUnauthorized(`/dentist${path}`);
 
   // ✅ handle non-2xx
   if (!res.ok) {

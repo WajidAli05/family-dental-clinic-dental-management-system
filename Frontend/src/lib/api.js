@@ -1,3 +1,5 @@
+import { handleUnauthorized } from "./httpClient";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 async function request(path, options = {}) {
@@ -17,6 +19,8 @@ async function request(path, options = {}) {
 
   const contentType = res.headers.get("content-type") || "";
   const json = contentType.includes("application/json") ? await res.json() : null;
+
+  if (res.status === 401) handleUnauthorized(path);
 
   if (!res.ok) {
     const message = json?.message || json?.error || `Request failed (${res.status})`;

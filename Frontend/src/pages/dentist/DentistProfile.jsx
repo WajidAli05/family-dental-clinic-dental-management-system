@@ -5,6 +5,7 @@ import { useDentistStore } from "@/store/dentistStore";
 import DentistProfileCard from "@/components/dentist/DentistProfileCard";
 import ChangePasswordCard from "@/components/dentist/ChangePasswordCard";
 import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
+import LoginActivityCard from "@/components/profile/LoginActivityCard";
 
 const DentistProfile = () => {
   const { dentists, fetchMe } = useDentistStore();
@@ -36,6 +37,7 @@ const DentistProfile = () => {
         <ChangePasswordCard />
       </div>
       <TwoFactorSettings />
+      <LoginActivityCard />
     </div>
   );
 };

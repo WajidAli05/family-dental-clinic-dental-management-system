@@ -1,10 +1,11 @@
 import { create } from "zustand";
+import { handleUnauthorized } from "@/lib/httpClient";
 
 const API = `${import.meta.env.VITE_API_BASE_URL}/lab`;
 
-const authFetch = (url, options = {}) => {
+const authFetch = async (url, options = {}) => {
   const token = localStorage.getItem("token");
-  return fetch(url, {
+  const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -12,6 +13,8 @@ const authFetch = (url, options = {}) => {
       ...(options.headers || {}),
     },
   });
+  if (res.status === 401) handleUnauthorized("/lab");
+  return res;
 };
 
 const mapBackendStatusToUi = (s) => {

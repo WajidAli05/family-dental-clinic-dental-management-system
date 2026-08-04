@@ -59,3 +59,32 @@ export const manualUnlock = async (req, res) => {
     message: `Account unlocked for ${user.email}`,
   });
 };
+
+// ─── GET /owner/security/login-history/:publicId ──────────────────────────────
+// Owner viewing any staff member's login history (reuses User.loginHistory).
+
+export const getStaffLoginHistory = async (req, res) => {
+  const { publicId } = req.params;
+
+  const user = await User.findOne({ publicId })
+    .select("publicId name email role loginHistory")
+    .lean();
+  if (!user) {
+    return res.status(404).json({ success: false, message: "Staff member not found" });
+  }
+
+  const history = [...(user.loginHistory || [])].reverse(); // newest first
+
+  return res.json({
+    success: true,
+    data: {
+      user: {
+        publicId: user.publicId,
+        name:     user.name,
+        email:    user.email,
+        role:     user.role,
+      },
+      history,
+    },
+  });
+};

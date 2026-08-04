@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { formatMoney } from "@/utils/formatMoney";
+import { handleUnauthorized } from "@/lib/httpClient";
 
 const PK_DEFAULTS = {
   country:        "PK",
@@ -35,6 +36,7 @@ export const useClinicConfigStore = create((set, get) => ({
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/clinic-config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401) handleUnauthorized("/clinic-config");
       if (!res.ok) throw new Error("config fetch failed");
       const json = await res.json();
       if (json?.success && json.data) {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
+import IdleTimeoutGuard from "@/components/common/IdleTimeoutGuard";
 
 const ProtectedRoute = ({ role }) => {
   const user = JSON.parse(localStorage.getItem("user"));
@@ -31,7 +32,12 @@ const ProtectedRoute = ({ role }) => {
     }
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <IdleTimeoutGuard />
+      <Outlet />
+    </>
+  );
 };
 
 export default ProtectedRoute;

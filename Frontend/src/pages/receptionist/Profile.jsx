@@ -7,6 +7,7 @@ import ProfileHeader from "@/components/receptionist/ProfileHeader";
 import ProfileDetails from "@/components/receptionist/ProfileDetails";
 import ChangePasswordModal from "@/components/receptionist/ChangePasswordModal";
 import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
+import LoginActivityCard from "@/components/profile/LoginActivityCard";
 import { Button } from "@/components/ui/button";
 
 const Profile = () => {
@@ -71,6 +72,7 @@ const Profile = () => {
       />
 
       <TwoFactorSettings />
+      <LoginActivityCard />
     </div>
   );
 };

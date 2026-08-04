@@ -107,7 +107,35 @@
     "policy4": "دستی بندش کھولنا آڈٹ لاگ میں درج ہوتا ہے۔",
     "notifications": "اطلاعات",
     "noNotifications": "ابھی کوئی اطلاع نہیں۔",
-    "markAllRead": "سب پڑھا ہوا کریں"
+    "markAllRead": "سب پڑھا ہوا کریں",
+    "loginHistoryTitle": "لاگ ان سرگرمی",
+    "loadingHistory": "لاگ ان تاریخ لوڈ ہو رہی ہے…",
+    "noLoginHistory": "ابھی تک کوئی لاگ ان سرگرمی درج نہیں ہوئی۔",
+    "loadHistoryError": "لاگ ان تاریخ لوڈ کرنے میں ناکامی",
+    "colTime": "وقت",
+    "colIp": "آئی پی ایڈریس",
+    "colDevice": "ڈیوائس",
+    "colStatus": "حیثیت",
+    "statusSuccess": "کامیاب",
+    "statusFailed": "ناکام",
+    "logoutAllBtn": "تمام ڈیوائسز سے لاگ آؤٹ کریں",
+    "loggingOutAll": "لاگ آؤٹ ہو رہا ہے…",
+    "logoutAllSuccess": "تمام ڈیوائسز سے لاگ آؤٹ ہو گیا۔ دوبارہ سائن ان کریں۔",
+    "logoutAllError": "تمام ڈیوائسز سے لاگ آؤٹ کرنے میں ناکامی",
+    "logoutAllConfirmTitle": "تمام ڈیوائسز سے لاگ آؤٹ کریں؟",
+    "logoutAllConfirmBody": "اس سے آپ کے اکاؤنٹ کا ہر فعال سیشن ختم ہو جائے گا، بشمول یہ۔ آپ کو دوبارہ سائن ان کرنا ہوگا۔",
+    "staffHistoryTitle": "عملے کی لاگ ان تاریخ",
+    "staffHistoryPlaceholder": "ایک عملہ رکن منتخب کریں…"
+  },
+  "session": {
+    "sessionExpired": "آپ کا سیشن ختم ہو گیا — براہ کرم دوبارہ سائن ان کریں۔",
+    "idleWarningTitle": "آپ جلد لاگ آؤٹ ہو جائیں گے",
+    "idleWarningBody": "غیرفعالیت کی وجہ سے آپ {{minutes}} منٹ میں لاگ آؤٹ ہو جائیں گے۔",
+    "staySignedIn": "سائن ان رہیں",
+    "logoutConfirmTitle": "لاگ آؤٹ کریں؟",
+    "logoutConfirmBody": "کیا آپ واقعی لاگ آؤٹ کرنا چاہتے ہیں؟",
+    "logoutConfirmAction": "لاگ آؤٹ",
+    "cancel": "منسوخ کریں"
   },
   "market": {
     "label": "مارکیٹ"

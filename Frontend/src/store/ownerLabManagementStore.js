@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { handleUnauthorized } from "@/lib/httpClient";
 
 const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -40,6 +41,7 @@ async function request(path, { method = "GET", params, body } = {}) {
   });
 
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) handleUnauthorized(path);
   if (!res.ok || json?.success === false) {
     throw new Error(json?.message || `Request failed: ${res.status}`);
   }

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
 import { useUserStore } from "@/store/userStore";
+import { handleUnauthorized } from "@/lib/httpClient";
 
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -21,6 +22,7 @@ async function switchLocaleApi(locale) {
     body: JSON.stringify({ locale }),
   });
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) handleUnauthorized("/clinic-config/locale");
   if (!res.ok || json?.success === false) throw new Error(json?.message || `Request failed: ${res.status}`);
   return json;
 }

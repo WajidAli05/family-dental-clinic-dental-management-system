@@ -22,6 +22,14 @@ export const auth = (roles = []) => {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      // Revocation check — "log out of all devices" bumps tokenVersion, which
+      // instantly invalidates every JWT minted before the bump. Tokens signed
+      // before this field existed carry no tokenVersion, treated as 0.
+      const tokenVersion = payload.tokenVersion ?? 0;
+      if (tokenVersion !== (user.tokenVersion ?? 0)) {
+        return res.status(401).json({ success: false, message: "Session revoked. Please sign in again." });
+      }
+
       if (roles.length && !roles.includes(user.role)) {
         return res.status(403).json({ success: false, message: "Forbidden" });
       }

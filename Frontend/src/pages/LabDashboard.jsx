@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -6,22 +6,16 @@ import { Home, User, LogOut } from "lucide-react";
 import LabStats from "@/components/lab/LabStats";
 import LabSamplesTable from "@/components/lab/LabSamplesTable";
 import LabProfile from "@/pages/lab/LabProfile";
-import { useUserStore } from "@/store/userStore";
+import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
 
 export default function LabDashboard() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const logout = useUserStore((state) => state.logout);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
+  const { requestLogout, LogoutConfirmDialog } = useLogoutConfirm();
 
   const labMenu = [
     { titleKey: "nav.dashboard", url: "/lab-dashboard/dashboard", icon: Home },
     { titleKey: "nav.profile",   url: "/lab-dashboard/profile",   icon: User },
-    { titleKey: "nav.logout",    icon: LogOut, onClick: handleLogout },
+    { titleKey: "nav.logout",    icon: LogOut, onClick: requestLogout },
   ];
 
   return (
@@ -62,6 +56,7 @@ export default function LabDashboard() {
           </div>
         </main>
       </div>
+      {LogoutConfirmDialog}
     </SidebarProvider>
   );
 }
