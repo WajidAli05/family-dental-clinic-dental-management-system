@@ -18,14 +18,15 @@ const OwnerDashboardHome = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header + bell — same pattern as OwnerPageHeader */}
-      <div>
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-          <div className="relative z-10">
-            <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
-            <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
-          </div>
+      {/* Header — outer card has no overflow-hidden so the bell dropdown isn't clipped */}
+      <div className="relative rounded-2xl bg-white p-6">
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
+          <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
+        </div>
 
+        {/* Wave layer clips itself; doesn't affect the bell */}
+        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
           <Wave
             fill="#2ec4b6"
             paused={false}
@@ -33,7 +34,9 @@ const OwnerDashboardHome = () => {
             className="absolute bottom-0 left-0 w-full opacity-20"
           />
         </div>
-        <div className="flex justify-end mt-2">
+
+        {/* Bell — top-end corner, mirrors to top-left in RTL */}
+        <div className="absolute top-3 end-3 z-20">
           <NotificationBell />
         </div>
       </div>

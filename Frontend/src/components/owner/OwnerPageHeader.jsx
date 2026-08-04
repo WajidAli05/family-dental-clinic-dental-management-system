@@ -4,16 +4,24 @@ import NotificationBell from "@/components/owner/NotificationBell";
 
 const OwnerPageHeader = ({ title, subtitle }) => {
   return (
-    <div>
-      {/* Header card — overflow-hidden for waves only */}
-      <div className="relative overflow-hidden rounded-2xl bg-white px-6 py-7">
-        <div className="relative z-10 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {subtitle ? (
-            <p className="mt-1 text-gray-500">{subtitle}</p>
-          ) : null}
-        </div>
+    /*
+     * Outer card has NO overflow-hidden so the bell's dropdown panel
+     * is never clipped. The wave animations are clipped by their own
+     * inner layer (absolute inset-0 + overflow-hidden + rounded-2xl),
+     * which keeps them inside the card corners without affecting the bell.
+     */
+    <div className="relative rounded-2xl bg-white px-6 py-7">
 
+      {/* Centred title / subtitle — z-10 keeps it above the wave layer */}
+      <div className="relative z-10 text-center">
+        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        {subtitle ? (
+          <p className="mt-1 text-gray-500">{subtitle}</p>
+        ) : null}
+      </div>
+
+      {/* Wave layer — self-contained clip so waves don't leak past the card corners */}
+      <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
         <Wave
           fill="#2ec4b6"
           paused={false}
@@ -29,11 +37,13 @@ const OwnerPageHeader = ({ title, subtitle }) => {
       </div>
 
       {/*
-        Bell row — sits JUST BELOW the header card, right-aligned.
-        Outside the overflow-hidden container so the dropdown is never clipped.
-        justify-end mirrors automatically in RTL (flex-end = left in RTL).
-      */}
-      <div className="flex justify-end mt-2">
+       * Bell — top-END corner of the card.
+       *   end-3 = right in LTR, left in RTL  (logical property, auto-mirrors)
+       *   z-20  = above the wave layer (z-0 by default)
+       * The dropdown uses `end-0 top-full` on its own relative wrapper,
+       * so it opens downward and is right-aligned in LTR / left-aligned in RTL.
+       */}
+      <div className="absolute top-3 end-3 z-20">
         <NotificationBell />
       </div>
     </div>
