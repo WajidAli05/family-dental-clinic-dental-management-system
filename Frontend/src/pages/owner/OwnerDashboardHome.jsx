@@ -4,6 +4,7 @@ import { useOwnerDashboardStore } from "@/store/ownerDashboardStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import AppointmentsSummaryCard from "@/components/owner/AppointmentsSummaryCard";
 import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
+import NotificationBell from "@/components/owner/NotificationBell";
 import { Users, FlaskConical, Banknote, Calendar } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
@@ -17,19 +18,24 @@ const OwnerDashboardHome = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-white p-6">
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
-          <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
-        </div>
+      {/* Header + bell — same pattern as OwnerPageHeader */}
+      <div>
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6">
+          <div className="relative z-10">
+            <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
+            <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
+          </div>
 
-        <Wave
-          fill="#2ec4b6"
-          paused={false}
-          options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
-          className="absolute bottom-0 left-0 w-full opacity-20"
-        />
+          <Wave
+            fill="#2ec4b6"
+            paused={false}
+            options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
+            className="absolute bottom-0 left-0 w-full opacity-20"
+          />
+        </div>
+        <div className="flex justify-end mt-2">
+          <NotificationBell />
+        </div>
       </div>
 
       {error ? (
