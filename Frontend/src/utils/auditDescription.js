@@ -110,6 +110,9 @@ const ACTION_TEMPLATES = {
 
   "audit.view":                ({ actorName, actorRole }) =>
     `${ROLE_LABELS[actorRole] || actorRole} ${actorName} viewed audit logs`,
+
+  "data.export":               ({ actorName, entityLabel }) =>
+    `${actorName} exported clinic data${entityLabel ? ` (${entityLabel})` : ""}`,
 };
 
 export function describeAuditEntry(entry) {

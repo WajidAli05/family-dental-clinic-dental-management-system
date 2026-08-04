@@ -94,6 +94,7 @@ import {
 } from "../../controllers/owner.controller.js";
 import { getLockedAccounts, manualUnlock, getStaffLoginHistory } from "../../controllers/security.controller.js";
 import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
+import { listExportableCollections, exportJson, exportCsv } from "../../controllers/dataExport.controller.js";
 
 const router = express.Router();
 
@@ -226,6 +227,13 @@ router.get("/medications",         ownerListMedicationsCtrl);
 router.get("/security/locked-accounts",         getLockedAccounts);
 router.post("/security/unlock/:userId",         manualUnlock);
 router.get("/security/login-history/:publicId", getStaffLoginHistory);
+
+// =====================================================
+// ✅ DATA EXPORT (portability / anti-lock-in)
+// =====================================================
+router.get("/data-export/collections",    listExportableCollections);
+router.get("/data-export/json",           exportJson);
+router.get("/data-export/csv/:collection", exportCsv);
 
 // =====================================================
 // ✅ NOTIFICATIONS

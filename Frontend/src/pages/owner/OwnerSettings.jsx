@@ -8,6 +8,7 @@ import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 
 import ClinicInfoForm from "@/components/owner/settings/ClinicInfoForm";
 import ChangePasswordForm from "@/components/owner/settings/ChangePasswordForm";
+import DataExportCard from "@/components/owner/settings/DataExportCard";
 import TwoFactorSettings from "@/components/profile/TwoFactorSettings";
 
 import { useOwnerSettingsStore } from "@/store/ownerSettingsStore";
@@ -106,6 +107,13 @@ const OwnerSettings = () => {
 
       {/* Two-Factor Authentication */}
       <TwoFactorSettings />
+
+      {/* Data Export */}
+      <Card className="rounded-2xl">
+        <CardContent className="p-6">
+          <DataExportCard />
+        </CardContent>
+      </Card>
     </div>
   );
 };

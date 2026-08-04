@@ -127,6 +127,15 @@
     "staffHistoryTitle": "Staff Login History",
     "staffHistoryPlaceholder": "Select a staff member…"
   },
+  "dataExport": {
+    "title": "Data Export",
+    "subtitle": "Download a portable copy of your clinic's data — for backup, migration, or your own records.",
+    "downloadJson": "Download Full Export (JSON)",
+    "downloading": "Downloading…",
+    "csvSectionTitle": "Or download one table as CSV",
+    "error": "Failed to download export",
+    "note": "Exports include your clinic's records only — no passwords, 2FA secrets, or login tokens. Each export is logged in the Activity Log."
+  },
   "session": {
     "sessionExpired": "Your session ended — please sign in again.",
     "idleWarningTitle": "You'll be logged out soon",

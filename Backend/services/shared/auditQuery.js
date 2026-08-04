@@ -16,7 +16,7 @@ const RECEPTIONIST_SAFE_ACTIONS = new Set([
   "user.logout",
 ]);
 
-const PHI_FIELDS = new Set([
+export const PHI_FIELDS = new Set([
   "diagnosis",
   "clinicalFinding",
   "clinicalFindings",
@@ -33,7 +33,7 @@ const PHI_FIELDS = new Set([
   "pin",
 ]);
 
-function redactObj(obj) {
+export function redactObj(obj) {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== "object") return obj;
   if (Array.isArray(obj)) return obj.map(redactObj);

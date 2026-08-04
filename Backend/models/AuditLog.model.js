@@ -17,6 +17,7 @@ const ACTIONS = [
   "auth.login_failed",   "auth.lockout",          "auth.account_unlocked", "session.revoke_all",
   "auth.2fa_verified",   "auth.2fa_failed",
   "audit.view",
+  "data.export",
 ];
 
 const auditLogSchema = new Schema(
