@@ -4,7 +4,6 @@ import { useOwnerDashboardStore } from "@/store/ownerDashboardStore";
 import OwnerStatCard from "@/components/owner/OwnerStatCard";
 import AppointmentsSummaryCard from "@/components/owner/AppointmentsSummaryCard";
 import StatCardSkeleton from "@/components/ui/StatCardSkeleton";
-import NotificationBell from "@/components/owner/NotificationBell";
 import { Users, FlaskConical, Banknote, Calendar } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
@@ -18,27 +17,19 @@ const OwnerDashboardHome = () => {
 
   return (
     <div className="space-y-8">
-      {/* Header — outer card has no overflow-hidden so the bell dropdown isn't clipped */}
-      <div className="relative rounded-2xl bg-white p-6">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-white p-6">
         <div className="relative z-10">
           <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
           <p className="text-gray-500">Clinic overview — quick insights, no quick actions</p>
         </div>
 
-        {/* Wave layer clips itself; doesn't affect the bell */}
-        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-          <Wave
-            fill="#2ec4b6"
-            paused={false}
-            options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
-            className="absolute bottom-0 left-0 w-full opacity-20"
-          />
-        </div>
-
-        {/* Bell — top-end corner, mirrors to top-left in RTL */}
-        <div className="absolute top-3 end-3 z-20">
-          <NotificationBell />
-        </div>
+        <Wave
+          fill="#2ec4b6"
+          paused={false}
+          options={{ height: 20, amplitude: 30, speed: 0.15, points: 3 }}
+          className="absolute bottom-0 left-0 w-full opacity-20"
+        />
       </div>
 
       {error ? (

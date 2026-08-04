@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import NotificationBell from "@/components/owner/NotificationBell";
 import {
   Home,
   CalendarDays,
@@ -52,15 +53,19 @@ const OwnerDashboard = () => {
       <div className="flex w-full min-h-screen bg-gray-50">
         <SideBar title={t("nav.ownerPanel")} items={ownerMenu} />
 
-        <main className="flex-1 min-w-0">
-          {/* Mobile sidebar trigger */}
-          <div className="lg:hidden fixed top-4 start-5 z-50">
-            <SidebarTrigger
-              className="text-[#2ec4b6] bg-white p-2.5 rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
-            />
-          </div>
+        <main className="flex-1 min-w-0 flex flex-col">
+          {/* Sticky top nav bar — standard medical system pattern */}
+          <header className="sticky top-0 z-30 shrink-0 h-14 bg-white border-b border-gray-100 shadow-sm flex items-center justify-between px-4 md:px-6 lg:px-8">
+            {/* Mobile: sidebar trigger */}
+            <div className="lg:hidden">
+              <SidebarTrigger className="text-[#2ec4b6] bg-white p-2.5 rounded-lg hover:bg-gray-50 transition-colors" />
+            </div>
+            {/* Desktop spacer so bell stays on the end side */}
+            <div className="hidden lg:block" aria-hidden="true" />
+            <NotificationBell />
+          </header>
 
-          <div className="px-4 md:px-6 lg:px-8 py-6">
+          <div className="flex-1 px-4 md:px-6 lg:px-8 py-6">
             <Outlet />
           </div>
         </main>
