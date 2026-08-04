@@ -3,11 +3,17 @@
 Disaster-recovery and data-portability reference for this clinic's database.
 Three separate mechanisms, do not conflate them:
 
-| Mechanism | Purpose | Data shape | Who runs it |
+| Mechanism | Purpose | Data shape | Who/what runs it |
 |---|---|---|---|
-| `scripts/backup.js` | Disaster recovery | Raw DB snapshot, Prescription fields **stay encrypted** | Ops (cron / Task Scheduler) |
-| `scripts/restore.js` | Disaster recovery | Restores a `backup.js` archive | Ops, manually, after an incident |
+| `services/backupScheduler.js` | Disaster recovery | Same as below — calls the identical routine | The app itself, nightly, automatically |
+| `scripts/backup.js` | Disaster recovery | Raw DB snapshot, Prescription fields **stay encrypted** | Ops, manually, or OS cron/Task Scheduler as an alternative to the in-app scheduler |
+| `scripts/restore.js` | Disaster recovery | Restores a `backup.js`/scheduler archive | Ops, manually, after an incident |
 | Owner → Settings → Data Export | PDPL portability / anti-lock-in | **Decrypted**, human-readable JSON/CSV | Clinic owner, on demand, in-app |
+
+`backupScheduler.js` and `scripts/backup.js` both call the one actual backup
+routine, `runBackup()` in `scripts/backupCore.js` — there is exactly one
+implementation of "dump collections, encrypt, prune retention," reused by
+both the automatic nightly run and any manual CLI run.
 
 ---
 
@@ -84,25 +90,29 @@ mode, and prints a clear ✅ / ❌ result — not just a static warning.
 
 ## 4. Retention policy
 
-Configurable via env, defaults shown:
+Three tiers, configurable via env, defaults shown:
 
 ```
-BACKUP_RETENTION_DAILY=7    # keep the 7 most recent distinct-day archives
-BACKUP_RETENTION_WEEKLY=4   # plus 1 archive/week for the 4 weeks before that
+BACKUP_RETENTION_DAILY=30    # keep the 30 most recent distinct-day archives
+BACKUP_RETENTION_WEEKLY=8    # plus 1 archive/week for the 8 weeks before that
+BACKUP_RETENTION_MONTHLY=12  # plus 1 archive/month for the 12 months before that
 ```
 
-This is a lightweight grandfather-father-son scheme: the most recent 7 days
-are always available individually, and one snapshot per week is kept for
-roughly a month beyond that. Everything older is pruned automatically at the
-end of each `backup.js` run. Pruning only ever deletes files matching
-`fdc-backup-*.enc` inside `BACKUP_DIR` — nothing else is touched.
+This is a grandfather-father-son scheme: any day in the last month can be
+restored individually, one snapshot per week is kept for roughly two months
+beyond that, and one per calendar month for a year beyond that. Everything
+older is pruned automatically at the end of every run — this is inside
+`runBackup()` (`scripts/backupCore.js`), so it applies identically whether
+the run came from the nightly scheduler or a manual `node scripts/backup.js`.
+Pruning only ever deletes files matching `fdc-backup-*.enc` inside
+`BACKUP_DIR` — nothing else is touched.
 
 ## 5. RPO / RTO assumptions
 
 - **RPO (Recovery Point Objective)**: equal to your backup schedule interval.
-  Run daily (see scheduling below) → up to 24h of data loss in a worst case.
-  For a tighter RPO, increase the cron/Task Scheduler frequency — the script
-  itself has no minimum interval.
+  Run nightly (the default, see §8) → up to 24h of data loss in a worst case.
+  For a tighter RPO, lower `BACKUP_SCHEDULE`'s interval — the routine itself
+  has no minimum interval.
 - **RTO (Recovery Time Objective)**: dominated by (a) how fast you can
   provision a fresh MongoDB target and set `MONGO_URI`/`FIELD_ENCRYPTION_KEY`/
   `BACKUP_ENCRYPTION_KEY` in the new environment, and (b) `restore.js --apply`
@@ -184,8 +194,66 @@ manually.
 
 ## 8. Scheduling automated backups
 
-The script itself is not scheduled by anything in this repo — wire it up
-with your OS's own scheduler.
+### Default: in-app nightly scheduler (no setup required)
+
+`services/backupScheduler.js` starts with the server (`server.js` calls
+`startBackupScheduler()` once, right after the DB connection) and runs
+`runBackup()` on a cron schedule using [`node-cron`](https://www.npmjs.com/package/node-cron)
+— no OS-level cron or Task Scheduler entry needed.
+
+**Default: nightly at 2:00 AM.** Rationale: a hospital's OLTP system
+typically needs 5–15 minute transaction-log backups because a few minutes of
+lost data is clinically significant; a single dental practice's realistic
+RPO (Recovery Point Objective) is **daily** — losing a partial day's
+appointments/patients/invoices in a true disaster is the accepted tradeoff
+for the operational simplicity of one clean nightly snapshot taken during
+off-hours. If your risk tolerance is tighter, lower the RPO by scheduling
+more frequently (see below) — the routine itself has no minimum interval.
+
+Configurable via env (`Backend/.env`):
+
+```
+BACKUP_SCHEDULE_ENABLED=true       # "false" disables the scheduler entirely
+BACKUP_SCHEDULE="0 2 * * *"        # cron expression — default nightly, 2:00 AM
+BACKUP_TIMEZONE=Asia/Karachi       # IANA timezone; default: server's local time
+```
+
+An invalid `BACKUP_SCHEDULE` is logged as an error at startup and the
+scheduler simply does not register — it never crashes the server, and a
+failed *scheduled run* (e.g. a transient DB hiccup) is caught, logged, and
+recorded to `AuditLog` (`system.backup`, `success:false`) without affecting
+the running app.
+
+**Testing without waiting overnight:**
+
+```
+# Backend/.env — temporarily fire every minute instead of nightly
+BACKUP_SCHEDULE="* * * * *"
+```
+
+Restart the dev server (`npm run dev` in `Backend/`) and watch the console —
+within a minute you'll see:
+
+```
+[backupScheduler] Scheduled backups enabled — cron "* * * * *".
+[backupScheduler] Running scheduled backup (* * * * *)…
+[backup] Found 19 collections.
+...
+[backupScheduler] Success: .../fdc-backup-<timestamp>.enc (NNN documents, NN.N KB).
+```
+
+Confirm the `.enc` file landed in `BACKUP_DIR`, then check Owner → Logs for a
+`system.backup` entry. **Revert `BACKUP_SCHEDULE` to the nightly value (or
+remove the line) afterward** — an every-minute schedule is for verification
+only.
+
+### Alternative: OS-level scheduler
+
+Use this instead of (not in addition to) the in-app scheduler if you'd
+rather not depend on the Node process staying up 24/7 — e.g. a Windows dev
+machine that isn't always running, or an ops team that already manages all
+cron jobs centrally. Set `BACKUP_SCHEDULE_ENABLED=false` first so you don't
+end up with two schedules both writing archives.
 
 ### Linux / VPS — cron
 
@@ -237,6 +305,10 @@ What it does differently from `backup.js`:
   redacts them (PHI fields inside `before`/`after` snapshots → `[REDACTED]`).
 - Every export call is recorded in `AuditLog` as a `data.export` entry
   (visible in Owner → Logs), so exports are themselves auditable.
+- A single generic function (`buildCsvExport()`) produces every per-table
+  CSV — there is no per-collection exporter to keep in sync. A table with
+  zero documents still downloads a valid CSV with a header row (derived from
+  the schema), not an empty/broken-looking file.
 
 Implementation: `Backend/services/shared/dataExport.js` (data shaping),
 `Backend/controllers/dataExport.controller.js` (endpoints), routed under

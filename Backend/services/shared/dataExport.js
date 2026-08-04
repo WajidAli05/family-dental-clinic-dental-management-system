@@ -111,6 +111,13 @@ function toCsv(rows) {
   return lines.join("\r\n");
 }
 
+// Falls back to the schema's field names so an empty collection still
+// downloads a valid CSV with a header row, instead of a 0-byte file that
+// looks broken (toCsv() can only see columns that appear in actual rows).
+function schemaColumns(model) {
+  return Object.keys(model.schema.paths).filter((p) => p !== "_id" && p !== "__v").concat("id");
+}
+
 /** CSV export for one tabular collection (patients, appointments, invoices, …). */
 export async function buildCsvExport(key) {
   const cfg = REGISTRY[key];
@@ -120,5 +127,6 @@ export async function buildCsvExport(key) {
     );
   }
   const rows = await fetchShaped(key);
+  if (rows.length === 0) return schemaColumns(cfg.model).join(",") + "\r\n";
   return toCsv(rows);
 }

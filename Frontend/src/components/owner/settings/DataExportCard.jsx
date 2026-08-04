@@ -32,8 +32,11 @@ const DataExportCard = () => {
   useEffect(() => {
     dataExportApi.getExportableCollections()
       .then((json) => setCollections(json.data || []))
-      .catch(() => setCollections([]));
-  }, []);
+      .catch((e) => {
+        setCollections([]);
+        toast.error(e.message || t("dataExport.error"));
+      });
+  }, [t]);
 
   const handleJson = async () => {
     setBusy("json");

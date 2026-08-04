@@ -15,6 +15,7 @@ import "./models/index.js";
 // DB connection
 import dbConnection from "./config/dbConnection.js";
 import routesV1 from "./routes/v1/index.js";
+import { startBackupScheduler } from "./services/backupScheduler.js";
 
 
 const app = express();
@@ -69,6 +70,9 @@ app.use("/api/v1", routesV1);
 
 /* DB connection */
 dbConnection();
+
+/* Nightly backup scheduler — reuses the connection above; never blocks startup */
+startBackupScheduler();
 
 /* Start server */
 const port = process.env.PORT || 3000;

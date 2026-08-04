@@ -18,6 +18,7 @@ const ACTIONS = [
   "auth.2fa_verified",   "auth.2fa_failed",
   "audit.view",
   "data.export",
+  "system.backup",
 ];
 
 const auditLogSchema = new Schema(

@@ -113,6 +113,11 @@ const ACTION_TEMPLATES = {
 
   "data.export":               ({ actorName, entityLabel }) =>
     `${actorName} exported clinic data${entityLabel ? ` (${entityLabel})` : ""}`,
+
+  "system.backup":             ({ after }) =>
+    after?.success === false
+      ? `Scheduled backup failed${after?.error ? `: ${after.error}` : ""}`
+      : `Scheduled backup completed${after?.totalDocs ? ` (${after.totalDocs} documents)` : ""}`,
 };
 
 export function describeAuditEntry(entry) {
