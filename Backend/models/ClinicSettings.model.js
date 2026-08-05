@@ -32,6 +32,14 @@ const clinicSettingsSchema = new Schema(
       weekStart:      { type: Number, default: 0, min: 0, max: 1 },
       exchangeRate:   { type: Number, default: 1, min: 0 },
     },
+
+    // Data retention policy (PDPL). Additive, informational + used by any
+    // future purge tooling — no automated purge runs today (see SECURITY.md).
+    retention: {
+      patientRecordsYears:   { type: Number, default: 7, min: 1 },
+      financialRecordsYears: { type: Number, default: 7, min: 1 },
+      auditLogYears:         { type: Number, default: 7, min: 1 },
+    },
   },
   { timestamps: true }
 );

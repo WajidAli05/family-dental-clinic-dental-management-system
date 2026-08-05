@@ -10,7 +10,10 @@ import {
 
 const router = express.Router();
 
-// For now, no auth middleware. Later plug in JWT middleware here.
+// Auth is applied at the mount point: routes/v1/index.js does
+// `router.use("/lab", auth(["lab", "owner"]), labRoutes)`. Every handler
+// below relies on req.user being populated by that middleware — do not
+// mount this router anywhere else without equivalent protection.
 router.get("/me", getLabMe);
 router.patch("/me", updateLabMe);
 

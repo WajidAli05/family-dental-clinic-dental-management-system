@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
@@ -82,6 +83,7 @@ labCaseSchema.pre("validate", async function () {
 });
 
 labCaseSchema.plugin(toJSON);
+labCaseSchema.plugin(softDelete);
 labCaseSchema.index({ lab: 1, status: 1, createdAt: -1 });
 
 export default mongoose.models.LabCase || mongoose.model("LabCase", labCaseSchema);

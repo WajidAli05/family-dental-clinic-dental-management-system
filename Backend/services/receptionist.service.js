@@ -1034,7 +1034,7 @@ export async function receptionistDeleteLabSample(_user, casePublicId) {
   const c = await LabCase.findOne({ publicId: casePublicId });
   if (!c) throw new Error("Sample not found");
 
-  await LabCase.deleteOne({ _id: c._id });
+  await c.softDelete();
   return { message: "Deleted", id: casePublicId };
 }
 

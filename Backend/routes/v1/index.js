@@ -36,9 +36,11 @@ router.get(
   auth(["dentist", "receptionist", "owner", "lab"]),
   getClinicConfigCtrl
 );
+// Country/currency preset is clinic-wide financial config — owner-only
+// (ownerSwitchCountry() itself is documented owner-only; this enforces it).
 router.patch(
   "/clinic-config/country",
-  auth(["dentist", "receptionist", "owner", "lab"]),
+  auth(["owner"]),
   switchCountryCtrl
 );
 router.patch(

@@ -19,6 +19,7 @@ const ACTIONS = [
   "audit.view",
   "data.export",
   "system.backup",
+  "patient.erasure",
 ];
 
 const auditLogSchema = new Schema(

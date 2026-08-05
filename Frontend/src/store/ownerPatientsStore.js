@@ -257,6 +257,31 @@ export const useOwnerPatientsStore = create((set, get) => ({
     return get().markPatientInactive(patientId);
   },
 
+  // Right to erasure (PDPL) — irreversible, anonymizes PII server-side.
+  // `confirm` must equal patientId exactly (server re-checks this too).
+  erasePatient: async (patientId, confirm) => {
+    const id = String(patientId || "").trim();
+    if (!id) return;
+
+    set({ loading: true, error: null });
+    try {
+      await ownerApi.erasePatient(id, confirm);
+      set((state) => ({
+        patients: state.patients.map((p) =>
+          p.id === id ? { ...p, name: `Erased Patient (${id})`, status: "inactive" } : p
+        ),
+        selectedPatient:
+          state.selectedPatient?.id === id
+            ? { ...state.selectedPatient, name: `Erased Patient (${id})`, status: "inactive" }
+            : state.selectedPatient,
+        loading: false,
+      }));
+    } catch (e) {
+      set({ loading: false, error: e.message });
+      throw e;
+    }
+  },
+
   // ✅ NEW: create patient
   addPatient: async (body) => {
     try {

@@ -633,6 +633,7 @@ export async function ownerPatientDelete(_ownerId, patientPublicId) {
   patient.status = "inactive";
   patient.tags = Array.isArray(patient.tags) ? patient.tags : [];
   if (!patient.tags.includes("deleted")) patient.tags.push("deleted");
+  patient.deletedAt = new Date();
 
   await patient.save();
 
@@ -894,7 +895,7 @@ export async function ownerUpdateLabCase(_ownerId, casePublicId, body) {
 export async function ownerDeleteLabCase(_ownerId, casePublicId) {
   const c = await LabCase.findOne({ publicId: casePublicId });
   if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
-  await LabCase.deleteOne({ _id: c._id });
+  await c.softDelete();
   return { id: casePublicId };
 }
 
@@ -1762,6 +1763,12 @@ export async function ownerClinicalDeleteFinding(_ownerId, findingId) {
 // =========================
 const CLINIC_SETTINGS_ID = "CLINIC-SETTINGS";
 
+const DEFAULT_RETENTION = {
+  patientRecordsYears:   7,
+  financialRecordsYears: 7,
+  auditLogYears:          7,
+};
+
 const DEFAULT_LOCALE = {
   country:        "PK",
   locale:         "en",
@@ -1838,6 +1845,12 @@ async function ensureClinicSettingsDoc() {
     dirty = true;
   }
 
+  // Backfill retention object if missing (additive migration for existing docs)
+  if (!doc.retention || typeof doc.retention !== "object") {
+    doc.retention = { ...DEFAULT_RETENTION };
+    dirty = true;
+  }
+
   if (dirty) await doc.save();
 
   return doc;
@@ -1856,6 +1869,14 @@ function serializeLocale(raw = {}) {
     dateFormat:     raw.dateFormat     || DEFAULT_LOCALE.dateFormat,
     weekStart:      Number(raw.weekStart) || 0,
     exchangeRate:   Number(raw.exchangeRate) || 1,
+  };
+}
+
+function serializeRetention(raw = {}) {
+  return {
+    patientRecordsYears:   Number(raw.patientRecordsYears)   || DEFAULT_RETENTION.patientRecordsYears,
+    financialRecordsYears: Number(raw.financialRecordsYears) || DEFAULT_RETENTION.financialRecordsYears,
+    auditLogYears:         Number(raw.auditLogYears)          || DEFAULT_RETENTION.auditLogYears,
   };
 }
 
@@ -1895,6 +1916,7 @@ export async function ownerSettingsGet(_ownerId) {
       defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
     },
     locale: serializeLocale(doc?.locale),
+    retention: serializeRetention(doc?.retention),
   };
 }
 
@@ -1986,6 +2008,18 @@ export async function ownerSettingsUpdate(_ownerId, payload = {}) {
     doc.set("locale", next);
   }
 
+  // Update retention block if provided — floors at 1 year; never lets the
+  // owner configure a shorter-than-a-year window by accident.
+  if (payload?.retention && typeof payload.retention === "object") {
+    const r = payload.retention;
+    const current = doc.retention?.toObject?.() || doc.retention || {};
+    const next = { ...DEFAULT_RETENTION, ...current };
+    if (r.patientRecordsYears   !== undefined) next.patientRecordsYears   = Math.max(1, Number(r.patientRecordsYears)   || DEFAULT_RETENTION.patientRecordsYears);
+    if (r.financialRecordsYears !== undefined) next.financialRecordsYears = Math.max(1, Number(r.financialRecordsYears) || DEFAULT_RETENTION.financialRecordsYears);
+    if (r.auditLogYears         !== undefined) next.auditLogYears         = Math.max(1, Number(r.auditLogYears)         || DEFAULT_RETENTION.auditLogYears);
+    doc.set("retention", next);
+  }
+
   await doc.save();
 
   const saved = await ClinicSettings.findById(CLINIC_SETTINGS_ID).lean();
@@ -2004,6 +2038,7 @@ export async function ownerSettingsUpdate(_ownerId, payload = {}) {
       defaultConsultationFee: Number(billing.defaultConsultationFee) || 0,
     },
     locale: serializeLocale(saved?.locale),
+    retention: serializeRetention(saved?.retention),
   };
 }
 

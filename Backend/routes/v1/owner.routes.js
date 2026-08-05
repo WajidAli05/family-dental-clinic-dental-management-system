@@ -95,6 +95,7 @@ import {
 import { getLockedAccounts, manualUnlock, getStaffLoginHistory } from "../../controllers/security.controller.js";
 import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 import { listExportableCollections, exportJson, exportCsv } from "../../controllers/dataExport.controller.js";
+import { erasePatient } from "../../controllers/erasure.controller.js";
 
 const router = express.Router();
 
@@ -115,6 +116,9 @@ router.post("/patients",                 ownerCreatePatientCtrl);
 router.get("/patients/:id/profile",      ownerGetPatientProfile);
 router.patch("/patients/:id",      ownerUpdatePatientCtrl);
 router.delete("/patients/:id",     ownerDeletePatient);
+// Right to erasure (PDPL) — distinct from soft-delete above: irreversible,
+// anonymizes PII rather than hiding the record. Typed confirmation required.
+router.post("/patients/:publicId/erase", erasePatient);
 
 // Lab accounts
 router.get("/labs", ownerListLabs);

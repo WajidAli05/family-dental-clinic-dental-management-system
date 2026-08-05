@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
@@ -26,11 +27,17 @@ const patientSchema = new Schema(
     primaryDentist: { type: Schema.Types.ObjectId, ref: "User" },
 
     tags: { type: [String], default: [] },
+
+    // Right-to-erasure (PDPL) marker — set once PII has been irreversibly
+    // anonymized. Distinct from deletedAt (soft-delete is recoverable;
+    // anonymization is not). See SECURITY.md.
+    anonymizedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 
 patientSchema.plugin(toJSON);
+patientSchema.plugin(softDelete);
 
 patientSchema.index({ status: 1, lastVisit: -1 });
 

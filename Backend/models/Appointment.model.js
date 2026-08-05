@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
@@ -36,6 +37,7 @@ const appointmentSchema = new Schema(
 );
 
 appointmentSchema.plugin(toJSON);
+appointmentSchema.plugin(softDelete);
 
 // fast owner filters
 appointmentSchema.index({ date: 1, dentist: 1, status: 1 });

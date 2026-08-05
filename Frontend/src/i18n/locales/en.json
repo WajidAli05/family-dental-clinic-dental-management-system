@@ -147,7 +147,8 @@
     "cancel": "Cancel"
   },
   "market": {
-    "label": "Market"
+    "label": "Market",
+    "ownerOnly": "Only the owner can change the clinic's country/currency"
   },
   "language": {
     "label": "Language",

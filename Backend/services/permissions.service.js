@@ -87,7 +87,8 @@ export async function getAllPermissionsAsMatrix() {
 }
 
 export async function userCanAccess(user, permKey) {
-  if (!user || !permKey) return true;
+  if (!permKey) return true;
+  if (!user) return false; // fail closed — no authenticated user, no access
   if (user.role === "owner") return true;
 
   const doc = await ensurePermissionsDoc();

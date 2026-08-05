@@ -26,18 +26,21 @@ const OPTIONS = [
 
 /**
  * Compact country/currency toggle for the sidebar footer.
- * All roles: interactive — switches config server-side via /clinic-config/country
- * and updates clinicConfigStore in-place so every subscribed component re-renders
- * without a page reload.
+ * Owner: interactive — switches config server-side via /clinic-config/country
+ * (owner-only endpoint) and updates clinicConfigStore in-place so every
+ * subscribed component re-renders without a page reload.
+ * Other roles: read-only display — country/currency is clinic-wide financial
+ * config, not a personal preference.
  */
 const CountryToggle = () => {
   const { t } = useTranslation();
   const country     = useClinicConfigStore((s) => s.country);
   const applyConfig = useClinicConfigStore((s) => s.applyConfig);
+  const isOwner     = useUserStore((s) => s.currentUser?.role === "owner");
   const [busy, setBusy] = useState(false);
 
   const handleSwitch = async (next) => {
-    if (busy || next === country) return;
+    if (!isOwner || busy || next === country) return;
     setBusy(true);
     try {
       const res = await switchCountryApi(next);
@@ -61,13 +64,14 @@ const CountryToggle = () => {
       <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
         {OPTIONS.map(({ value, flag, label }) => {
           const active    = country === value;
-          const canChange = !busy && value !== country;
+          const canChange = isOwner && !busy && value !== country;
 
           return (
             <button
               key={value}
               type="button"
-              disabled={busy && !active}
+              disabled={!isOwner || (busy && !active)}
+              title={!isOwner ? t("market.ownerOnly") : undefined}
               onClick={() => handleSwitch(value)}
               className={[
                 "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-150 select-none",

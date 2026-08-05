@@ -1,7 +1,9 @@
 # Backup, Restore & Data Export
 
 Disaster-recovery and data-portability reference for this clinic's database.
-Three separate mechanisms, do not conflate them:
+For access control, soft delete/retention, and PDPL erasure, see
+**[SECURITY.md](./SECURITY.md)**. Three separate mechanisms here, do not
+conflate them:
 
 | Mechanism | Purpose | Data shape | Who/what runs it |
 |---|---|---|---|

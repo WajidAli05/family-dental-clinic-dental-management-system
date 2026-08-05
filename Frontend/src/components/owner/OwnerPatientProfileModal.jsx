@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
@@ -15,10 +17,13 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const seedDemoProfile = useOwnerPatientsStore((s) => s.seedDemoProfile);
   const fetchProfile = useOwnerPatientsStore((s) => s.fetchProfile);
   const confirmAndDeletePatient = useOwnerPatientsStore((s) => s.confirmAndDeletePatient);
+  const erasePatient = useOwnerPatientsStore((s) => s.erasePatient);
   const loading = useOwnerPatientsStore((s) => s.loading);
 
   const [profileState, setProfileState] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
+  const [eraseConfirmText, setEraseConfirmText] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -47,6 +52,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   if (!open || !patient) return null;
 
   const alreadyInactive = String(patient.status || "").toLowerCase() === "inactive";
+  const alreadyErased = Array.isArray(patient.tags) && patient.tags.includes("erased");
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
@@ -80,6 +86,17 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {loading ? "Updating..." : "Delete"}
+            </Button>
+
+            <Button
+              variant="outline"
+              className="rounded-xl border-red-300 text-red-700 hover:bg-red-50"
+              disabled={loading || alreadyErased}
+              onClick={() => { setEraseConfirmText(""); setEraseOpen(true); }}
+              title={alreadyErased ? "This patient's data has already been erased" : "Permanently erase this patient's personal data (PDPL)"}
+            >
+              <ShieldAlert className="h-4 w-4 mr-2" />
+              {alreadyErased ? "Erased" : "Erase Data"}
             </Button>
 
             <Button variant="ghost" className="rounded-xl" onClick={onClose}>
@@ -154,6 +171,56 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           }
         }}
       />
+
+      {/* Right-to-erasure confirmation — irreversible, requires typing the exact patient ID */}
+      {eraseOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
+            <div className="p-5 border-b border-gray-100">
+              <h4 className="text-base font-semibold text-red-700 flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4" /> Erase patient data?
+              </h4>
+              <p className="mt-1 text-sm text-gray-600">
+                This permanently replaces {patient.name}'s name, phone, email, and address with
+                anonymized placeholders and clears their prescription clinical notes. Financial
+                records (invoices) and the audit trail are preserved. <strong>This cannot be undone.</strong>
+              </p>
+              <p className="mt-3 text-xs font-semibold text-gray-700">
+                Type <span className="font-mono bg-gray-100 px-1 rounded">{patient.id}</span> to confirm:
+              </p>
+              <Input
+                value={eraseConfirmText}
+                onChange={(e) => setEraseConfirmText(e.target.value)}
+                placeholder={patient.id}
+                className="mt-2"
+                autoFocus
+              />
+            </div>
+            <div className="p-5 flex items-center justify-end gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setEraseOpen(false)} disabled={loading}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="rounded-xl"
+                disabled={loading || eraseConfirmText !== patient.id}
+                onClick={async () => {
+                  try {
+                    await erasePatient(patient.id, eraseConfirmText);
+                    toast.success(`Patient data erased for ${patient.id}.`);
+                    setEraseOpen(false);
+                    onClose();
+                  } catch (e) {
+                    toast.error(e.message || "Failed to erase patient data.");
+                  }
+                }}
+              >
+                {loading ? "Erasing..." : "Erase permanently"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

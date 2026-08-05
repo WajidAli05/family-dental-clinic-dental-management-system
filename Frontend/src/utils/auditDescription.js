@@ -17,6 +17,9 @@ const ACTION_TEMPLATES = {
   "patient.delete":            ({ actorName, entityLabel }) =>
     `${actorName} deleted patient${entityLabel ? ` "${entityLabel}"` : ""}`,
 
+  "patient.erasure":           ({ actorName, entityId, after }) =>
+    `${actorName} erased personal data for patient ${entityId || ""}${after?.prescriptionsCleared ? ` (${after.prescriptionsCleared} prescription(s) cleared)` : ""}`,
+
   "appointment.create":        ({ actorName, entityLabel }) =>
     `${actorName} created appointment${entityLabel ? ` ${entityLabel}` : ""}`,
 

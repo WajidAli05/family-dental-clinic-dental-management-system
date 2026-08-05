@@ -221,10 +221,10 @@ export async function updateAppointmentStatusCore(apptPublicId, uiStatus, { ownD
   return mapAppointmentToUI(populated);
 }
 
-/** Hard-delete (owner only). */
+/** Soft-delete (owner only) — sets deletedAt; excluded from all normal queries thereafter. */
 export async function deleteAppointmentCore(apptPublicId) {
   const appt = await Appointment.findOne({ publicId: apptPublicId });
   if (!appt) throw new Error("Appointment not found");
-  await Appointment.deleteOne({ _id: appt._id });
+  await appt.softDelete();
   return { message: "Deleted", id: apptPublicId };
 }
