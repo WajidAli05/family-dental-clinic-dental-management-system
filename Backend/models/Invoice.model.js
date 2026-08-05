@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
@@ -47,6 +48,7 @@ const invoiceSchema = new Schema(
 );
 
 invoiceSchema.plugin(toJSON);
+invoiceSchema.plugin(softDelete);
 
 invoiceSchema.virtual("paidAmount").get(function () {
   return (this.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);

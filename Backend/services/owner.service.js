@@ -509,34 +509,45 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
 // ----------------------------
 // ✅ OWNER PATIENT PROFILE
 // ----------------------------
+// Direct-by-ID profile lookup — deliberately bypasses the soft-delete filter
+// (includeDeleted: true) on every query here. Soft-delete hides a patient
+// from ACTIVE LIST views (ownerPatientsList etc.), but once the owner is
+// looking at one specific patient by ID, historical/financial records must
+// stay reviewable (audit + retention integrity) even after the patient and
+// their cascaded records (see ownerPatientDelete) have been soft-deleted.
 export async function ownerPatientProfile(_ownerId, patientPublicId) {
   const pid = normalize(patientPublicId);
   if (!pid) throw new Error("Patient id is required");
 
   const patient = await Patient.findOne({ publicId: pid })
+    .setOptions({ includeDeleted: true })
     .populate("primaryDentist", "name publicId")
     .lean();
 
   if (!patient) throw new Error("Patient not found");
 
   const appts = await Appointment.find({ patient: patient._id })
+    .setOptions({ includeDeleted: true })
     .populate("dentist", "name publicId")
     .sort({ date: -1, createdAt: -1 })
     .limit(10)
     .lean();
 
   const invoices = await Invoice.find({ patient: patient._id })
+    .setOptions({ includeDeleted: true })
     .sort({ date: -1, createdAt: -1 })
     .limit(10)
     .lean({ virtuals: true });
 
   const labs = await LabCase.find({ patient: patient._id })
+    .setOptions({ includeDeleted: true })
     .populate("sampleType", "name publicId")
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();
 
   const rxRaw = await Prescription.find({ patientId: pid })
+    .setOptions({ includeDeleted: true })
     .sort({ createdAt: -1 })
     .limit(10)
     .lean();
@@ -623,6 +634,16 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
 // ----------------------------
 // ✅ OWNER PATIENT DELETE
 // ----------------------------
+// Soft-deletes the patient AND cascades a soft-delete to appointments, lab
+// cases, and prescriptions — via the SAME softDelete plugin used everywhere
+// else. Nothing is ever hard-deleted here.
+//
+// INVOICES ARE DELIBERATELY EXCLUDED FROM THIS CASCADE. Invoices are
+// immutable financial records (accounting/tax retention, revenue totals,
+// audit integrity) — deleting a patient must never change historical
+// revenue. An invoice's softDelete plugin/`deletedAt` field exists for a
+// possible future "void this specific invoice" action, not for cascading
+// from a patient delete. See SECURITY.md §6.
 export async function ownerPatientDelete(_ownerId, patientPublicId) {
   const pid = normalize(patientPublicId);
   if (!pid) throw new Error("Patient id is required");
@@ -637,7 +658,22 @@ export async function ownerPatientDelete(_ownerId, patientPublicId) {
 
   await patient.save();
 
-  return { message: "Deleted", id: pid };
+  const now = new Date();
+  const [appts, labCases, prescriptions] = await Promise.all([
+    Appointment.updateMany({ patient: patient._id, deletedAt: null }, { $set: { deletedAt: now } }),
+    LabCase.updateMany({ patient: patient._id, deletedAt: null }, { $set: { deletedAt: now } }),
+    Prescription.updateMany({ patientId: pid, deletedAt: null }, { $set: { deletedAt: now } }),
+  ]);
+
+  return {
+    message: "Deleted",
+    id: pid,
+    cascaded: {
+      appointments: appts.modifiedCount,
+      labCases: labCases.modifiedCount,
+      prescriptions: prescriptions.modifiedCount,
+    },
+  };
 }
 
 // ---------- LAB ACCOUNTS ----------

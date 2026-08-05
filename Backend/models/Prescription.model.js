@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
@@ -36,6 +37,7 @@ const PrescriptionSchema = new Schema(
 );
 
 PrescriptionSchema.plugin(toJSON);
+PrescriptionSchema.plugin(softDelete);
 
 export default mongoose.models.Prescription ||
   mongoose.model("Prescription", PrescriptionSchema);

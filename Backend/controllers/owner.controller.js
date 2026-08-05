@@ -153,7 +153,7 @@ export const ownerGetPatientProfile = async (req, res) => {
 export const ownerDeletePatient = async (req, res) => {
   try {
     const data = await ownerPatientDelete(req.user?._id, req.params.id);
-    await recordAudit({ req, action: "patient.delete", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { status: data?.status, tags: data?.tags } });
+    await recordAudit({ req, action: "patient.delete", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { status: data?.status, tags: data?.tags, cascaded: data?.cascaded } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

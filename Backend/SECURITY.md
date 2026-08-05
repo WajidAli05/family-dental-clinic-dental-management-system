@@ -212,39 +212,80 @@ oversight next time):
 
 ## 6. Soft delete
 
-**Before this audit**: `deleteOne`/`deleteMany` hard-removed documents for
-Appointments (`deleteAppointmentCore`) and LabCase (`ownerDeleteLabCase`,
-`receptionistDeleteLabSample`). Patient deletion was already a de-facto soft
-delete (`status: "inactive"` + a `"deleted"` tag) but ad hoc — not a real
-flag, and not enforced at the query level (any query could still return a
-"deleted" patient if it didn't happen to filter on `status`/`tags`).
-Invoice and Prescription had **no delete route at all** — nothing to convert.
+**Before the RBAC audit pass**: `deleteOne`/`deleteMany` hard-removed
+documents for Appointments (`deleteAppointmentCore`) and LabCase
+(`ownerDeleteLabCase`, `receptionistDeleteLabSample`). Patient deletion was
+already a de-facto soft delete (`status: "inactive"` + a `"deleted"` tag)
+but ad hoc — not a real flag, and not enforced at the query level. Invoice
+and Prescription had no delete *route* — but see the follow-up finding below.
 
-**Now**: `Backend/models/plugins/softDelete.js` — a schema plugin (same
-pattern as the existing `toJSON` plugin, applied to `Patient`,
-`Appointment`, `LabCase`):
+`Backend/models/plugins/softDelete.js` — a schema plugin (same pattern as
+the existing `toJSON` plugin):
 
 - Adds an additive `deletedAt: Date | null` field.
 - Installs `pre` hooks on `find`, `findOne`, `findOneAndUpdate`,
   `countDocuments`, `count`, and `aggregate` that automatically inject
   `{ deletedAt: null }` unless the query already specifies `deletedAt` or
-  passes `{ includeDeleted: true }` as a query option. This is the "shared
-  query filter, not scattered across call sites" the task asked for —
-  every existing `.find()`/`.findOne()`/`.aggregate()` call across
+  passes `{ includeDeleted: true }` as a query option (`.setOptions({...})`
+  for find-style queries, `.option({...})` for aggregates). This is the
+  "shared query filter, not scattered across call sites" the task asked
+  for — every existing `.find()`/`.findOne()`/`.aggregate()` call across
   `owner.service.js`, `receptionist.service.js`, `dentist.service.js` etc.
-  is now soft-delete-aware **without having been touched**.
+  is soft-delete-aware **without having been touched**.
 - Adds `doc.softDelete()` (sets `deletedAt = now`, saves) and `doc.restore()`
   (clears it) instance methods.
 
-`deleteAppointmentCore`, `ownerDeleteLabCase`, `receptionistDeleteLabSample`
-now call `.softDelete()` instead of `.deleteOne()`. `ownerPatientDelete`
-keeps its existing `status`/`tags` mutation (frontend may depend on it) and
-additionally sets `deletedAt` for real query-level enforcement.
+Applied to `Patient`, `Appointment`, `LabCase`, `Invoice`, and `Prescription`
+(the plugin is on the `Invoice` model for a possible future "void this one
+invoice" action — see the financial-integrity note below for why patient
+deletion itself does not use it).
 
-Backup (`scripts/backup.js`) and restore intentionally bypass this — they
-use the raw MongoDB driver, not Mongoose, so a DR backup still captures
-soft-deleted records (you can recover from an accidental soft-delete via
-restore) and a restore writes them back exactly as archived.
+**Follow-up finding (data-integrity bug, fixed)**: `ownerPatientDelete`
+originally touched *only* the `Patient` document — it never cascaded to the
+patient's appointments, lab cases, invoices, or prescriptions at all. That
+was invisible at first because deleting a patient still "worked," but it
+produced an inconsistent, misleading result: once `Patient` got the
+soft-delete plugin, `Patient.findOne()` inside `ownerPatientProfile` started
+returning null for a deleted patient — so the ENTIRE profile view
+(including that patient's real, untouched invoices) 404'd. From the owner's
+side this looked exactly like "the invoices disappeared," even though
+nothing had actually been removed from the database — the records were
+simply unreachable through the one screen that shows them.
+
+Fixed with two changes:
+
+1. `ownerPatientDelete` cascades a **soft** delete (`updateMany({ deletedAt:
+   null }, { $set: { deletedAt: now } })`, never `deleteOne`/`deleteMany`)
+   to every `Appointment` and `LabCase` referencing the patient's `_id`, and
+   every `Prescription` referencing their `publicId`. Returns a `cascaded: {
+   appointments, labCases, prescriptions }` count, recorded in the
+   `patient.delete` audit entry. **`Invoice` is deliberately excluded from
+   this cascade** — see the financial-integrity note immediately below.
+2. `ownerPatientProfile` — a direct by-ID lookup, not a list view — queries
+   `Patient`/`Appointment`/`Invoice`/`LabCase`/`Prescription` all with
+   `includeDeleted: true`. Soft-delete is meant to hide records from
+   day-to-day active *list* views, not make a specific patient's history
+   unreviewable. `erasePatientPII` (§8) got the same treatment for the same
+   reason — an erasure request must be able to find and act on an
+   already-deleted patient/prescriptions, not 404.
+
+**Financial-integrity decision — invoices are NEVER cascade-deleted**:
+deleting a patient must not change historical revenue. `Invoice` carries the
+softDelete plugin (for a possible future per-invoice void/cancel action) but
+`ownerPatientDelete` never calls it — a patient's invoices stay fully live
+financial records (`deletedAt: null`) after the patient is deleted. Revenue
+totals, cashbook, commissions, and every other Billing & Financials
+aggregate are computed the exact same way before and after a patient delete.
+Only the *patient* disappears from patient lists; the money they paid stays
+counted. (An earlier version of this cascade DID soft-delete the patient's
+invoices, which silently dropped revenue from dashboards — one real invoice
+in this database was affected by it and has been restored via
+`doc.restore()` as part of this fix.)
+
+Backup (`scripts/backup.js`) and restore intentionally bypass all of this —
+they use the raw MongoDB driver, not Mongoose, so a DR backup captures
+records regardless of soft-delete state, and a restore writes them back
+exactly as archived.
 
 ## 7. Data retention policy
 
@@ -334,6 +375,12 @@ prescriptionsCleared }`. Visible in Owner → Logs like any other action.
 patient (`anonymizedAt` already set) returns a 409 rather than silently
 re-running (there is nothing left to anonymize, and re-running would
 overwrite the `anonymizedAt` timestamp misleadingly).
+
+**Works on already-deleted patients**: both the `Patient` and `Prescription`
+lookups use `includeDeleted: true` (§6) — an erasure request is a lawful
+obligation independent of whether `ownerPatientDelete` was already run
+against that patient. Without this, a deleted-then-erasure-requested patient
+would 404 instead of being erasable.
 
 ## 9. Encryption
 
