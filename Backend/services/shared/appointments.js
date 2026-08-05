@@ -84,6 +84,17 @@ async function resolvePatient(key) {
   return patient;
 }
 
+// Patient.findById already excludes soft-deleted/erased patients (softDelete
+// plugin). Reused by every write path below instead of a second hand-rolled
+// deletedAt check — a deleted patient's appointments must be fully
+// non-actionable, not just hidden from lists.
+async function assertPatientActive(patientObjectId) {
+  const patient = await Patient.findById(patientObjectId).select("_id");
+  if (!patient) {
+    throw Object.assign(new Error("Patient not found or inactive"), { status: 404 });
+  }
+}
+
 async function resolveDentist(key) {
   const or = [];
   if (isOid(key)) or.push({ _id: key });
@@ -158,6 +169,8 @@ export async function updateAppointmentCore(apptPublicId, body, { ownDentistId }
     throw new Error("Not authorized to edit this appointment");
   }
 
+  await assertPatientActive(appt.patient);
+
   const newDate = body?.date ? String(body.date).trim() : appt.date;
   const newTime = body?.time ? String(body.time).trim() : appt.time;
 
@@ -202,6 +215,8 @@ export async function updateAppointmentStatusCore(apptPublicId, uiStatus, { ownD
   if (ownDentistId && String(appt.dentist) !== String(ownDentistId)) {
     throw new Error("Not authorized to update this appointment");
   }
+
+  await assertPatientActive(appt.patient);
 
   const allowed = ALLOWED_APPOINTMENT_TRANSITIONS[appt.status] || [];
   if (appt.status !== dbStatus && !allowed.includes(dbStatus)) {

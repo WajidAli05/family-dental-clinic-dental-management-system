@@ -32,6 +32,15 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const makeRxId = () =>
   `RX-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
+// The softDelete plugin (models/plugins/softDelete.js) already excludes
+// soft-deleted docs from populate()'s own query — a populated `patient`/
+// `dentist` ref that comes back null means the referenced record is
+// soft-deleted (or erased, which also sets deletedAt — see erasure.js).
+// Reuse that instead of a second hand-written deletedAt check: any query
+// that populates "patient" onto Appointment/LabCase should filter with this
+// before returning rows, so a deleted patient's records never surface.
+const hasActivePatient = (doc) => Boolean(doc?.patient);
+
 // -------------------- ME --------------------
 export async function dentistGetMe(dentistId) {
   const user = await User.findById(dentistId).lean();
@@ -80,24 +89,29 @@ export async function dentistChangePassword(dentistId, { currentPassword, newPas
 export async function dentistGetStats(dentistId, { date: dateParam } = {}) {
   const date = String(dateParam || "").trim() || todayISO();
 
-  const [appointmentsToday, completedToday, pendingLab, prescriptionsToday] =
-    await Promise.all([
-      Appointment.countDocuments({ dentist: dentistId, date }),
-      Appointment.countDocuments({ dentist: dentistId, date, status: "completed" }),
-      LabCase.countDocuments({
-        dentist: dentistId,
-        status: { $in: ["sent", "in_progress", "ready", "delivered"] },
-      }),
-      Prescription.countDocuments({
-        date,
-        dentistName: { $exists: true, $ne: "" },
-      }),
-    ]);
+  // countDocuments() alone can't see whether a matched appointment's PATIENT
+  // is soft-deleted (erasure doesn't cascade to Appointment — see
+  // erasure.js). Fetch + populate + filter with the same hasActivePatient
+  // check used by dentistGetAppointments/dentistGetCases, so the dashboard
+  // counts match what those lists actually show.
+  const [todaysAppts, pendingLabCases, prescriptionsToday] = await Promise.all([
+    Appointment.find({ dentist: dentistId, date }).populate("patient", "_id").lean(),
+    LabCase.find({
+      dentist: dentistId,
+      status: { $in: ["sent", "in_progress", "ready", "delivered"] },
+    }).populate("patient", "_id").lean(),
+    Prescription.countDocuments({
+      date,
+      dentistName: { $exists: true, $ne: "" },
+    }),
+  ]);
+
+  const activeTodaysAppts = todaysAppts.filter(hasActivePatient);
 
   return {
-    appointmentsToday,
-    patientsSeen: completedToday,
-    pendingLab,
+    appointmentsToday: activeTodaysAppts.length,
+    patientsSeen: activeTodaysAppts.filter((a) => a.status === "completed").length,
+    pendingLab: pendingLabCases.filter(hasActivePatient).length,
     prescriptionsToday,
   };
 }
@@ -126,27 +140,36 @@ export async function dentistGetStats(dentistId, { date: dateParam } = {}) {
 
 // -------------------- APPOINTMENTS --------------------
 export async function dentistGetAppointments(dentistId, { date, page, limit, sortBy, sortDir } = {}) {
-  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
+  const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
   const query = { dentist: dentistId };
   const d = String(date || "").trim();
   if (d) query.date = d;
   const sort = buildSort(sb, sd, { date: -1, time: 1 });
-  const [total, rows] = await Promise.all([
-    Appointment.countDocuments(query),
-    Appointment.find(query).populate("patient", "name publicId mr").sort(sort).skip(skip).limit(L).lean(),
-  ]);
-  const mapped = rows.map((a) => ({
-    id: a.publicId,
-    patientId: a.patient?.publicId || "",
-    mr: a.patient?.mr || null,
-    patientName: a.patient?.name || "",
-    date: a.date,
-    time: a.time,
-    reason: a.reason,
-    status: a.status,
-    original: a,
-  }));
-  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+
+  // No DB-level skip/limit here — a soft-deleted/erased patient's appointment
+  // can still exist (erasure deliberately doesn't cascade to Appointment; see
+  // erasure.js), so populate("patient") comes back null for it and it must be
+  // filtered out BEFORE pagination, or `total`/page slicing would be wrong.
+  const rows = await Appointment.find(query)
+    .populate("patient", "name publicId mr")
+    .sort(sort)
+    .lean();
+
+  const mapped = rows
+    .filter(hasActivePatient) // excludes appointments whose patient is soft-deleted/erased
+    .map((a) => ({
+      id: a.publicId,
+      patientId: a.patient?.publicId || "",
+      mr: a.patient?.mr || null,
+      patientName: a.patient?.name || "",
+      date: a.date,
+      time: a.time,
+      reason: a.reason,
+      status: a.status,
+      original: a,
+    }));
+
+  return paginateArray(mapped, P, L);
 }
 
 // -------------------- LAB CASES --------------------
@@ -163,7 +186,7 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
     .sort(sort)
     .lean();
 
-  let mapped = rows.map((c) => ({
+  let mapped = rows.filter(hasActivePatient).map((c) => ({
     id: c.publicId,
     patientName: c.patient?.name || "",
     lab: c.lab?.name || "",
@@ -201,6 +224,15 @@ export async function dentistCreatePrescription(user, body) {
 
   const patientId = body?.patientId || "";
   if (!patientId) throw new Error("patientId is required");
+
+  // Clinical-safety guard: a prescription must never be created for a
+  // soft-deleted/erased patient, even via a stale UI reference or a direct
+  // API call. Patient.findOne() already excludes soft-deleted patients (the
+  // softDelete plugin), so a missing result here reliably means "gone."
+  const patient = await Patient.findOne({ publicId: patientId });
+  if (!patient) {
+    throw Object.assign(new Error("Patient not found or inactive"), { status: 404 });
+  }
 
   // Build plaintext payload first (all PHI in the clear at this point)
   const plain = {
@@ -278,6 +310,16 @@ export async function dentistUpdatePrescription(user, rxId, body) {
   }
   if (allowed.medications !== undefined && !Array.isArray(allowed.medications)) {
     throw new Error("medications must be an array");
+  }
+
+  // Same clinical-safety guard as create: don't let an update re-point (or
+  // leave pointed at) a soft-deleted/erased patient.
+  const effectivePatientId = allowed.patientId !== undefined ? allowed.patientId : rx.patientId;
+  if (effectivePatientId) {
+    const patient = await Patient.findOne({ publicId: effectivePatientId });
+    if (!patient) {
+      throw Object.assign(new Error("Patient not found or inactive"), { status: 404 });
+    }
   }
 
   // Encrypt PHI fields in the partial update object before writing
