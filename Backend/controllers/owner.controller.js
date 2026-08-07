@@ -720,7 +720,10 @@ export const ownerDeleteAppointmentCtrl = async (req, res) => {
 export const ownerCreatePatientCtrl = async (req, res) => {
   try {
     const data = await ownerCreatePatient(req.user?._id, req.body || {});
-    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: data?.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status } });
+    // Sensitive-field markers only (never the decrypted values) — insurance
+    // and emergency-contact data are PHI-adjacent even though the audit
+    // action itself ("patient.create") is the same one already in use.
+    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: data?.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status, insuranceSet: Boolean(req.body?.insurance), emergencyContactSet: Boolean(req.body?.emergencyContact) } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -730,7 +733,7 @@ export const ownerCreatePatientCtrl = async (req, res) => {
 export const ownerUpdatePatientCtrl = async (req, res) => {
   try {
     const data = await ownerUpdatePatient(req.user?._id, req.params.id, req.body || {});
-    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status } });
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status, insuranceChanged: Boolean(req.body?.insurance), emergencyContactChanged: Boolean(req.body?.emergencyContact) } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

@@ -155,5 +155,32 @@
     "en": "English",
     "ur": "اردو",
     "ar": "العربية"
+  },
+  "patients": {
+    "sectionIdentity": "Identity",
+    "sectionContact": "Contact",
+    "sectionEmergency": "Emergency Contact",
+    "sectionInsurance": "Insurance",
+    "sectionReferral": "Referral",
+    "dob": "Date of Birth",
+    "nationality": "Nationality",
+    "preferredLanguage": "Preferred Language",
+    "country": "Country",
+    "postalCode": "Postal Code",
+    "referralSource": "How did you hear about us?",
+    "referralSelect": "Select",
+    "referralWalkIn": "Walk-in",
+    "referralReferral": "Referral",
+    "referralOnline": "Online",
+    "referralSocial": "Social Media",
+    "referralOther": "Other",
+    "emergencyContactName": "Contact Name",
+    "emergencyContactRelationship": "Relationship",
+    "emergencyContactPhone": "Contact Phone",
+    "insuranceProvider": "Insurance Provider",
+    "insurancePolicyNumber": "Policy Number",
+    "insurancePolicyOnFile": "Policy number on file",
+    "insurancePolicyPlaceholderSet": "Leave blank to keep unchanged",
+    "insurancePolicyPlaceholderUnset": "Enter policy number (optional)"
   }
 }

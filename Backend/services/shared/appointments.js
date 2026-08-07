@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Appointment from "../../models/Appointment.model.js";
 import Patient from "../../models/Patient.model.js";
 import User from "../../models/User.model.js";
+import { getNextSequence } from "./counters.js";
 
 // ── Transition guard ─────────────────────────────────────────────────────────
 export const ALLOWED_APPOINTMENT_TRANSITIONS = {
@@ -36,14 +37,25 @@ export function toUiAppointmentStatus(db) {
 // ── ID generator ──────────────────────────────────────────────────────────────
 const pad = (n, w = 4) => String(n).padStart(w, "0");
 
-export async function generateAppointmentPublicId() {
-  let n = (await Appointment.countDocuments({})) + 1;
-  while (true) {
-    const publicId = `APT-${pad(n)}`;
-    const exists = await Appointment.exists({ publicId });
-    if (!exists) return publicId;
-    n += 1;
+// Seed (first bootstrap only): true max existing APT-#### number, including
+// soft-deleted appointments — they still occupy their publicId at the DB
+// level even though normal queries hide them.
+async function computeAppointmentIdSeed() {
+  const rows = await Appointment.find({ publicId: /^APT-\d+$/ })
+    .select("publicId")
+    .setOptions({ includeDeleted: true })
+    .lean();
+  let max = 0;
+  for (const r of rows) {
+    const m = String(r.publicId).match(/^APT-(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
+  return max;
+}
+
+export async function generateAppointmentPublicId() {
+  const n = await getNextSequence("appointment", computeAppointmentIdSeed);
+  return `APT-${pad(n)}`;
 }
 
 // ── UI mapper (humanised status — for dentist / receptionist context) ─────────

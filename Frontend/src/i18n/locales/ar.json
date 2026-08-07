@@ -155,5 +155,32 @@
     "en": "English",
     "ur": "اردو",
     "ar": "العربية"
+  },
+  "patients": {
+    "sectionIdentity": "الهوية",
+    "sectionContact": "الاتصال",
+    "sectionEmergency": "جهة اتصال الطوارئ",
+    "sectionInsurance": "التأمين",
+    "sectionReferral": "مصدر الإحالة",
+    "dob": "تاريخ الميلاد",
+    "nationality": "الجنسية",
+    "preferredLanguage": "اللغة المفضلة",
+    "country": "الدولة",
+    "postalCode": "الرمز البريدي",
+    "referralSource": "كيف سمعت عنا؟",
+    "referralSelect": "اختر",
+    "referralWalkIn": "زيارة مباشرة",
+    "referralReferral": "إحالة",
+    "referralOnline": "عبر الإنترنت",
+    "referralSocial": "وسائل التواصل الاجتماعي",
+    "referralOther": "أخرى",
+    "emergencyContactName": "اسم جهة الاتصال",
+    "emergencyContactRelationship": "صلة القرابة",
+    "emergencyContactPhone": "رقم هاتف جهة الاتصال",
+    "insuranceProvider": "شركة التأمين",
+    "insurancePolicyNumber": "رقم بوليصة التأمين",
+    "insurancePolicyOnFile": "رقم البوليصة مسجّل",
+    "insurancePolicyPlaceholderSet": "اتركه فارغاً للإبقاء عليه دون تغيير",
+    "insurancePolicyPlaceholderUnset": "أدخل رقم البوليصة (اختياري)"
   }
 }

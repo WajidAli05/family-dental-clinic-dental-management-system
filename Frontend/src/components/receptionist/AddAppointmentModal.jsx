@@ -21,9 +21,9 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Stores
-import { usePatientStore } from "@/store/patientStore";
 import { useAppointmentStore } from "@/store/appointmentStore";
 import { useDentistStore } from "@/store/dentistStore";
+import { receptionistApi } from "@/lib/receptionistApi";
 
 // Icons
 import {
@@ -37,13 +37,13 @@ import {
 } from "lucide-react";
 
 const AddAppointmentModal = ({ open, onOpenChange }) => {
-  const { lookupPatient } = usePatientStore();
   const { createAppointment, addAppointment } = useAppointmentStore();
   const { dentists, fetchAllDentists, loading: dentistLoading } = useDentistStore();
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false); // patient search
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [results, setResults] = useState([]);
   const [patient, setPatient] = useState(null);
   const [error, setError] = useState("");
 
@@ -58,6 +58,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
 
   const resetState = () => {
     setQuery("");
+    setResults([]);
     setPatient(null);
     setError("");
     setAppointment({ date: "", time: "", dentist: "", reason: "" });
@@ -72,21 +73,28 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     if (typeof fetchAllDentists === "function") fetchAllDentists();
   }, [open, fetchAllDentists]);
 
+  // Search returns a LIST (same as the owner book-appointment flow) — when a
+  // phone/name matches more than one patient (family sharing a number), the
+  // receptionist must pick the specific one instead of silently getting the
+  // first match, exactly like the owner flow already does.
   const handleSearch = async () => {
     setError("");
     setPatient(null);
+    setResults([]);
     setNotification(null);
+    if (!query.trim()) return;
     setLoading(true);
 
     try {
-      if (typeof lookupPatient !== "function") {
-        throw new Error("Patient lookup is not configured");
+      const res = await receptionistApi.getPatients({ q: query.trim(), limit: 10 });
+      const rows = res?.data || [];
+      if (!rows.length) {
+        setError("Patient not found. Please register patient first.");
+      } else {
+        setResults(rows);
       }
-
-      const found = await lookupPatient(query);
-      setPatient(found);
     } catch (e) {
-      setError(e.message || "Patient not found. Please register patient first.");
+      setError(e.message || "Patient search failed");
     } finally {
       setLoading(false);
     }
@@ -170,6 +178,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
               placeholder="e.g. 1 or PT-0001 or 03001234567"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               disabled={loading || isSubmitting}
             />
             <Button
@@ -187,13 +196,32 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
           {error ? <p className="text-sm text-red-500">{error}</p> : null}
         </div>
 
+        {/* Multiple matches — e.g. a phone number shared by several family
+            members — prompt to pick the specific patient instead of
+            silently booking the first match. */}
+        {results.length > 0 && !patient && (
+          <div className="border rounded-xl divide-y max-h-40 overflow-y-auto">
+            {results.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                onClick={() => { setPatient(p); setResults([]); }}
+              >
+                <span className="font-semibold">{p.name}</span>{" "}
+                <span className="text-gray-500">{p.id} · {p.phone}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Patient Found */}
         {patient && (
           <>
             <Card className="p-4 bg-gray-50 border">
               <div className="flex items-start gap-4">
                 <User className="text-[#2ec4b6]" />
-                <div className="text-sm">
+                <div className="text-sm flex-1">
                   <p className="font-semibold">{patient.name}</p>
                   <p className="text-gray-500">
                     ID: {patient.id}
@@ -205,6 +233,13 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                     {patient.phone}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  className="text-xs text-red-500 hover:underline"
+                  onClick={() => { setPatient(null); setResults([]); setQuery(""); }}
+                >
+                  Change
+                </button>
               </div>
             </Card>
 

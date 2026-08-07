@@ -8,6 +8,7 @@ import TableSkeleton from "@/components/ui/TableSkeleton";
 import TablePagination from "@/components/ui/TablePagination";
 import { dentistApi } from "@/lib/dentistApi";
 import { toast } from "sonner";
+import DentistPatientViewModal from "@/components/dentist/DentistPatientViewModal";
 
 const PAGE_LIMIT = 50;
 
@@ -20,6 +21,7 @@ const DentistPatients = () => {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [viewPatient, setViewPatient] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -137,7 +139,11 @@ const DentistPatients = () => {
                     </tr>
                   ) : (
                     rows.map((p) => (
-                      <tr key={p.id || p.publicId} className="hover:bg-gray-50/60 transition">
+                      <tr
+                        key={p.id || p.publicId}
+                        className="hover:bg-gray-50/60 transition cursor-pointer"
+                        onClick={() => setViewPatient(p)}
+                      >
                         <td className="py-3 pr-4">
                           <div className="font-semibold text-gray-900">{p.name}</div>
                           <div className="text-xs text-gray-500">{p.id || p.publicId}</div>
@@ -173,6 +179,12 @@ const DentistPatients = () => {
           />
         </CardContent>
       </Card>
+
+      <DentistPatientViewModal
+        open={!!viewPatient}
+        patient={viewPatient}
+        onClose={() => setViewPatient(null)}
+      />
     </div>
   );
 };

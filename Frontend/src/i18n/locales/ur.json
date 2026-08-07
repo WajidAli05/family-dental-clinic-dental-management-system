@@ -155,5 +155,32 @@
     "en": "English",
     "ur": "اردو",
     "ar": "العربية"
+  },
+  "patients": {
+    "sectionIdentity": "شناخت",
+    "sectionContact": "رابطہ",
+    "sectionEmergency": "ہنگامی رابطہ",
+    "sectionInsurance": "انشورنس",
+    "sectionReferral": "حوالہ",
+    "dob": "تاریخ پیدائش",
+    "nationality": "قومیت",
+    "preferredLanguage": "ترجیحی زبان",
+    "country": "ملک",
+    "postalCode": "پوسٹل کوڈ",
+    "referralSource": "آپ کو ہمارے بارے میں کیسے پتہ چلا؟",
+    "referralSelect": "منتخب کریں",
+    "referralWalkIn": "براہ راست آمد",
+    "referralReferral": "حوالہ",
+    "referralOnline": "آن لائن",
+    "referralSocial": "سوشل میڈیا",
+    "referralOther": "دیگر",
+    "emergencyContactName": "رابطہ کار کا نام",
+    "emergencyContactRelationship": "رشتہ",
+    "emergencyContactPhone": "رابطہ نمبر",
+    "insuranceProvider": "انشورنس فراہم کنندہ",
+    "insurancePolicyNumber": "پالیسی نمبر",
+    "insurancePolicyOnFile": "پالیسی نمبر محفوظ ہے",
+    "insurancePolicyPlaceholderSet": "غیر تبدیل شدہ رکھنے کے لیے خالی چھوڑیں",
+    "insurancePolicyPlaceholderUnset": "پالیسی نمبر درج کریں (اختیاری)"
   }
 }

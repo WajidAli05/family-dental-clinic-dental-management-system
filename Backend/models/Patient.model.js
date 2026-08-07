@@ -13,10 +13,32 @@ const patientSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 120 },
     phone: { type: String, required: true, trim: true, index: true },
     email: { type: String, default: "", trim: true, lowercase: true },
-    age: { type: Number, min: 0 },
+    age: { type: Number, min: 0 }, // kept for backward compat; derived from dateOfBirth when present (see computeAge)
+    dateOfBirth: { type: Date, default: null },
     gender: { type: String, default: "Other" }, // keep to match UI strings
     address: { type: String, default: "" },
     city: { type: String, default: "" },
+    country: { type: String, default: "" },
+    postalCode: { type: String, default: "" },
+
+    nationality: { type: String, default: "", trim: true },
+    preferredLanguage: { type: String, default: "" }, // "en" | "ur" | "ar" — UI-enforced, matches app locale codes
+    referralSource: { type: String, default: "" },     // "walk-in" | "referral" | "online" | "social" | "other" — UI-enforced
+
+    emergencyContact: {
+      name:         { type: String, default: "" },
+      relationship: { type: String, default: "" },
+      phone:        { type: String, default: "" },
+    },
+
+    // insurance.policyNumber is a lawful-identifier-adjacent field — encrypted
+    // at rest (fieldEncryption) and select:false, same treatment as
+    // User.passwordHash. Write-only: never decrypted/returned to the client,
+    // only a derived hasPolicyNumber boolean is (see services/shared/patients.js).
+    insurance: {
+      provider:     { type: String, default: "" },
+      policyNumber: { type: String, default: "", select: false },
+    },
 
     status: { type: String, enum: ["active", "inactive"], default: "active", index: true },
 

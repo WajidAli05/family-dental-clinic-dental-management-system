@@ -10,7 +10,9 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
-import { findPatientsByPhone } from "./shared/patients.js";
+import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact } from "./shared/patients.js";
+import { generateAppointmentPublicId } from "./shared/appointments.js";
+import { encryptField } from "../utils/fieldEncryption.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -105,16 +107,6 @@ function mapCase(c) {
   };
 }
 
-async function generateAppointmentPublicId() {
-  let n = (await Appointment.countDocuments({})) + 1;
-
-  while (true) {
-    const publicId = `APT-${pad(n)}`;
-    const exists = await Appointment.exists({ publicId });
-    if (!exists) return publicId;
-    n += 1;
-  }
-}
 // -------------------- ME --------------------
 export async function receptionistGetMe(receptionistId) {
   const user = await User.findById(receptionistId).lean();
@@ -262,20 +254,6 @@ function humanizeLabStatus(status) {
 
 // -------------------- QUICK ACTIONS (MODALS) --------------------
 
-// Robust enough for most clinics (and matches your PT-0001 style)
-async function generatePatientPublicId() {
-  // Using count as a base is OK for small systems.
-  // To avoid collisions, we loop if it already exists.
-  let n = (await Patient.countDocuments({})) + 1;
-
-  while (true) {
-    const publicId = `PT-${pad(n)}`;
-    const exists = await Patient.exists({ publicId });
-    if (!exists) return { publicId, mr: n };
-    n += 1;
-  }
-}
-
 export async function receptionistCreatePatient(_user, body) {
   const name = String(body?.name || "").trim();
   const phone = String(body?.phone || "").trim();
@@ -290,7 +268,14 @@ export async function receptionistCreatePatient(_user, body) {
       ? Number(body.age)
       : null;
 
-  if (ageNum !== null && (Number.isNaN(ageNum) || ageNum < 1 || ageNum > 120)) {
+  let dob = null;
+  if (body?.dateOfBirth) {
+    dob = new Date(body.dateOfBirth);
+    if (Number.isNaN(dob.getTime())) throw new Error("dateOfBirth is invalid");
+  }
+  const effectiveAge = dob ? computeAge(dob) : ageNum;
+
+  if (effectiveAge !== null && (Number.isNaN(effectiveAge) || effectiveAge < 1 || effectiveAge > 120)) {
     throw new Error("Valid age is required (1-120)");
   }
 
@@ -321,9 +306,34 @@ export async function receptionistCreatePatient(_user, body) {
     gender: body?.gender ? String(body.gender) : null,
     email: body?.email ? String(body.email).trim() : "",
     lastVisit: body?.lastVisit ? String(body.lastVisit) : "",
+    city:              body?.city              ? String(body.city).trim()              : "",
+    country:           body?.country           ? String(body.country).trim()           : "",
+    postalCode:         body?.postalCode         ? String(body.postalCode).trim()         : "",
+    nationality:        body?.nationality        ? String(body.nationality).trim()        : "",
+    preferredLanguage:  body?.preferredLanguage  ? String(body.preferredLanguage).trim()  : "",
+    referralSource:     body?.referralSource     ? String(body.referralSource).trim()     : "",
   };
 
-  if (ageNum !== null) payload.age = ageNum;
+  if (effectiveAge !== null) payload.age = effectiveAge;
+  if (dob) payload.dateOfBirth = dob;
+
+  if (body?.emergencyContact && typeof body.emergencyContact === "object") {
+    const ec = body.emergencyContact;
+    payload.emergencyContact = {
+      name:         String(ec.name         || "").trim(),
+      relationship: String(ec.relationship || "").trim(),
+      phone:        String(ec.phone        || "").trim(),
+    };
+  }
+
+  if (body?.insurance && typeof body.insurance === "object") {
+    payload.insurance = {
+      provider: String(body.insurance.provider || "").trim(),
+      ...(body.insurance.policyNumber
+        ? { policyNumber: encryptField(String(body.insurance.policyNumber).trim()) }
+        : {}),
+    };
+  }
 
   const created = await Patient.create(payload);
 
@@ -332,10 +342,10 @@ export async function receptionistCreatePatient(_user, body) {
     id: created.publicId,
     name: created.name || "",
     phone: created.phone || "",
-    age: created.age ?? "",
+    age: created.dateOfBirth ? computeAge(created.dateOfBirth) : (created.age ?? ""),
     lastVisit: created.lastVisit || "",
-    status: "Active",
-    original: created.toJSON(),
+    status: created.status || "active",
+    original: { ...created.toJSON(), insurance: mapInsurance(created) },
   };
 }
 
@@ -352,10 +362,16 @@ const PATIENT_EDITABLE_FIELDS = [
   "primaryDentist",
   "tags",
   "lastVisit",
+  "dateOfBirth", "nationality", "preferredLanguage", "country", "postalCode", "referralSource",
+  // "insurance"/"emergencyContact" handled separately below (merge, not blind pick+assign)
 ];
 
 export async function receptionistUpdatePatient(_user, patientPublicId, body) {
-  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() });
+  // +insurance.policyNumber: needed so the merge below preserves the existing
+  // encrypted value when the incoming payload omits it (see patients.js for
+  // the same pattern in updatePatientCore).
+  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() })
+    .select("+insurance.policyNumber");
   if (!patient) throw new Error("Patient not found");
 
   const updates = pick(body, PATIENT_EDITABLE_FIELDS);
@@ -387,7 +403,17 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     updates.phone = phone;
   }
 
-  if (updates.age !== undefined) {
+  // DOB is the source of truth once set — recompute + persist age from it.
+  if (updates.dateOfBirth !== undefined) {
+    if (updates.dateOfBirth === null || updates.dateOfBirth === "") {
+      updates.dateOfBirth = null;
+    } else {
+      const dob = new Date(updates.dateOfBirth);
+      if (Number.isNaN(dob.getTime())) throw new Error("dateOfBirth is invalid");
+      updates.dateOfBirth = dob;
+      updates.age = computeAge(dob);
+    }
+  } else if (updates.age !== undefined) {
     const ageNum = Number(updates.age);
     if (Number.isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
       throw new Error("Valid age is required (1-120)");
@@ -410,6 +436,12 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
   if (updates.gender !== undefined) {
     updates.gender = String(updates.gender || "").trim();
   }
+
+  if (updates.country            !== undefined) updates.country            = String(updates.country            || "").trim();
+  if (updates.postalCode         !== undefined) updates.postalCode         = String(updates.postalCode         || "").trim();
+  if (updates.nationality        !== undefined) updates.nationality        = String(updates.nationality        || "").trim();
+  if (updates.preferredLanguage  !== undefined) updates.preferredLanguage  = String(updates.preferredLanguage  || "").trim();
+  if (updates.referralSource     !== undefined) updates.referralSource     = String(updates.referralSource     || "").trim();
 
   if (updates.status !== undefined) {
     const status = String(updates.status || "").trim().toLowerCase();
@@ -443,6 +475,29 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     }
   }
 
+  // Nested objects: MERGE onto the existing sub-object, never blind-replace —
+  // same reasoning as updatePatientCore in shared/patients.js.
+  if (body?.emergencyContact && typeof body.emergencyContact === "object") {
+    const current = patient.emergencyContact?.toObject?.() || patient.emergencyContact || {};
+    const incoming = body.emergencyContact;
+    patient.emergencyContact = {
+      name:         incoming.name         !== undefined ? String(incoming.name).trim()         : (current.name || ""),
+      relationship: incoming.relationship !== undefined ? String(incoming.relationship).trim() : (current.relationship || ""),
+      phone:        incoming.phone        !== undefined ? String(incoming.phone).trim()        : (current.phone || ""),
+    };
+  }
+
+  if (body?.insurance && typeof body.insurance === "object") {
+    const current = patient.insurance?.toObject?.() || patient.insurance || {};
+    const incoming = body.insurance;
+    patient.insurance = {
+      provider: incoming.provider !== undefined ? String(incoming.provider).trim() : (current.provider || ""),
+      policyNumber: incoming.policyNumber
+        ? encryptField(String(incoming.policyNumber).trim())
+        : (current.policyNumber || ""),
+    };
+  }
+
   Object.assign(patient, updates);
   await patient.save();
 
@@ -450,10 +505,12 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     id: patient.publicId,
     name: patient.name || "",
     phone: patient.phone || "",
-    age: patient.age ?? "",
+    age: patient.dateOfBirth ? computeAge(patient.dateOfBirth) : (patient.age ?? ""),
     lastVisit: patient.lastVisit || "",
-    status: computeStatus(patient.lastVisit || null),
-    original: patient.toJSON(),
+    status: patient.status || "active",
+    // insurance.policyNumber was explicitly selected above for the merge —
+    // strip it before returning so the ciphertext never reaches the client.
+    original: { ...patient.toJSON(), insurance: mapInsurance(patient) },
   };
 }
 
@@ -606,15 +663,6 @@ const created = await Appointment.create({
   };
 }
 
-function calcAge(dob) {
-  if (!dob) return null;
-  const d = new Date(dob);
-  if (Number.isNaN(d.getTime())) return null;
-  const diff = Date.now() - d.getTime();
-  const ageDate = new Date(diff);
-  return Math.abs(ageDate.getUTCFullYear() - 1970);
-}
-
 function isoToPretty(iso) {
   if (!iso) return "";
   // if it's already "YYYY-MM-DD"
@@ -622,16 +670,6 @@ function isoToPretty(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
-}
-
-// Active/Inactive rule (safe default):
-// Active if last visit within last 180 days
-function computeStatus(lastVisitISO) {
-  if (!lastVisitISO) return "Inactive";
-  const lv = new Date(lastVisitISO);
-  if (Number.isNaN(lv.getTime())) return "Inactive";
-  const diffDays = (Date.now() - lv.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= 180 ? "Active" : "Inactive";
 }
 
 // -------------------- PATIENTS LIST --------------------
@@ -652,7 +690,12 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
   const sort = buildSort(sb, sd, { createdAt: -1 });
   const [total, patients] = await Promise.all([
     Patient.countDocuments(filter),
-    Patient.find(filter).sort(sort).skip(skip).limit(L).lean(),
+    Patient.find(filter)
+      .select("+insurance.policyNumber") // only to derive hasPolicyNumber below — never returned raw
+      .sort(sort)
+      .skip(skip)
+      .limit(L)
+      .lean(),
   ]);
 
   // Fetch last visit per patient using appointments (fast + accurate)
@@ -673,9 +716,19 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
       id: p.publicId || String(p.mr || p._id),
       name: p.name || "",
       phone: p.phone || "",
-      age: p.age ?? calcAge(p.dob) ?? "",
+      age: p.dateOfBirth ? computeAge(p.dateOfBirth) : (p.age ?? ""),
+      dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().slice(0, 10) : "",
+      gender: p.gender || "",
+      city: p.city || "",
+      country: p.country || "",
+      postalCode: p.postalCode || "",
+      nationality: p.nationality || "",
+      preferredLanguage: p.preferredLanguage || "",
+      referralSource: p.referralSource || "",
+      emergencyContact: mapEmergencyContact(p),
+      insurance: mapInsurance(p),
       lastVisit: isoToPretty(lastVisitISO),
-      status: computeStatus(lastVisitISO),
+      status: p.status || "active",
       mr: p.mr ?? null,
       address: p.address ?? "",
       registrationDate: isoToPretty(p.createdAt || p.registrationDate),

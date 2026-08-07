@@ -36,12 +36,12 @@ export default function PatientTable({ patients, onEdit }) {
             <TableCell>
               <Badge
                 className={
-                  patient.status === "Active"
+                  patient.status === "active"
                     ? "bg-green-100 text-green-700"
                     : "bg-gray-200 text-gray-600"
                 }
               >
-                {patient.status}
+                {patient.status === "active" ? "Active" : "Inactive"}
               </Badge>
             </TableCell>
             <TableCell>

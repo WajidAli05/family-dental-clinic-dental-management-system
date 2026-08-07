@@ -38,7 +38,7 @@ import {
   updateAppointmentStatusCore,
   deleteAppointmentCore,
 } from "./shared/appointments.js";
-import { createPatientCore, updatePatientCore } from "./shared/patients.js";
+import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact } from "./shared/patients.js";
 import {
   PERMISSION_ROLES,
   OWNER_PERMISSION_KEYS,
@@ -439,7 +439,13 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
     Patient.countDocuments({}),                                                   // card: all
     LabCase.countDocuments({ status: { $in: ["sent", "received", "in_progress", "ready"] } }),
     Invoice.aggregate([{ $group: { _id: null, total: { $sum: "$totalAmount" } } }]),
-    Patient.find(filter).populate("primaryDentist", "name publicId role").sort(sort).skip(skip).limit(L).lean(),
+    Patient.find(filter)
+      .select("+insurance.policyNumber") // only to derive hasPolicyNumber below — never returned raw
+      .populate("primaryDentist", "name publicId role")
+      .sort(sort)
+      .skip(skip)
+      .limit(L)
+      .lean(),
   ]);
 
   const dbStats = {
@@ -489,9 +495,17 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
       id: p.publicId,
       name: p.name || "",
       phone: p.phone || "",
-      age: p.age ?? "",
+      age: p.dateOfBirth ? computeAge(p.dateOfBirth) : (p.age ?? ""),
+      dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().slice(0, 10) : "",
       gender: p.gender || "",
       city: p.city || "",
+      country: p.country || "",
+      postalCode: p.postalCode || "",
+      nationality: p.nationality || "",
+      preferredLanguage: p.preferredLanguage || "",
+      referralSource: p.referralSource || "",
+      emergencyContact: mapEmergencyContact(p),
+      insurance: mapInsurance(p),
       status: p.status || "active",
       createdAt: p.registrationDate || toISO(p.createdAt),
       lastVisit: p.lastVisit || "",
@@ -521,6 +535,7 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
 
   const patient = await Patient.findOne({ publicId: pid })
     .setOptions({ includeDeleted: true })
+    .select("+insurance.policyNumber") // only to derive hasPolicyNumber below — never returned raw
     .populate("primaryDentist", "name publicId")
     .lean();
 
@@ -616,9 +631,19 @@ export async function ownerPatientProfile(_ownerId, patientPublicId) {
       id: patient.publicId,
       name: patient.name || "",
       phone: patient.phone || "",
-      age: patient.age ?? "",
+      email: patient.email || "",
+      age: patient.dateOfBirth ? computeAge(patient.dateOfBirth) : (patient.age ?? ""),
+      dateOfBirth: patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().slice(0, 10) : "",
       gender: patient.gender || "",
+      address: patient.address || "",
       city: patient.city || "",
+      country: patient.country || "",
+      postalCode: patient.postalCode || "",
+      nationality: patient.nationality || "",
+      preferredLanguage: patient.preferredLanguage || "",
+      referralSource: patient.referralSource || "",
+      emergencyContact: mapEmergencyContact(patient),
+      insurance: mapInsurance(patient),
       status: patient.status || "active",
       lastVisit: patient.lastVisit || "",
       dentist: patient.primaryDentist?.name || "",
@@ -2183,9 +2208,19 @@ function mapOwnerPatient(p) {
     id:          p.publicId,
     name:        p.name    || "",
     phone:       p.phone   || "",
-    age:         p.age     ?? "",
+    age:         p.dateOfBirth ? computeAge(p.dateOfBirth) : (p.age ?? ""),
+    dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().slice(0, 10) : "",
     gender:      p.gender  || "",
+    email:       p.email   || "",
+    address:     p.address || "",
     city:        p.city    || "",
+    country:     p.country || "",
+    postalCode:  p.postalCode || "",
+    nationality: p.nationality || "",
+    preferredLanguage: p.preferredLanguage || "",
+    referralSource:    p.referralSource    || "",
+    emergencyContact:  mapEmergencyContact(p),
+    insurance:         mapInsurance(p),
     status:      p.status  || "active",
     lastVisit:   p.lastVisit || "",
     createdAt:   (p.registrationDate || ""),
