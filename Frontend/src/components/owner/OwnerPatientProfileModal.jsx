@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
 import { useFormatMoney } from "@/store/clinicConfigStore";
+import AllergyAlert from "@/components/patients/AllergyAlert";
+
+const PREGNANCY_LABEL_KEYS = {
+  "not applicable": "patients.pregnancyNotApplicable",
+  "not pregnant": "patients.pregnancyNotPregnant",
+  pregnant: "patients.pregnancyPregnant",
+  unknown: "patients.pregnancyUnknown",
+};
 
 const REFERRAL_LABEL_KEYS = {
   "walk-in": "patients.referralWalkIn",
@@ -115,6 +123,13 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           </div>
         </div>
 
+        {/* Allergy alert — unmissable, right under the header */}
+        {patient.allergies?.length > 0 && (
+          <div className="px-5 pt-4">
+            <AllergyAlert allergies={patient.allergies} />
+          </div>
+        )}
+
         {/* Body (scrollable) */}
         <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto">
           <div className="lg:col-span-3">
@@ -156,6 +171,34 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               )}
             </Panel>
           </div>
+
+          {(patient.allergies?.length > 0 || patient.medicalHistory || patient.currentMedications ||
+            patient.existingConditions || patient.previousSurgeries || patient.pregnancyStatus ||
+            patient.dentalHistory || patient.previousTreatments) && (
+            <div className="lg:col-span-3">
+              <Panel title={t("patients.sectionMedical")}>
+                {patient.allergies?.length > 0 && (
+                  <div className="mb-4">
+                    <AllergyAlert allergies={patient.allergies} />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+                  <DetailField label={t("patients.medicalHistory")} value={patient.medicalHistory || "—"} />
+                  <DetailField label={t("patients.currentMedications")} value={patient.currentMedications || "—"} />
+                  <DetailField label={t("patients.existingConditions")} value={patient.existingConditions || "—"} />
+                  <DetailField label={t("patients.previousSurgeries")} value={patient.previousSurgeries || "—"} />
+                  <DetailField label={t("patients.dentalHistory")} value={patient.dentalHistory || "—"} />
+                  <DetailField label={t("patients.previousTreatments")} value={patient.previousTreatments || "—"} />
+                  {patient.pregnancyStatus && (
+                    <DetailField
+                      label={t("patients.pregnancyStatus")}
+                      value={t(PREGNANCY_LABEL_KEYS[patient.pregnancyStatus] || "patients.pregnancyUnknown")}
+                    />
+                  )}
+                </div>
+              </Panel>
+            </div>
+          )}
 
           <Panel title="History">
             <Timeline items={profile.history} />

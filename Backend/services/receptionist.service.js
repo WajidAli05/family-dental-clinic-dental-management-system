@@ -10,7 +10,7 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
-import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact } from "./shared/patients.js";
+import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo } from "./shared/patients.js";
 import { generateAppointmentPublicId } from "./shared/appointments.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
@@ -335,6 +335,8 @@ export async function receptionistCreatePatient(_user, body) {
     };
   }
 
+  Object.assign(payload, encryptMedicalFields(body));
+
   const created = await Patient.create(payload);
 
   // Return frontend-friendly row
@@ -345,7 +347,7 @@ export async function receptionistCreatePatient(_user, body) {
     age: created.dateOfBirth ? computeAge(created.dateOfBirth) : (created.age ?? ""),
     lastVisit: created.lastVisit || "",
     status: created.status || "active",
-    original: { ...created.toJSON(), insurance: mapInsurance(created) },
+    original: { ...created.toJSON(), insurance: mapInsurance(created), ...mapMedicalInfo(created) },
   };
 }
 
@@ -498,6 +500,8 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     };
   }
 
+  Object.assign(updates, encryptMedicalFields(body));
+
   Object.assign(patient, updates);
   await patient.save();
 
@@ -510,7 +514,7 @@ export async function receptionistUpdatePatient(_user, patientPublicId, body) {
     status: patient.status || "active",
     // insurance.policyNumber was explicitly selected above for the merge —
     // strip it before returning so the ciphertext never reaches the client.
-    original: { ...patient.toJSON(), insurance: mapInsurance(patient) },
+    original: { ...patient.toJSON(), insurance: mapInsurance(patient), ...mapMedicalInfo(patient) },
   };
 }
 
@@ -574,7 +578,8 @@ export async function receptionistLookupPatient(_receptionistId, { q } = {}) {
     phone: patient.phone || "",
     address: patient.address || "",
     lastVisit: patient.lastVisit || "",
-    original: patient,
+    allergies: mapMedicalInfo(patient).allergies,
+    original: { ...patient, ...mapMedicalInfo(patient) },
   };
 }
 
@@ -727,12 +732,13 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
       referralSource: p.referralSource || "",
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
+      ...mapMedicalInfo(p),
       lastVisit: isoToPretty(lastVisitISO),
       status: p.status || "active",
       mr: p.mr ?? null,
       address: p.address ?? "",
       registrationDate: isoToPretty(p.createdAt || p.registrationDate),
-      original: p,
+      original: { ...p, ...mapMedicalInfo(p) },
     };
   });
 

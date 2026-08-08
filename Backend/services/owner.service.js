@@ -38,7 +38,7 @@ import {
   updateAppointmentStatusCore,
   deleteAppointmentCore,
 } from "./shared/appointments.js";
-import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact } from "./shared/patients.js";
+import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo } from "./shared/patients.js";
 import {
   PERMISSION_ROLES,
   OWNER_PERMISSION_KEYS,
@@ -506,6 +506,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
       referralSource: p.referralSource || "",
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
+      ...mapMedicalInfo(p),
       status: p.status || "active",
       createdAt: p.registrationDate || toISO(p.createdAt),
       lastVisit: p.lastVisit || "",
@@ -2221,6 +2222,7 @@ function mapOwnerPatient(p) {
     referralSource:    p.referralSource    || "",
     emergencyContact:  mapEmergencyContact(p),
     insurance:         mapInsurance(p),
+    ...mapMedicalInfo(p),
     status:      p.status  || "active",
     lastVisit:   p.lastVisit || "",
     createdAt:   (p.registrationDate || ""),

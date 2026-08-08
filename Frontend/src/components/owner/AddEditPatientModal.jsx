@@ -8,7 +8,7 @@ import { ownerApi } from "@/lib/ownerApi";
 import { toast } from "sonner";
 import Wavify from "react-wavify";
 import PatientFormFields from "@/components/patients/PatientFormFields";
-import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields } from "@/utils/patientForm";
+import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields, buildMedicalFieldsPayload } from "@/utils/patientForm";
 
 const EMPTY = {
   name: "", phone: "", age: "", gender: "", address: "",
@@ -102,6 +102,7 @@ const AddEditPatientModal = ({ open, patient, onOpenChange, onSuccess }) => {
           // write-only: only send policyNumber if the user actually typed one
           ...(form.insurancePolicyNumber.trim() ? { policyNumber: form.insurancePolicyNumber.trim() } : {}),
         },
+        ...buildMedicalFieldsPayload(form),
         ...(!form.dateOfBirth && ageNum !== null ? { age: ageNum } : {}),
         // lastVisit is system-managed (derived from real appointments) — only
         // an EXISTING patient's record can be manually corrected by an owner;

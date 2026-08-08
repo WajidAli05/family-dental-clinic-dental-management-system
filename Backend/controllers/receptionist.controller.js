@@ -41,7 +41,7 @@
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
-import { findPatientsByPhone } from "../services/shared/patients.js";
+import { findPatientsByPhone, medicalFieldsChanged } from "../services/shared/patients.js";
 import { recordAudit } from "../services/shared/audit.js";
 
 export const getReceptionistMe = async (req, res) => {
@@ -103,7 +103,7 @@ export const createReceptionistPatient = async (req, res) => {
     // Sensitive-field markers only (never the decrypted values) — insurance
     // and emergency-contact data are PHI-adjacent even though the audit
     // action itself ("patient.create") is the same one already in use.
-    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: created?.id, entityLabel: created?.name, after: { id: created?.id, name: created?.name, phone: created?.phone, status: created?.status, insuranceSet: Boolean(req.body?.insurance), emergencyContactSet: Boolean(req.body?.emergencyContact) } });
+    await recordAudit({ req, action: "patient.create", entityType: "Patient", entityId: created?.id, entityLabel: created?.name, after: { id: created?.id, name: created?.name, phone: created?.phone, status: created?.status, insuranceSet: Boolean(req.body?.insurance), emergencyContactSet: Boolean(req.body?.emergencyContact), medicalInfoSet: medicalFieldsChanged(req.body) } });
     return res.json({ success: true, data: created });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -113,7 +113,7 @@ export const createReceptionistPatient = async (req, res) => {
 export const updateReceptionistPatient = async (req, res) => {
   try {
     const updated = await receptionistUpdatePatient(req.user, req.params.id, req.body);
-    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: updated?.name, after: { id: updated?.id, name: updated?.name, phone: updated?.phone, status: updated?.status, insuranceChanged: Boolean(req.body?.insurance), emergencyContactChanged: Boolean(req.body?.emergencyContact) } });
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: updated?.name, after: { id: updated?.id, name: updated?.name, phone: updated?.phone, status: updated?.status, insuranceChanged: Boolean(req.body?.insurance), emergencyContactChanged: Boolean(req.body?.emergencyContact), medicalInfoChanged: medicalFieldsChanged(req.body) } });
     return res.json({ success: true, data: updated });
   } catch (e) {
     const status = e.message === "Patient not found" ? 404 : 400;

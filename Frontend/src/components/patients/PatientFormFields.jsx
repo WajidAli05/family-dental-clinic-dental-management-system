@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { User, Phone, MapPin, Calendar, Mail, Building2 } from "lucide-react";
+import { User, Phone, MapPin, Calendar, Mail, Building2, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { computeAgeFromDOB } from "@/utils/computeAge";
 
 /**
@@ -286,6 +287,164 @@ const PatientFormFields = ({
           </div>
         </div>
       </div>
+
+      {/* ---------- Medical Information ---------- */}
+      <div className="space-y-4 pt-2 border-t border-gray-100">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-4">
+          {t("patients.sectionMedical")}
+        </p>
+
+        <div className="space-y-2">
+          <Label>{t("patients.allergies")}</Label>
+          <AllergyListEditor
+            allergies={values.allergies || []}
+            onChange={(next) => onChange("allergies", next)}
+            disabled={disabled}
+            t={t}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{t("patients.medicalHistory")}</Label>
+            <Textarea
+              value={values.medicalHistory || ""}
+              onChange={set("medicalHistory")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("patients.currentMedications")}</Label>
+            <Textarea
+              value={values.currentMedications || ""}
+              onChange={set("currentMedications")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("patients.existingConditions")}</Label>
+            <Textarea
+              value={values.existingConditions || ""}
+              onChange={set("existingConditions")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("patients.previousSurgeries")}</Label>
+            <Textarea
+              value={values.previousSurgeries || ""}
+              onChange={set("previousSurgeries")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("patients.dentalHistory")}</Label>
+            <Textarea
+              value={values.dentalHistory || ""}
+              onChange={set("dentalHistory")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("patients.previousTreatments")}</Label>
+            <Textarea
+              value={values.previousTreatments || ""}
+              onChange={set("previousTreatments")}
+              className="min-h-[70px]"
+              disabled={disabled}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("patients.pregnancyStatus")}</Label>
+          <Select
+            value={values.pregnancyStatus || ""}
+            onValueChange={(v) => onChange("pregnancyStatus", v)}
+            disabled={disabled}
+          >
+            <SelectTrigger className="max-w-xs"><SelectValue placeholder={t("patients.pregnancyStatusSelect")} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="not applicable">{t("patients.pregnancyNotApplicable")}</SelectItem>
+              <SelectItem value="not pregnant">{t("patients.pregnancyNotPregnant")}</SelectItem>
+              <SelectItem value="pregnant">{t("patients.pregnancyPregnant")}</SelectItem>
+              <SelectItem value="unknown">{t("patients.pregnancyUnknown")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** Structured allergen + severity rows, add/remove — feeds the `allergies`
+ * array field as [{allergen, severity}]. */
+const AllergyListEditor = ({ allergies, onChange, disabled, t }) => {
+  const updateRow = (idx, key, value) => {
+    const next = allergies.map((a, i) => (i === idx ? { ...a, [key]: value } : a));
+    onChange(next);
+  };
+
+  const removeRow = (idx) => onChange(allergies.filter((_, i) => i !== idx));
+
+  const addRow = () => onChange([...allergies, { allergen: "", severity: "moderate" }]);
+
+  return (
+    <div className="space-y-2">
+      {allergies.length === 0 && (
+        <p className="text-xs text-gray-400">{t("patients.noAllergies")}</p>
+      )}
+
+      {allergies.map((a, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <Input
+            placeholder={t("patients.allergen")}
+            value={a.allergen || ""}
+            onChange={(e) => updateRow(idx, "allergen", e.target.value)}
+            disabled={disabled}
+            className="flex-1"
+          />
+          <Select
+            value={a.severity || "moderate"}
+            onValueChange={(v) => updateRow(idx, "severity", v)}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-32"><SelectValue placeholder={t("patients.severity")} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mild">{t("patients.severityMild")}</SelectItem>
+              <SelectItem value="moderate">{t("patients.severityModerate")}</SelectItem>
+              <SelectItem value="severe">{t("patients.severitySevere")}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => removeRow(idx)}
+            disabled={disabled}
+            className="text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addRow}
+        disabled={disabled}
+        className="mt-1"
+      >
+        <Plus className="h-3.5 w-3.5 mr-1" />
+        {t("patients.addAllergy")}
+      </Button>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import PatientTypeSelector from "./PatientTypeSelector";
 import DentalChart2D from "./DentalChart2D";
 import PrescriptionForm from "./PrescriptionForm";
 import PrescriptionPreview from "./PrescriptionPreview";
+import AllergyAlert from "@/components/patients/AllergyAlert";
 
 import { dentistApi } from "@/lib/dentistApi";
 
@@ -24,21 +26,25 @@ const fmtDate = (d) => {
 };
 
 const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription }) => {
+  const { t } = useTranslation();
   const store = usePrescriptionStore();
   const saving   = usePrescriptionStore((s) => s.saving);
   const error    = usePrescriptionStore((s) => s.error);
   const storeId  = usePrescriptionStore((s) => s._id);
 
   const [history, setHistory] = useState([]);
+  const [allergies, setAllergies] = useState([]);
 
   const patientId = appointment?.patientId || appointment?.patient?.publicId || "";
 
-  // On open: hydrate or reset; fetch history.
+  // On open: hydrate or reset; fetch history + the patient's own recorded
+  // allergies (advisory-only safety check — not a drug-interaction database).
   // On close: reset store and clear history so the next patient starts clean.
   useEffect(() => {
     if (!open) {
       store.reset();
       setHistory([]);
+      setAllergies([]);
       return;
     }
 
@@ -54,6 +60,11 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
       dentistApi
         .getPatientPrescriptionHistory(patientId)
         .then((res) => setHistory(res?.data || []))
+        .catch(() => {});
+
+      dentistApi
+        .getPatients({ q: patientId })
+        .then((res) => setAllergies(res?.data?.[0]?.allergies || []))
         .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,6 +113,9 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
         <DialogHeader>
           <DialogTitle>{modalTitle}</DialogTitle>
         </DialogHeader>
+
+        {/* ── Allergy alert — must be visible before/at prescribing ── */}
+        <AllergyAlert allergies={allergies} subtitle={t("patients.allergyAlertPrescribing")} />
 
         {/* ── Patient history panel ── */}
         {history.length > 0 && (

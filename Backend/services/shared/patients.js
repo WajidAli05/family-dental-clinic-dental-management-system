@@ -1,6 +1,12 @@
 import Patient from "../../models/Patient.model.js";
 import { parsePagination, buildSort } from "./paginate.js";
-import { encryptField } from "../../utils/fieldEncryption.js";
+import {
+  encryptField,
+  decryptField,
+  encryptMedications,
+  decryptMedications,
+  PATIENT_MEDICAL_PHI_STRING_FIELDS,
+} from "../../utils/fieldEncryption.js";
 import { getNextSequence } from "./counters.js";
 
 const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, "");
@@ -44,6 +50,52 @@ export function mapEmergencyContact(p) {
     relationship: p?.emergencyContact?.relationship || "",
     phone: p?.emergencyContact?.phone || "",
   };
+}
+
+const ALLERGY_SEVERITIES = ["mild", "moderate", "severe"];
+
+function sanitizeAllergies(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((a) => ({
+      allergen: String(a?.allergen || "").trim(),
+      severity: ALLERGY_SEVERITIES.includes(String(a?.severity || "").toLowerCase())
+        ? String(a.severity).toLowerCase()
+        : "moderate",
+    }))
+    .filter((a) => a.allergen);
+}
+
+/** Encrypt whichever medicalInfo fields are present in body into a patch
+ * object (safe for both create and partial-update payloads — only touches
+ * keys the caller actually sent). None of these fields are ever queried,
+ * filtered, or sorted on (Rule A), so encrypting them is safe. */
+export function encryptMedicalFields(body) {
+  const out = {};
+  for (const f of PATIENT_MEDICAL_PHI_STRING_FIELDS) {
+    if (body?.[f] !== undefined) out[f] = encryptField(String(body[f] || "").trim());
+  }
+  if (body?.allergies !== undefined) {
+    const clean = sanitizeAllergies(body.allergies);
+    out.allergies = clean.length ? encryptMedications(clean) : "";
+  }
+  return out;
+}
+
+/** Decrypt medicalInfo fields for API responses. Never returns ciphertext. */
+export function mapMedicalInfo(p) {
+  const out = {};
+  for (const f of PATIENT_MEDICAL_PHI_STRING_FIELDS) {
+    out[f] = decryptField(p?.[f] || "");
+  }
+  out.allergies = decryptMedications(p?.allergies || "");
+  return out;
+}
+
+/** True if the request body touches any medicalInfo field — used by audit
+ * logging to record THAT medical data changed, never the decrypted content. */
+export function medicalFieldsChanged(body) {
+  return PATIENT_MEDICAL_PHI_STRING_FIELDS.some((f) => body?.[f] !== undefined) || body?.allergies !== undefined;
 }
 
 export async function findPatientByPhoneDigits(phone, excludeId = null) {
@@ -163,6 +215,8 @@ export async function createPatientCore(body) {
     };
   }
 
+  Object.assign(payload, encryptMedicalFields(body));
+
   return Patient.create(payload);
 }
 
@@ -265,6 +319,8 @@ export async function updatePatientCore(patientPublicId, body) {
     };
   }
 
+  Object.assign(updates, encryptMedicalFields(body));
+
   Object.assign(patient, updates);
   await patient.save();
 
@@ -273,6 +329,7 @@ export async function updatePatientCore(patientPublicId, body) {
   // returned JSON so no caller can accidentally leak the ciphertext.
   const json = patient.toJSON();
   json.insurance = mapInsurance(patient);
+  Object.assign(json, mapMedicalInfo(patient));
   return json;
 }
 
@@ -320,6 +377,7 @@ export async function listPatientsCore({ page, limit, sortBy, sortDir, q } = {})
     referralSource: p.referralSource || "",
     emergencyContact: mapEmergencyContact(p),
     insurance: mapInsurance(p),
+    ...mapMedicalInfo(p),
     status:    p.status  || "active",
     lastVisit: p.lastVisit || "",
     dentist:   p.primaryDentist?.name    || "",

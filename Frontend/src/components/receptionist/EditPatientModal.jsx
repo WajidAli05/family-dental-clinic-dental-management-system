@@ -20,7 +20,8 @@ import { usePatientStore } from "@/store/patientStore";
 import Wavify from "react-wavify";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import PatientFormFields from "@/components/patients/PatientFormFields";
-import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields } from "@/utils/patientForm";
+import AllergyAlert from "@/components/patients/AllergyAlert";
+import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields, buildMedicalFieldsPayload } from "@/utils/patientForm";
 
 const EMPTY_FORM = {
   name: "",
@@ -157,6 +158,7 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
           provider: formData.insuranceProvider,
           ...(formData.insurancePolicyNumber.trim() ? { policyNumber: formData.insurancePolicyNumber.trim() } : {}),
         },
+        ...buildMedicalFieldsPayload(formData),
       };
 
       await updatePatient(patient.id, payload);
@@ -209,6 +211,8 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
         </div>
 
         <div className="px-6 pb-6 space-y-5">
+          <AllergyAlert allergies={formData.allergies} />
+
           <div className="space-y-2">
             <Label className="text-sm font-medium">Status</Label>
             <Select

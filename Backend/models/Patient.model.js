@@ -40,6 +40,22 @@ const patientSchema = new Schema(
       policyNumber: { type: String, default: "", select: false },
     },
 
+    // ── Medical Information (PHI) ──────────────────────────────────────────
+    // Free-text fields are AES-256-GCM encrypted via fieldEncryption
+    // (PATIENT_MEDICAL_PHI_STRING_FIELDS) — never queried/filtered/sorted on.
+    // `allergies` is a structured [{allergen, severity}] array, serialized to
+    // JSON then encrypted the same way Prescription.medications is (see
+    // encryptMedications/decryptMedications in fieldEncryption.js) — stored
+    // as a single ciphertext string, decrypted back to an array on read.
+    medicalHistory:     { type: String, default: "" },
+    allergies:          { type: String, default: "" },
+    currentMedications: { type: String, default: "" },
+    existingConditions: { type: String, default: "" },
+    previousSurgeries:  { type: String, default: "" },
+    pregnancyStatus:    { type: String, default: "" }, // optional; UI-conditional, not schema-enforced
+    dentalHistory:      { type: String, default: "" },
+    previousTreatments: { type: String, default: "" },
+
     status: { type: String, enum: ["active", "inactive"], default: "active", index: true },
 
     registrationDate: { type: String, default: "" }, // "YYYY-MM-DD"

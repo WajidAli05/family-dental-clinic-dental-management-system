@@ -29,6 +29,20 @@ export const PRESCRIPTION_PHI_STRING_FIELDS = [
   "notes",
 ];
 
+// The PHI free-text fields on Patient.medicalInfo that we encrypt. None of
+// these are ever queried/filtered/sorted on (Rule A) — search/list only
+// touch name/phone/publicId/city/status. `allergies` is handled separately
+// (structured array — see encryptMedications/decryptMedications below).
+export const PATIENT_MEDICAL_PHI_STRING_FIELDS = [
+  "medicalHistory",
+  "currentMedications",
+  "existingConditions",
+  "previousSurgeries",
+  "pregnancyStatus",
+  "dentalHistory",
+  "previousTreatments",
+];
+
 // ─── Key management ──────────────────────────────────────────────────────────
 
 let _cachedKey = null;

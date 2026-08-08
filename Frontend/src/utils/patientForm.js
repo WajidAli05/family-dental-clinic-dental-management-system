@@ -13,6 +13,14 @@ export const EMPTY_PATIENT_FIELDS = {
   emergencyContactPhone: "",
   insuranceProvider: "",
   insurancePolicyNumber: "",
+  medicalHistory: "",
+  allergies: [],
+  currentMedications: "",
+  existingConditions: "",
+  previousSurgeries: "",
+  pregnancyStatus: "",
+  dentalHistory: "",
+  previousTreatments: "",
 };
 
 /** Maps a patient record (list row or raw doc) onto the shared form field
@@ -32,5 +40,33 @@ export function mapPatientToFormFields(source) {
     emergencyContactPhone: p.emergencyContact?.phone || "",
     insuranceProvider: p.insurance?.provider || "",
     insurancePolicyNumber: "",
+    medicalHistory: p.medicalHistory || "",
+    allergies: Array.isArray(p.allergies) ? p.allergies : [],
+    currentMedications: p.currentMedications || "",
+    existingConditions: p.existingConditions || "",
+    previousSurgeries: p.previousSurgeries || "",
+    pregnancyStatus: p.pregnancyStatus || "",
+    dentalHistory: p.dentalHistory || "",
+    previousTreatments: p.previousTreatments || "",
+  };
+}
+
+/** Build the medicalInfo slice of a create/update payload from form state.
+ * Reused by owner + receptionist submit handlers so the field list and
+ * sanitization only live in one place. */
+export function buildMedicalFieldsPayload(form) {
+  return {
+    medicalHistory: (form.medicalHistory || "").trim(),
+    currentMedications: (form.currentMedications || "").trim(),
+    existingConditions: (form.existingConditions || "").trim(),
+    previousSurgeries: (form.previousSurgeries || "").trim(),
+    pregnancyStatus: form.pregnancyStatus || "",
+    dentalHistory: (form.dentalHistory || "").trim(),
+    previousTreatments: (form.previousTreatments || "").trim(),
+    allergies: Array.isArray(form.allergies)
+      ? form.allergies
+          .filter((a) => a?.allergen && a.allergen.trim())
+          .map((a) => ({ allergen: a.allergen.trim(), severity: a.severity || "moderate" }))
+      : [],
   };
 }

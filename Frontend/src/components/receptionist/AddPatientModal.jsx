@@ -13,7 +13,7 @@ import { receptionistApi } from "@/lib/receptionistApi";
 import Wavify from "react-wavify";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import PatientFormFields from "@/components/patients/PatientFormFields";
-import { EMPTY_PATIENT_FIELDS } from "@/utils/patientForm";
+import { EMPTY_PATIENT_FIELDS, buildMedicalFieldsPayload } from "@/utils/patientForm";
 
 const AddPatientModal = ({ open, onOpenChange }) => {
   const { addPatient, createPatient, fetchPatients, fetchPatientStats } =
@@ -144,6 +144,7 @@ const AddPatientModal = ({ open, onOpenChange }) => {
           provider: formData.insuranceProvider,
           ...(formData.insurancePolicyNumber.trim() ? { policyNumber: formData.insurancePolicyNumber.trim() } : {}),
         },
+        ...buildMedicalFieldsPayload(formData),
       };
 
       if (acknowledgedDuplicate) payload.allowDuplicatePhone = true;
