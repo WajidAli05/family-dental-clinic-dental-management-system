@@ -25,7 +25,9 @@ const PERMISSION_KEYS = [
   "tab_dentist_dashboard",
   "tab_dentist_appointments",
   "tab_dentist_lab_samples",
+  "tab_dentist_patients",
   "tab_dentist_profile",
+  "tab_dentist_finance",
 ];
 
 // ----------------------------------------------------
