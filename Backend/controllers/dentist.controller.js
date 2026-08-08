@@ -119,7 +119,7 @@ export const updateDentistOdontogramCtrl = async (req, res) => {
     await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: "odontogram", after: { toothNumber: result.entry.toothNumber, condition: result.entry.condition } });
     return res.json({ success: true, data: result.odontogram });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { dentistApi } from "@/lib/dentistApi";
+import { useUserStore } from "@/store/userStore";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 
@@ -37,6 +38,7 @@ const Panel = ({ title, children }) => (
 
 const DentistPatientViewModal = ({ open, patient, onClose }) => {
   const { t } = useTranslation();
+  const currentUser = useUserStore((s) => s.currentUser);
   const [odontogram, setOdontogram] = useState([]);
 
   useEffect(() => {
@@ -44,6 +46,10 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
   }, [patient]);
 
   if (!open || !patient) return null;
+
+  // Odontogram write access is server-enforced too (403 on the API for a
+  // non-assigned dentist) — this only controls whether the UI offers editing.
+  const canEditChart = Boolean(currentUser?.publicId) && currentUser.publicId === patient.dentistId;
 
   const handleSaveTooth = async (toothNumber, { condition, note }) => {
     try {
@@ -124,7 +130,7 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
           </Panel>
 
           <Panel title={t("patients.sectionOdontogram")}>
-            <Odontogram odontogram={odontogram} editable onSave={handleSaveTooth} />
+            <Odontogram odontogram={odontogram} editable={canEditChart} onSave={handleSaveTooth} />
           </Panel>
         </div>
 

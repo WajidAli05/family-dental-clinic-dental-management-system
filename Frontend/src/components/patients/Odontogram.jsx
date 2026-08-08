@@ -137,7 +137,10 @@ const Odontogram = ({ odontogram = [], editable = false, onSave }) => {
                 disabled={saving}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
+                {/* Portaled content defaults to z-50, which renders BEHIND this
+                    dialog's z-[80] backdrop — bump it above so the dropdown is
+                    actually visible/clickable instead of hidden under the overlay. */}
+                <SelectContent className="z-[90]">
                   {CONDITIONS.map((c) => (
                     <SelectItem key={c} value={c}>{t(CONDITION_LABEL_KEYS[c])}</SelectItem>
                   ))}

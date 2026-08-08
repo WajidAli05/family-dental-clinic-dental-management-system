@@ -473,8 +473,20 @@ export async function dentistGetPatients(_dentistId, params = {}) {
   return listPatientsCore(params);
 }
 
-// -------------------- ODONTOGRAM (dentist can annotate) --------------------
+// -------------------- ODONTOGRAM (dentist can annotate own patients only) --------------------
 export async function dentistUpdateOdontogram(dentistId, patientPublicId, body) {
+  // Write access is restricted to the patient's assigned dentist (owner is
+  // unrestricted and doesn't go through this path). Checked here, separately
+  // from the shared upsert helper, so the owner-side call stays unrestricted.
+  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() }).select("primaryDentist");
+  if (!patient) throw new Error("Patient not found");
+
+  if (!patient.primaryDentist || String(patient.primaryDentist) !== String(dentistId)) {
+    const err = new Error("Only the patient's assigned dentist can edit the tooth chart");
+    err.status = 403;
+    throw err;
+  }
+
   return upsertOdontogramEntry(patientPublicId, body, dentistId);
 }
 
