@@ -204,6 +204,20 @@
     "addAllergy": "الرجی شامل کریں",
     "noAllergies": "کوئی معلوم الرجی درج نہیں",
     "allergyAlertTitle": "الرجی وارننگ",
-    "allergyAlertPrescribing": "نسخہ لکھنے سے پہلے الرجی چیک کریں"
+    "allergyAlertPrescribing": "نسخہ لکھنے سے پہلے الرجی چیک کریں",
+    "sectionOdontogram": "دانتوں کا چارٹ",
+    "tooth": "دانت",
+    "toothNote": "نوٹ (اختیاری)",
+    "toothSave": "محفوظ کریں",
+    "toothCancel": "منسوخ کریں",
+    "toothHealthy": "صحت مند",
+    "toothCaries": "کیریز",
+    "toothFilled": "بھرا ہوا",
+    "toothMissing": "غائب",
+    "toothCrown": "کراؤن",
+    "toothImplant": "امپلانٹ",
+    "toothRootCanal": "روٹ کینال",
+    "toothExtractionNeeded": "نکالنے کی ضرورت",
+    "toothBridge": "برج"
   }
 }

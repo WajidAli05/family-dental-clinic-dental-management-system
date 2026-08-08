@@ -204,6 +204,20 @@
     "addAllergy": "إضافة حساسية",
     "noAllergies": "لا توجد حساسية مسجلة",
     "allergyAlertTitle": "تنبيه الحساسية",
-    "allergyAlertPrescribing": "تحقق من الحساسية قبل وصف الدواء"
+    "allergyAlertPrescribing": "تحقق من الحساسية قبل وصف الدواء",
+    "sectionOdontogram": "مخطط الأسنان",
+    "tooth": "السن",
+    "toothNote": "ملاحظة (اختياري)",
+    "toothSave": "حفظ",
+    "toothCancel": "إلغاء",
+    "toothHealthy": "سليم",
+    "toothCaries": "تسوس",
+    "toothFilled": "محشو",
+    "toothMissing": "مفقود",
+    "toothCrown": "تاج",
+    "toothImplant": "زراعة",
+    "toothRootCanal": "علاج عصب",
+    "toothExtractionNeeded": "يحتاج خلع",
+    "toothBridge": "جسر"
   }
 }

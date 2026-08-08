@@ -1,6 +1,11 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { dentistApi } from "@/lib/dentistApi";
+import AllergyAlert from "@/components/patients/AllergyAlert";
+import Odontogram from "@/components/patients/Odontogram";
 
 const REFERRAL_LABEL_KEYS = {
   "walk-in": "patients.referralWalkIn",
@@ -32,7 +37,22 @@ const Panel = ({ title, children }) => (
 
 const DentistPatientViewModal = ({ open, patient, onClose }) => {
   const { t } = useTranslation();
+  const [odontogram, setOdontogram] = useState([]);
+
+  useEffect(() => {
+    setOdontogram(patient?.odontogram || []);
+  }, [patient]);
+
   if (!open || !patient) return null;
+
+  const handleSaveTooth = async (toothNumber, { condition, note }) => {
+    try {
+      const res = await dentistApi.updateOdontogram(patient.id || patient.publicId, { toothNumber, condition, note });
+      setOdontogram(res?.data || []);
+    } catch (e) {
+      toast.error(e.message || "Failed to save tooth chart");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
@@ -55,7 +75,13 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
           </Button>
         </div>
 
-        <div className="p-5 overflow-y-auto">
+        {patient.allergies?.length > 0 && (
+          <div className="px-5 pt-4">
+            <AllergyAlert allergies={patient.allergies} />
+          </div>
+        )}
+
+        <div className="p-5 overflow-y-auto space-y-4">
           <Panel title={t("patients.sectionIdentity")}>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm">
               <DetailField label={t("patients.dob")} value={patient.dateOfBirth || "—"} />
@@ -95,6 +121,10 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
                 </div>
               </div>
             )}
+          </Panel>
+
+          <Panel title={t("patients.sectionOdontogram")}>
+            <Odontogram odontogram={odontogram} editable onSave={handleSaveTooth} />
           </Panel>
         </div>
 

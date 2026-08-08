@@ -153,6 +153,9 @@ export const dentistApi = {
     return req(`/patients${qs ? `?${qs}` : ""}`);
   },
 
+  updateOdontogram: (patientId, body) =>
+    req(`/patients/${patientId}/odontogram`, { method: "PATCH", body: JSON.stringify(body) }),
+
   getCases: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return req(`/cases${qs ? `?${qs}` : ""}`);

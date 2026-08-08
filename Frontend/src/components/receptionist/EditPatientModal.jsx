@@ -21,6 +21,8 @@ import Wavify from "react-wavify";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import PatientFormFields from "@/components/patients/PatientFormFields";
 import AllergyAlert from "@/components/patients/AllergyAlert";
+import Odontogram from "@/components/patients/Odontogram";
+import { useTranslation } from "react-i18next";
 import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields, buildMedicalFieldsPayload } from "@/utils/patientForm";
 
 const EMPTY_FORM = {
@@ -36,6 +38,7 @@ const EMPTY_FORM = {
 };
 
 const EditPatientModal = ({ open, onOpenChange, patient }) => {
+  const { t } = useTranslation();
   const { updatePatient, fetchPatients, fetchPatientStats } = usePatientStore();
 
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -238,6 +241,13 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
             hasPolicyNumberOnFile={hasPolicyNumberOnFile}
             showLastVisit={false}
           />
+
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-4">
+              {t("patients.sectionOdontogram")}
+            </p>
+            <Odontogram odontogram={patient?.odontogram || []} editable={false} />
+          </div>
 
           {/* Notification */}
           {notification ? (

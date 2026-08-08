@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOwnerPatientsStore } from "@/store/ownerPatientsStore";
 import { useFormatMoney } from "@/store/clinicConfigStore";
+import { ownerApi } from "@/lib/ownerApi";
 import AllergyAlert from "@/components/patients/AllergyAlert";
+import Odontogram from "@/components/patients/Odontogram";
 
 const PREGNANCY_LABEL_KEYS = {
   "not applicable": "patients.pregnancyNotApplicable",
@@ -42,6 +44,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [eraseOpen, setEraseOpen] = useState(false);
   const [eraseConfirmText, setEraseConfirmText] = useState("");
+  const [odontogram, setOdontogram] = useState([]);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +54,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
 
       // instant UI
       setProfileState(seedDemoProfile(patient.id));
+      setOdontogram(patient.odontogram || []);
 
       // real profile
       const real = await fetchProfile(patient.id);
@@ -62,6 +66,15 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
       alive = false;
     };
   }, [open, patient?.id, seedDemoProfile, fetchProfile]);
+
+  const handleSaveTooth = async (toothNumber, { condition, note }) => {
+    try {
+      const res = await ownerApi.updateOdontogram(patient.id, { toothNumber, condition, note });
+      setOdontogram(res?.data || []);
+    } catch (e) {
+      toast.error(e.message || "Failed to save tooth chart");
+    }
+  };
 
   const profile = useMemo(() => {
     return profileState || { history: [], invoices: [], labs: [], treatments: [] };
@@ -199,6 +212,12 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               </Panel>
             </div>
           )}
+
+          <div className="lg:col-span-3">
+            <Panel title={t("patients.sectionOdontogram")}>
+              <Odontogram odontogram={odontogram} editable onSave={handleSaveTooth} />
+            </Panel>
+          </div>
 
           <Panel title="History">
             <Timeline items={profile.history} />

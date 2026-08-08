@@ -57,6 +57,7 @@ export const ownerApi = {
   createPatient: (body) => request("/owner/patients", { method: "POST", body }),
   updatePatient: (id, body) => request(`/owner/patients/${id}`, { method: "PATCH", body }),
   getPatientProfile: (patientId) => request(`/owner/patients/${patientId}/profile`),
+  updateOdontogram: (patientId, body) => request(`/owner/patients/${patientId}/odontogram`, { method: "PATCH", body }),
   deletePatient: (patientId) => request(`/owner/patients/${patientId}`, { method: "DELETE" }),
   erasePatient: (patientId, confirm) =>
     request(`/owner/patients/${patientId}/erase`, { method: "POST", body: { confirm } }),

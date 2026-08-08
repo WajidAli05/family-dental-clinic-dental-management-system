@@ -11,6 +11,7 @@ import {
   ownerPatientDelete,
   ownerCreatePatient,
   ownerUpdatePatient,
+  ownerUpdateOdontogram,
 
   ownerListLabAccounts,
   ownerCreateLabAccount,
@@ -735,6 +736,16 @@ export const ownerUpdatePatientCtrl = async (req, res) => {
     const data = await ownerUpdatePatient(req.user?._id, req.params.id, req.body || {});
     await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: data?.name, after: { id: data?.id, name: data?.name, phone: data?.phone, status: data?.status, insuranceChanged: Boolean(req.body?.insurance), emergencyContactChanged: Boolean(req.body?.emergencyContact), medicalInfoChanged: medicalFieldsChanged(req.body) } });
     return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateOdontogramCtrl = async (req, res) => {
+  try {
+    const result = await ownerUpdateOdontogram(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: "odontogram", after: { toothNumber: result.entry.toothNumber, condition: result.entry.condition } });
+    return res.json({ success: true, data: result.odontogram });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }

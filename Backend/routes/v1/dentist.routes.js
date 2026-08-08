@@ -9,6 +9,7 @@ import {
   updateDentistAppointmentCtrl,
   updateDentistAppointmentStatusCtrl,
   getDentistPatientsCtrl,
+  updateDentistOdontogramCtrl,
   getDentistCases,
   updateDentistCaseStatus,
   getDentistLabsCtrl,
@@ -48,8 +49,9 @@ router.post("/appointments",               requirePermission("tab_dentist_appoin
 router.patch("/appointments/:id",          requirePermission("tab_dentist_appointments"), updateDentistAppointmentCtrl);
 router.patch("/appointments/:id/status",   requirePermission("tab_dentist_appointments"), updateDentistAppointmentStatusCtrl);
 
-// patients (read-only for dentist)
+// patients (read-only for dentist, except the odontogram which dentists annotate clinically)
 router.get("/patients", requirePermission("tab_dentist_patients"), getDentistPatientsCtrl);
+router.patch("/patients/:id/odontogram", requirePermission("tab_dentist_patients"), updateDentistOdontogramCtrl);
 
 // lab samples (cases)
 router.get("/cases",              requirePermission("tab_dentist_lab_samples"), getDentistCases);

@@ -14,7 +14,7 @@ import {
   updateAppointmentCore,
   updateAppointmentStatusCore,
 } from "./shared/appointments.js";
-import { listPatientsCore } from "./shared/patients.js";
+import { listPatientsCore, upsertOdontogramEntry } from "./shared/patients.js";
 import { updateLabCaseStatus } from "./shared/labCases.js";
 import {
   encryptPrescriptionDoc,
@@ -471,6 +471,11 @@ export async function dentistCreateCase(dentistId, body) {
 // -------------------- PATIENTS (read-only list for dentist) --------------------
 export async function dentistGetPatients(_dentistId, params = {}) {
   return listPatientsCore(params);
+}
+
+// -------------------- ODONTOGRAM (dentist can annotate) --------------------
+export async function dentistUpdateOdontogram(dentistId, patientPublicId, body) {
+  return upsertOdontogramEntry(patientPublicId, body, dentistId);
 }
 
 // -------------------- CLINICAL MASTER (for dentist) --------------------

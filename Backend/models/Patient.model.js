@@ -56,6 +56,29 @@ const patientSchema = new Schema(
     dentalHistory:      { type: String, default: "" },
     previousTreatments: { type: String, default: "" },
 
+    // ── Odontogram (tooth chart) ───────────────────────────────────────────
+    // One entry per annotated tooth, keyed by FDI (ISO-3950) two-digit tooth
+    // number ("11".."48"). Teeth with no entry are implicitly "healthy" /
+    // unannotated — a patient with no chart simply has an empty array.
+    odontogram: {
+      type: [
+        {
+          _id: false,
+          toothNumber: { type: String, required: true },
+          condition: {
+            type: String,
+            enum: ["healthy", "caries", "filled", "missing", "crown", "implant", "root_canal", "extraction_needed", "bridge"],
+            required: true,
+          },
+          surfaces: { type: [String], default: [] },
+          note: { type: String, default: "" },
+          updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+          updatedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+
     status: { type: String, enum: ["active", "inactive"], default: "active", index: true },
 
     registrationDate: { type: String, default: "" }, // "YYYY-MM-DD"

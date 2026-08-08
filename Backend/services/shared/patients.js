@@ -98,6 +98,65 @@ export function medicalFieldsChanged(body) {
   return PATIENT_MEDICAL_PHI_STRING_FIELDS.some((f) => body?.[f] !== undefined) || body?.allergies !== undefined;
 }
 
+// ── Odontogram (tooth chart) ────────────────────────────────────────────────
+// Numbering standard: FDI / ISO-3950 two-digit notation. Quadrant 1 = upper
+// right (18→11 toward midline), Q2 = upper left (21→28), Q3 = lower left
+// (31→38), Q4 = lower right (48→41 toward midline). Not encrypted — tooth
+// conditions are structured clinical codes, not queried/filtered PHI, and
+// this feature's REUSE list doesn't call for fieldEncryption.
+export const FDI_TEETH = [
+  "18", "17", "16", "15", "14", "13", "12", "11",
+  "21", "22", "23", "24", "25", "26", "27", "28",
+  "48", "47", "46", "45", "44", "43", "42", "41",
+  "31", "32", "33", "34", "35", "36", "37", "38",
+];
+
+export const TOOTH_CONDITIONS = [
+  "healthy", "caries", "filled", "missing", "crown",
+  "implant", "root_canal", "extraction_needed", "bridge",
+];
+
+/** Odontogram entries as plain objects for API responses (no ObjectId leaks). */
+export function mapOdontogram(p) {
+  const arr = Array.isArray(p?.odontogram) ? p.odontogram : [];
+  return arr.map((e) => ({
+    toothNumber: e.toothNumber,
+    condition: e.condition,
+    surfaces: Array.isArray(e.surfaces) ? e.surfaces : [],
+    note: e.note || "",
+    updatedAt: e.updatedAt || null,
+  }));
+}
+
+/** Create-or-replace the chart entry for one tooth. Shared by owner + dentist
+ * so both permission-gated write paths use identical validation/persistence. */
+export async function upsertOdontogramEntry(patientPublicId, { toothNumber, condition, surfaces, note }, updatedByUserId) {
+  const tooth = String(toothNumber || "").trim();
+  if (!FDI_TEETH.includes(tooth)) throw new Error("Invalid tooth number");
+
+  const cond = String(condition || "").trim().toLowerCase();
+  if (!TOOTH_CONDITIONS.includes(cond)) throw new Error("Invalid condition");
+
+  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() });
+  if (!patient) throw new Error("Patient not found");
+
+  const entry = {
+    toothNumber: tooth,
+    condition: cond,
+    surfaces: Array.isArray(surfaces) ? surfaces.map((s) => String(s).trim()).filter(Boolean) : [],
+    note: String(note || "").trim(),
+    updatedBy: updatedByUserId || null,
+    updatedAt: new Date(),
+  };
+
+  const idx = (patient.odontogram || []).findIndex((e) => e.toothNumber === tooth);
+  if (idx >= 0) patient.odontogram[idx] = entry;
+  else patient.odontogram = [...(patient.odontogram || []), entry];
+
+  await patient.save();
+  return { entry, odontogram: mapOdontogram(patient) };
+}
+
 export async function findPatientByPhoneDigits(phone, excludeId = null) {
   const target = cleanPhone(phone);
   if (!target) return null;
@@ -330,6 +389,7 @@ export async function updatePatientCore(patientPublicId, body) {
   const json = patient.toJSON();
   json.insurance = mapInsurance(patient);
   Object.assign(json, mapMedicalInfo(patient));
+  json.odontogram = mapOdontogram(patient);
   return json;
 }
 
@@ -378,6 +438,7 @@ export async function listPatientsCore({ page, limit, sortBy, sortDir, q } = {})
     emergencyContact: mapEmergencyContact(p),
     insurance: mapInsurance(p),
     ...mapMedicalInfo(p),
+    odontogram: mapOdontogram(p),
     status:    p.status  || "active",
     lastVisit: p.lastVisit || "",
     dentist:   p.primaryDentist?.name    || "",

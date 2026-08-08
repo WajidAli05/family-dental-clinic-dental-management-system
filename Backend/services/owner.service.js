@@ -38,7 +38,7 @@ import {
   updateAppointmentStatusCore,
   deleteAppointmentCore,
 } from "./shared/appointments.js";
-import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo } from "./shared/patients.js";
+import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo, mapOdontogram, upsertOdontogramEntry } from "./shared/patients.js";
 import {
   PERMISSION_ROLES,
   OWNER_PERMISSION_KEYS,
@@ -507,6 +507,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
       ...mapMedicalInfo(p),
+      odontogram: mapOdontogram(p),
       status: p.status || "active",
       createdAt: p.registrationDate || toISO(p.createdAt),
       lastVisit: p.lastVisit || "",
@@ -2223,6 +2224,7 @@ function mapOwnerPatient(p) {
     emergencyContact:  mapEmergencyContact(p),
     insurance:         mapInsurance(p),
     ...mapMedicalInfo(p),
+    odontogram:  mapOdontogram(p),
     status:      p.status  || "active",
     lastVisit:   p.lastVisit || "",
     createdAt:   (p.registrationDate || ""),
@@ -2242,6 +2244,10 @@ export async function ownerCreatePatient(_ownerId, body) {
 export async function ownerUpdatePatient(_ownerId, patientPublicId, body) {
   const patient = await updatePatientCore(patientPublicId, body);
   return mapOwnerPatient(patient);
+}
+
+export async function ownerUpdateOdontogram(ownerId, patientPublicId, body) {
+  return upsertOdontogramEntry(patientPublicId, body, ownerId);
 }
 
 // =====================================================

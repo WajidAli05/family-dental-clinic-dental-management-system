@@ -10,7 +10,7 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
-import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo } from "./shared/patients.js";
+import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram } from "./shared/patients.js";
 import { generateAppointmentPublicId } from "./shared/appointments.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
@@ -579,7 +579,7 @@ export async function receptionistLookupPatient(_receptionistId, { q } = {}) {
     address: patient.address || "",
     lastVisit: patient.lastVisit || "",
     allergies: mapMedicalInfo(patient).allergies,
-    original: { ...patient, ...mapMedicalInfo(patient) },
+    original: { ...patient, ...mapMedicalInfo(patient), odontogram: mapOdontogram(patient) },
   };
 }
 
@@ -733,6 +733,7 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
       ...mapMedicalInfo(p),
+      odontogram: mapOdontogram(p),
       lastVisit: isoToPretty(lastVisitISO),
       status: p.status || "active",
       mr: p.mr ?? null,

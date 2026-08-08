@@ -13,6 +13,7 @@ import {
   ownerDeletePatient,
   ownerCreatePatientCtrl,
   ownerUpdatePatientCtrl,
+  ownerUpdateOdontogramCtrl,
 
   ownerListLabs,
   ownerCreateLab,
@@ -115,6 +116,7 @@ router.get("/patients/phone-check",      phoneCheckOwnerPatients);
 router.post("/patients",                 ownerCreatePatientCtrl);
 router.get("/patients/:id/profile",      ownerGetPatientProfile);
 router.patch("/patients/:id",      ownerUpdatePatientCtrl);
+router.patch("/patients/:id/odontogram", ownerUpdateOdontogramCtrl);
 router.delete("/patients/:id",     ownerDeletePatient);
 // Right to erasure (PDPL) — distinct from soft-delete above: irreversible,
 // anonymizes PII rather than hiding the record. Typed confirmation required.

@@ -19,6 +19,7 @@
   dentistGetPatientHistory,
   dentistGetClinicalMaster,
   dentistGetPatients,
+  dentistUpdateOdontogram,
   dentistGetFinance,
   dentistSearchMedications,
   dentistCreateOrGetMedication,
@@ -109,6 +110,16 @@ export const getDentistPatientsCtrl = async (req, res) => {
     return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+export const updateDentistOdontogramCtrl = async (req, res) => {
+  try {
+    const result = await dentistUpdateOdontogram(req.user._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "patient.update", entityType: "Patient", entityId: req.params.id, entityLabel: "odontogram", after: { toothNumber: result.entry.toothNumber, condition: result.entry.condition } });
+    return res.json({ success: true, data: result.odontogram });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 };
 

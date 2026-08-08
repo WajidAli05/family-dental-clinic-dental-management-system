@@ -204,6 +204,20 @@
     "addAllergy": "Add Allergy",
     "noAllergies": "No known allergies recorded",
     "allergyAlertTitle": "Allergy Alert",
-    "allergyAlertPrescribing": "Check allergies before prescribing"
+    "allergyAlertPrescribing": "Check allergies before prescribing",
+    "sectionOdontogram": "Odontogram (Tooth Chart)",
+    "tooth": "Tooth",
+    "toothNote": "Note (optional)",
+    "toothSave": "Save",
+    "toothCancel": "Cancel",
+    "toothHealthy": "Healthy",
+    "toothCaries": "Caries",
+    "toothFilled": "Filled",
+    "toothMissing": "Missing",
+    "toothCrown": "Crown",
+    "toothImplant": "Implant",
+    "toothRootCanal": "Root Canal",
+    "toothExtractionNeeded": "Extraction Needed",
+    "toothBridge": "Bridge"
   }
 }
