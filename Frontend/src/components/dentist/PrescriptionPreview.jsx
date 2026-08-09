@@ -6,6 +6,7 @@ const PrescriptionPreview = () => {
   const {
     patientType,
     selectedTeeth,
+    toothEntries,
     diagnosis,
     treatment,
     notes,
@@ -15,9 +16,37 @@ const PrescriptionPreview = () => {
   return (
     <div className="border rounded-xl p-4 bg-gray-50 text-sm space-y-1">
       <p><strong>Patient Type:</strong> {patientType || "—"}</p>
-      <p><strong>Teeth:</strong> {selectedTeeth.length ? selectedTeeth.join(", ") : "—"}</p>
-      <p><strong>Diagnosis:</strong> {diagnosis || "—"}</p>
-      <p><strong>Treatment:</strong> {treatment || "—"}</p>
+
+      {/* Per-tooth clinical record (new). Falls back to the legacy single
+          diagnosis/treatment block for older prescriptions. */}
+      {toothEntries?.length > 0 ? (
+        <div className="pt-1">
+          <p className="font-semibold mb-1">Per-tooth findings:</p>
+          <ul className="space-y-1">
+            {toothEntries.map((e) => (
+              <li key={e.toothNumber} className="text-xs leading-relaxed">
+                <span className="font-semibold">Tooth {e.toothNumber}</span>
+                {e.diagnosis && <span className="text-gray-600"> — Dx: {e.diagnosis}</span>}
+                {e.treatment && <span className="text-gray-600"> · Tx: {e.treatment}</span>}
+                {e.clinicalFinding && <span className="text-gray-600"> · Finding: {e.clinicalFinding}</span>}
+                {e.note && <span className="text-gray-500"> · {e.note}</span>}
+                {e.xrayRequested && (
+                  <span className="ml-1 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+                    X-RAY{e.xrayNote ? `: ${e.xrayNote}` : ""}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <>
+          <p><strong>Teeth:</strong> {selectedTeeth.length ? selectedTeeth.join(", ") : "—"}</p>
+          <p><strong>Diagnosis:</strong> {diagnosis || "—"}</p>
+          <p><strong>Treatment:</strong> {treatment || "—"}</p>
+        </>
+      )}
+
       <p><strong>Notes:</strong> {notes || "—"}</p>
 
       {medications && medications.length > 0 && (

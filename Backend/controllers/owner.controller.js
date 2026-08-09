@@ -12,6 +12,7 @@ import {
   ownerCreatePatient,
   ownerUpdatePatient,
   ownerUpdateOdontogram,
+  ownerAppointmentClinical,
 
   ownerListLabAccounts,
   ownerCreateLabAccount,
@@ -738,6 +739,15 @@ export const ownerUpdatePatientCtrl = async (req, res) => {
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerAppointmentClinicalCtrl = async (req, res) => {
+  try {
+    const data = await ownerAppointmentClinical(req.user?._id, req.params.id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -13,10 +13,12 @@ import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { printPrescription } from "@/utils/printPrescription";
 
 import PatientTypeSelector from "./PatientTypeSelector";
-import DentalChart2D from "./DentalChart2D";
 import PrescriptionForm from "./PrescriptionForm";
 import PrescriptionPreview from "./PrescriptionPreview";
 import AllergyAlert from "@/components/patients/AllergyAlert";
+import Odontogram from "@/components/patients/Odontogram";
+import { useUserStore } from "@/store/userStore";
+import { useDentistClinicalMasterStore } from "@/store/dentistClinicalMasterStore";
 
 import { dentistApi } from "@/lib/dentistApi";
 
@@ -27,6 +29,7 @@ const fmtDate = (d) => {
 
 const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription }) => {
   const { t } = useTranslation();
+  const currentUser = useUserStore((s) => s.currentUser);
   const store = usePrescriptionStore();
   const saving   = usePrescriptionStore((s) => s.saving);
   const error    = usePrescriptionStore((s) => s.error);
@@ -34,25 +37,64 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
 
   const [history, setHistory] = useState([]);
   const [allergies, setAllergies] = useState([]);
+  const [odontogram, setOdontogram] = useState([]);
+  const [chartDentistId, setChartDentistId] = useState("");
 
   const patientId = appointment?.patientId || appointment?.patient?.publicId || "";
+  const appointmentId = appointment?.id || appointment?.publicId || "";
+
+  // Write access mirrors the server rule (assertDentistCanEditChart): the
+  // patient's assigned dentist OR the treating dentist on this visit. Most
+  // patients have no primaryDentist, so the visit check is what normally
+  // grants access here. Server still 403s independently.
+  const isAssignedDentist = Boolean(currentUser?.publicId) && currentUser.publicId === chartDentistId;
+  const isTreatingDentist =
+    Boolean(currentUser?.publicId) &&
+    currentUser.publicId === (appointment?.dentistId || "");
+  const canEditChart = isAssignedDentist || isTreatingDentist;
+
+  // Select the raw arrays (stable store references), then derive the option
+  // lists with useMemo. A selector returning a NEW object literal each call
+  // makes zustand v5's useSyncExternalStore snapshot change on every render,
+  // which React 19 treats as an infinite loop and throws on — that crashed
+  // this component (and the dashboard that renders it) on mount.
+  const diagnosisTemplates = useDentistClinicalMasterStore((s) => s.diagnosisTemplates);
+  const treatments = useDentistClinicalMasterStore((s) => s.treatments);
+  const clinicalFindingTemplates = useDentistClinicalMasterStore((s) => s.clinicalFindingTemplates);
+  const fetchClinicalMaster = useDentistClinicalMasterStore((s) => s.fetchClinicalMaster);
+  const cmLoaded = useDentistClinicalMasterStore((s) => s.loaded);
+
+  const clinicalOptions = useMemo(() => ({
+    diagnosis: (diagnosisTemplates || []).filter((d) => d?.active !== false).map((d) => String(d?.title || "").trim()).filter(Boolean),
+    treatment: (treatments || []).filter((x) => x?.active !== false).map((x) => String(x?.name || "").trim()).filter(Boolean),
+    clinicalFinding: (clinicalFindingTemplates || []).filter((c) => c?.active !== false).map((c) => String(c?.title || "").trim()).filter(Boolean),
+  }), [diagnosisTemplates, treatments, clinicalFindingTemplates]);
 
   // On open: hydrate or reset; fetch history + the patient's own recorded
-  // allergies (advisory-only safety check — not a drug-interaction database).
+  // allergies (advisory-only safety check — not a drug-interaction database)
+  // and odontogram, so the assigned dentist can view/set tooth status without
+  // leaving the prescribing flow — same component + endpoint as the profile
+  // chart, so both stay in sync.
   // On close: reset store and clear history so the next patient starts clean.
   useEffect(() => {
     if (!open) {
       store.reset();
       setHistory([]);
       setAllergies([]);
+      setOdontogram([]);
+      setChartDentistId("");
       return;
     }
 
+    if (!cmLoaded) fetchClinicalMaster?.();
+
     if (prescription) {
       store.hydrateFromBackend(prescription);
+      store.setAppointmentId(appointmentId);
     } else {
       store.reset();
       store.setPatientId(patientId);
+      store.setAppointmentId(appointmentId);
       store.setDate(appointment?.date || new Date().toISOString().slice(0, 10));
     }
 
@@ -64,16 +106,42 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
 
       dentistApi
         .getPatients({ q: patientId })
-        .then((res) => setAllergies(res?.data?.[0]?.allergies || []))
+        .then((res) => {
+          // Exact match on publicId — the search is a fuzzy $or (name/phone/
+          // publicId), so blindly taking [0] could grab the wrong patient.
+          const row = (res?.data || []).find((r) => r.id === patientId);
+          setAllergies(row?.allergies || []);
+          setOdontogram(row?.odontogram || []);
+          setChartDentistId(row?.dentistId || "");
+        })
         .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const handleSaveTooth = async (toothNumber, { condition, note }) => {
+    try {
+      // appointmentId lets the server authorize the treating dentist for this
+      // visit, not just the patient's assigned dentist.
+      const res = await dentistApi.updateOdontogram(patientId, { toothNumber, condition, note, appointmentId });
+      setOdontogram(res?.data || []);
+    } catch (e) {
+      toast.error(e.message || "Failed to save tooth chart");
+    }
+  };
+
+  // Per-tooth clinical entry lives in prescription state until the
+  // prescription itself is saved. `null` removes the tooth's entry.
+  const handleClinicalChange = (toothNumber, entry) => {
+    if (entry === null) store.removeToothEntry(toothNumber);
+    else store.upsertToothEntry(toothNumber, entry);
+  };
+
   // Reset store and start a blank prescription for this patient/date.
   const handleNewPrescription = () => {
     store.reset();
     store.setPatientId(patientId);
+    store.setAppointmentId(appointmentId);
     store.setDate(appointment?.date || new Date().toISOString().slice(0, 10));
   };
 
@@ -116,6 +184,27 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
 
         {/* ── Allergy alert — must be visible before/at prescribing ── */}
         <AllergyAlert allergies={allergies} subtitle={t("patients.allergyAlertPrescribing")} />
+
+        {/* ── Odontogram — same component/endpoint as the patient profile chart ── */}
+        {patientId && (
+          <div className="rounded-xl border border-gray-100 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {t("patients.sectionOdontogram")}
+              </p>
+              <p className="text-xs text-gray-500">{t("patients.odontogramHint")}</p>
+            </div>
+            <Odontogram
+              odontogram={odontogram}
+              editable={canEditChart}
+              onSave={handleSaveTooth}
+              clinical
+              toothEntries={store.toothEntries || []}
+              onClinicalChange={handleClinicalChange}
+              clinicalOptions={clinicalOptions}
+            />
+          </div>
+        )}
 
         {/* ── Patient history panel ── */}
         {history.length > 0 && (
@@ -168,7 +257,6 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
           <PatientTypeSelector onSelect={store.setPatientType} />
         ) : (
           <div className="space-y-6">
-            <DentalChart2D />
             <PrescriptionForm />
             <PrescriptionPreview />
 

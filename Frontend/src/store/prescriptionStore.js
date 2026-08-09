@@ -15,6 +15,16 @@ const initialState = () => ({
   // form fields
   patientType: null, // "normal" | "ortho"
   selectedTeeth: [],
+
+  // Per-tooth clinical record — the tooth-based model. Each entry:
+  // { toothNumber, diagnosis, treatment, clinicalFinding, note,
+  //   xrayRequested, xrayNote }. Legacy prescriptions load with [] and keep
+  // using the flat diagnosis/treatment/clinicalFinding fields below.
+  toothEntries: [],
+  appointmentId: "",
+
+  // Legacy single-block clinical fields — still loaded/saved so old
+  // prescriptions round-trip unchanged.
   diagnosis: "",
   treatment: "",
   clinicalFinding: "",
@@ -47,7 +57,38 @@ export const usePrescriptionStore = create((set, get) => ({
   // -----------------------
   setId: (_id) => set({ _id }),
   setPatientId: (patientId) => set({ patientId }),
+  setAppointmentId: (appointmentId) => set({ appointmentId }),
   setDate: (date) => set({ date }),
+
+  // Create-or-replace this tooth's clinical entry. An entry with no clinical
+  // content at all is removed instead of stored, so "included teeth" always
+  // means "teeth with a real clinical record".
+  upsertToothEntry: (toothNumber, patch) =>
+    set((s) => {
+      // Legacy prescriptions hydrated from older docs may carry no
+      // toothEntries at all — never assume the array exists.
+      const current = Array.isArray(s.toothEntries) ? s.toothEntries : [];
+      const rest = current.filter((e) => e.toothNumber !== toothNumber);
+      const merged = {
+        toothNumber,
+        diagnosis: "", treatment: "", clinicalFinding: "", note: "",
+        xrayRequested: false, xrayNote: "",
+        ...(current.find((e) => e.toothNumber === toothNumber) || {}),
+        ...patch,
+      };
+      const isEmpty =
+        !merged.diagnosis && !merged.treatment && !merged.clinicalFinding &&
+        !merged.note && !merged.xrayRequested && !merged.xrayNote;
+      const next = isEmpty ? rest : [...rest, merged];
+      return { toothEntries: next, selectedTeeth: next.map((e) => e.toothNumber) };
+    }),
+
+  removeToothEntry: (toothNumber) =>
+    set((s) => {
+      const current = Array.isArray(s.toothEntries) ? s.toothEntries : [];
+      const next = current.filter((e) => e.toothNumber !== toothNumber);
+      return { toothEntries: next, selectedTeeth: next.map((e) => e.toothNumber) };
+    }),
 
   setPatientType: (patientType) => set({ patientType }),
   setDiagnosis: (diagnosis) => set({ diagnosis }),
@@ -100,6 +141,7 @@ export const usePrescriptionStore = create((set, get) => ({
     return {
       patientType: s.patientType,
       selectedTeeth: s.selectedTeeth,
+      toothEntries: s.toothEntries,
       diagnosis: s.diagnosis,
       treatment: s.treatment,
       clinicalFinding: s.clinicalFinding,
@@ -107,6 +149,7 @@ export const usePrescriptionStore = create((set, get) => ({
       notes: s.notes,
       medications,
       patientId: s.patientId,
+      appointmentId: s.appointmentId,
       date: s.date || todayISO(),
     };
   },
@@ -172,6 +215,8 @@ export const usePrescriptionStore = create((set, get) => ({
 
       patientType: rx?.patientType || null,
       selectedTeeth: Array.isArray(rx?.selectedTeeth) ? rx.selectedTeeth : [],
+      toothEntries: Array.isArray(rx?.toothEntries) ? rx.toothEntries : [],
+      appointmentId: rx?.appointmentId || "",
 
       diagnosis: rx?.diagnosis || "",
       treatment: rx?.treatment || "",

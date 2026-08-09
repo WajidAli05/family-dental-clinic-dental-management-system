@@ -8,11 +8,19 @@ const QUADRANTS = ["Q1", "Q2", "Q3", "Q4"];
 const groupSelectedTeeth = (selectedTeeth = []) => {
   const grouped = { Q1: [], Q2: [], Q3: [], Q4: [] };
   selectedTeeth.forEach((item) => {
-    const match = String(item).match(/^(Q[1-4])-T(\d+)$/);
-    if (!match) return;
-    const q = match[1];
-    const t = Number(match[2]);
-    if (Number.isFinite(t)) grouped[q].push(t);
+    const str = String(item);
+
+    // Legacy format from the old quadrant-grid selector (removed): "Q1-T7"
+    const legacy = str.match(/^(Q[1-4])-T(\d+)$/);
+    if (legacy) {
+      grouped[legacy[1]].push(Number(legacy[2]));
+      return;
+    }
+
+    // FDI two-digit tooth number ("11".."48") — the first digit IS the FDI
+    // quadrant, so no lookup table is needed.
+    const fdi = str.match(/^([1-4])[1-8]$/);
+    if (fdi) grouped[`Q${fdi[1]}`].push(Number(str));
   });
   QUADRANTS.forEach((q) => grouped[q].sort((a, b) => a - b));
   return grouped;
@@ -90,11 +98,52 @@ export const printPrescription = (data) => {
     y += BODY_LH;
   };
 
+  const toothEntries = Array.isArray(data.toothEntries) ? data.toothEntries : [];
+
   row("Patient Type",     data.patientType);
-  row("Diagnosis",        data.diagnosis);
-  row("Treatment",        data.treatment);
-  row("Clinical Findings",data.clinicalFinding);
+  // Per-tooth charting replaced the single clinical block. Legacy
+  // prescriptions have no toothEntries — keep printing their flat fields so
+  // nothing is lost.
+  if (!toothEntries.length) {
+    row("Diagnosis",        data.diagnosis);
+    row("Treatment",        data.treatment);
+    row("Clinical Findings",data.clinicalFinding);
+  }
   row("Treatment Status", data.visualStatus);
+
+  // ===== PER-TOOTH CLINICAL RECORD (new tooth-based model) =====
+  if (toothEntries.length) {
+    y += 4;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60);
+    doc.text("Per-Tooth Findings:", margin, y);
+    doc.setTextColor(0);
+    y += BODY_LH;
+
+    doc.setFontSize(10);
+    const lineW = pageW - margin * 2;
+    for (const e of toothEntries) {
+      const bits = [];
+      if (e.diagnosis)       bits.push(`Dx: ${e.diagnosis}`);
+      if (e.treatment)       bits.push(`Tx: ${e.treatment}`);
+      if (e.clinicalFinding) bits.push(`Finding: ${e.clinicalFinding}`);
+      if (e.note)            bits.push(e.note);
+      if (e.xrayRequested)   bits.push(`X-RAY REQUESTED${e.xrayNote ? ` (${e.xrayNote})` : ""}`);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(25);
+      doc.text(`Tooth ${e.toothNumber}`, margin, y);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60);
+      const text = bits.length ? bits.join(" · ") : "-";
+      const wrapped = doc.splitTextToSize(text, lineW - 24);
+      doc.text(wrapped, margin + 24, y);
+      y += Math.max(BODY_LH, wrapped.length * 5);
+    }
+    doc.setTextColor(0);
+  }
 
   // ===== SELECTED TEETH — label left + quadrant box top-right =====
   y += 4;

@@ -1,12 +1,7 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { dentistApi } from "@/lib/dentistApi";
-import { useUserStore } from "@/store/userStore";
 import AllergyAlert from "@/components/patients/AllergyAlert";
-import Odontogram from "@/components/patients/Odontogram";
 
 const REFERRAL_LABEL_KEYS = {
   "walk-in": "patients.referralWalkIn",
@@ -36,29 +31,14 @@ const Panel = ({ title, children }) => (
   </div>
 );
 
+// Read-only patient summary for the dentist. The tooth chart deliberately
+// does NOT live here — on the dentist side the odontogram belongs to the
+// prescribing flow (StartPrescriptionModal), where charting happens in the
+// clinical context of a visit. Owner keeps the profile odontogram.
 const DentistPatientViewModal = ({ open, patient, onClose }) => {
   const { t } = useTranslation();
-  const currentUser = useUserStore((s) => s.currentUser);
-  const [odontogram, setOdontogram] = useState([]);
-
-  useEffect(() => {
-    setOdontogram(patient?.odontogram || []);
-  }, [patient]);
 
   if (!open || !patient) return null;
-
-  // Odontogram write access is server-enforced too (403 on the API for a
-  // non-assigned dentist) — this only controls whether the UI offers editing.
-  const canEditChart = Boolean(currentUser?.publicId) && currentUser.publicId === patient.dentistId;
-
-  const handleSaveTooth = async (toothNumber, { condition, note }) => {
-    try {
-      const res = await dentistApi.updateOdontogram(patient.id || patient.publicId, { toothNumber, condition, note });
-      setOdontogram(res?.data || []);
-    } catch (e) {
-      toast.error(e.message || "Failed to save tooth chart");
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
@@ -127,10 +107,6 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
                 </div>
               </div>
             )}
-          </Panel>
-
-          <Panel title={t("patients.sectionOdontogram")}>
-            <Odontogram odontogram={odontogram} editable={canEditChart} onSave={handleSaveTooth} />
           </Panel>
         </div>
 

@@ -14,6 +14,7 @@ import {
   ownerCreatePatientCtrl,
   ownerUpdatePatientCtrl,
   ownerUpdateOdontogramCtrl,
+  ownerAppointmentClinicalCtrl,
 
   ownerListLabs,
   ownerCreateLab,
@@ -105,6 +106,8 @@ router.get("/dashboard", ownerGetDashboardOverview);
 
 // Appointments
 router.get("/appointments",              getOwnerAppointments);
+// Static sub-path before /:id-style routes so it isn't absorbed as an id param
+router.get("/appointments/:id/clinical", ownerAppointmentClinicalCtrl);
 router.post("/appointments",             ownerCreateAppointmentCtrl);
 router.patch("/appointments/:id",        ownerUpdateAppointmentCtrl);
 router.patch("/appointments/:id/status", ownerUpdateAppointmentStatusCtrl);

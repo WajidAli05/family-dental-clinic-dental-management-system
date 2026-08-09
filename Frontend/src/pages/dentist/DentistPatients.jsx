@@ -1,5 +1,6 @@
 // src/pages/dentist/DentistPatients.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -7,12 +8,15 @@ import Wave from "react-wavify";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import TablePagination from "@/components/ui/TablePagination";
 import { dentistApi } from "@/lib/dentistApi";
+import { useUserStore } from "@/store/userStore";
 import { toast } from "sonner";
 import DentistPatientViewModal from "@/components/dentist/DentistPatientViewModal";
 
 const PAGE_LIMIT = 50;
 
 const DentistPatients = () => {
+  const { t } = useTranslation();
+  const currentUser = useUserStore((s) => s.currentUser);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -59,6 +63,52 @@ const DentistPatients = () => {
   const SortIcon = ({ col }) => {
     if (sortBy !== col) return <span className="ml-1 text-gray-300">↕</span>;
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  };
+
+  // One table, no separate sections. The dentist's own patients are badged
+  // and floated to the top of the current page so they're found without
+  // searching; everything else keeps its existing sort order. Client-side on
+  // the already-fetched, already search-filtered rows — no extra endpoint.
+  const orderedRows = useMemo(() => {
+    const isMine = (p) => Boolean(currentUser?.publicId) && p.dentistId === currentUser.publicId;
+    return [...rows].sort((a, b) => Number(isMine(b)) - Number(isMine(a)));
+  }, [rows, currentUser?.publicId]);
+
+  const renderRow = (p) => {
+    const isMine = Boolean(currentUser?.publicId) && p.dentistId === currentUser.publicId;
+    return (
+    <tr
+      key={p.id || p.publicId}
+      className={`transition cursor-pointer ${isMine ? "bg-[#2ec4b6]/5 hover:bg-[#2ec4b6]/10" : "hover:bg-gray-50/60"}`}
+      onClick={() => setViewPatient(p)}
+    >
+      <td className="py-3 pr-4">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900">{p.name}</span>
+          {isMine && (
+            <span className="inline-flex items-center rounded-full bg-[#2ec4b6]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1c8a80]">
+              {t("patients.myPatientBadge")}
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-gray-500">{p.id || p.publicId}</div>
+      </td>
+      <td className="py-3 pr-4">{p.phone || "-"}</td>
+      <td className="py-3 pr-4">{p.age ?? "-"}</td>
+      <td className="py-3 pr-4">{p.gender || "-"}</td>
+      <td className="py-3 pr-4">{p.city || "-"}</td>
+      <td className="py-3 pr-4">{p.lastVisit || "-"}</td>
+      <td className="py-3 pr-4">
+        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+          p.status === "active"
+            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+            : "bg-gray-50 text-gray-700 border-gray-100"
+        }`}>
+          {p.status === "active" ? "Active" : "Inactive"}
+        </span>
+      </td>
+    </tr>
+    );
   };
 
   return (
@@ -138,32 +188,7 @@ const DentistPatients = () => {
                       </td>
                     </tr>
                   ) : (
-                    rows.map((p) => (
-                      <tr
-                        key={p.id || p.publicId}
-                        className="hover:bg-gray-50/60 transition cursor-pointer"
-                        onClick={() => setViewPatient(p)}
-                      >
-                        <td className="py-3 pr-4">
-                          <div className="font-semibold text-gray-900">{p.name}</div>
-                          <div className="text-xs text-gray-500">{p.id || p.publicId}</div>
-                        </td>
-                        <td className="py-3 pr-4">{p.phone || "-"}</td>
-                        <td className="py-3 pr-4">{p.age ?? "-"}</td>
-                        <td className="py-3 pr-4">{p.gender || "-"}</td>
-                        <td className="py-3 pr-4">{p.city || "-"}</td>
-                        <td className="py-3 pr-4">{p.lastVisit || "-"}</td>
-                        <td className="py-3 pr-4">
-                          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
-                            p.status === "active"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                              : "bg-gray-50 text-gray-700 border-gray-100"
-                          }`}>
-                            {p.status === "active" ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    orderedRows.map(renderRow)
                   )}
                 </tbody>
               </table>

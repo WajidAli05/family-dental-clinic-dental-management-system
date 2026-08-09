@@ -170,7 +170,7 @@ export const createDentistPrescription = async (req, res) => {
   try {
     const created = await dentistCreatePrescription(req.user, req.body);
     // PHI safety: omit diagnosis/clinicalFinding/treatment/notes from snapshot
-    await recordAudit({ req, action: "prescription.create", entityType: "Prescription", entityId: created?.id, entityLabel: created?.id, after: { id: created?.id, patientId: created?.patientId, date: created?.date, medicationCount: created?.medications?.length ?? 0 } });
+    await recordAudit({ req, action: "prescription.create", entityType: "Prescription", entityId: created?.id, entityLabel: created?.id, after: { id: created?.id, patientId: created?.patientId, appointmentId: created?.appointmentId || "", date: created?.date, medicationCount: created?.medications?.length ?? 0, toothCount: created?.toothEntries?.length ?? 0, teeth: (created?.toothEntries || []).map((e) => e.toothNumber), xrayRequestedTeeth: (created?.toothEntries || []).filter((e) => e.xrayRequested).map((e) => e.toothNumber) } });
     res.json({ success: true, data: created });
   } catch (e) {
     res.status(e.status || 400).json({ success: false, message: e.message });
@@ -181,7 +181,7 @@ export const updateDentistPrescription = async (req, res) => {
   try {
     const updated = await dentistUpdatePrescription(req.user, req.params.id, req.body);
     // PHI safety: omit diagnosis/clinicalFinding/treatment/notes from snapshot
-    await recordAudit({ req, action: "prescription.update", entityType: "Prescription", entityId: req.params.id, entityLabel: req.params.id, after: { id: updated?.id, patientId: updated?.patientId, date: updated?.date, medicationCount: updated?.medications?.length ?? 0 } });
+    await recordAudit({ req, action: "prescription.update", entityType: "Prescription", entityId: req.params.id, entityLabel: req.params.id, after: { id: updated?.id, patientId: updated?.patientId, appointmentId: updated?.appointmentId || "", date: updated?.date, medicationCount: updated?.medications?.length ?? 0, toothCount: updated?.toothEntries?.length ?? 0, teeth: (updated?.toothEntries || []).map((e) => e.toothNumber), xrayRequestedTeeth: (updated?.toothEntries || []).filter((e) => e.xrayRequested).map((e) => e.toothNumber) } });
     res.json({ success: true, data: updated });
   } catch (e) {
     res.status(e.status || 400).json({ success: false, message: e.message });

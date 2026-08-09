@@ -218,6 +218,31 @@ export async function dentistUpdateCaseStatus(dentistId, casePublicId, uiAction)
 
 // -------------------- PRESCRIPTIONS --------------------
 
+// FDI tooth numbers accepted in per-tooth clinical entries.
+const FDI_TOOTH_RE = /^[1-4][1-8]$/;
+
+/** Normalize per-tooth clinical entries: drop anything without a valid FDI
+ * tooth number, coerce text to trimmed strings, dedupe by tooth (last wins).
+ * All text here is PHI and gets encrypted by encryptPrescriptionDoc. */
+function sanitizeToothEntries(arr) {
+  if (!Array.isArray(arr)) return [];
+  const byTooth = new Map();
+  for (const e of arr) {
+    const tooth = String(e?.toothNumber || "").trim();
+    if (!FDI_TOOTH_RE.test(tooth)) continue;
+    byTooth.set(tooth, {
+      toothNumber:     tooth,
+      diagnosis:       String(e?.diagnosis       || "").trim(),
+      treatment:       String(e?.treatment       || "").trim(),
+      clinicalFinding: String(e?.clinicalFinding || "").trim(),
+      note:            String(e?.note            || "").trim(),
+      xrayRequested:   Boolean(e?.xrayRequested),
+      xrayNote:        String(e?.xrayNote        || "").trim(),
+    });
+  }
+  return [...byTooth.values()];
+}
+
 export async function dentistCreatePrescription(user, body) {
   const dentistName = user?.name || "";
   const date = body?.date || todayISO();
@@ -234,10 +259,17 @@ export async function dentistCreatePrescription(user, body) {
     throw Object.assign(new Error("Patient not found or inactive"), { status: 404 });
   }
 
+  const toothEntries = sanitizeToothEntries(body?.toothEntries);
+
   // Build plaintext payload first (all PHI in the clear at this point)
   const plain = {
     patientType:   body?.patientType ?? null,
-    selectedTeeth: Array.isArray(body?.selectedTeeth) ? body.selectedTeeth : [],
+    // Keep selectedTeeth mirrored from the per-tooth entries so legacy
+    // readers (print, preview, existing prescriptions) keep working unchanged.
+    selectedTeeth: toothEntries.length
+      ? toothEntries.map((e) => e.toothNumber)
+      : (Array.isArray(body?.selectedTeeth) ? body.selectedTeeth : []),
+    toothEntries,
     diagnosis:     body?.diagnosis     || "",
     treatment:     body?.treatment     || "",
     clinicalFinding: body?.clinicalFinding || "",
@@ -245,6 +277,7 @@ export async function dentistCreatePrescription(user, body) {
     notes:         body?.notes         || "",
     medications:   Array.isArray(body?.medications) ? body.medications : [],
     patientId,
+    appointmentId: String(body?.appointmentId || "").trim(),
     dentistName,
     date,
   };
@@ -294,6 +327,7 @@ export async function dentistUpdatePrescription(user, rxId, body) {
   const allowed = pick(body || {}, [
     "patientType",
     "selectedTeeth",
+    "toothEntries",
     "diagnosis",
     "treatment",
     "clinicalFinding",
@@ -301,6 +335,7 @@ export async function dentistUpdatePrescription(user, rxId, body) {
     "notes",
     "medications",
     "patientId",
+    "appointmentId",
     "date",
   ]);
 
@@ -310,6 +345,14 @@ export async function dentistUpdatePrescription(user, rxId, body) {
   }
   if (allowed.medications !== undefined && !Array.isArray(allowed.medications)) {
     throw new Error("medications must be an array");
+  }
+  if (allowed.toothEntries !== undefined) {
+    if (!Array.isArray(allowed.toothEntries)) throw new Error("toothEntries must be an array");
+    allowed.toothEntries = sanitizeToothEntries(allowed.toothEntries);
+    // Keep the legacy selectedTeeth mirror in sync with the per-tooth record.
+    if (allowed.toothEntries.length) {
+      allowed.selectedTeeth = allowed.toothEntries.map((e) => e.toothNumber);
+    }
   }
 
   // Same clinical-safety guard as create: don't let an update re-point (or
@@ -473,20 +516,42 @@ export async function dentistGetPatients(_dentistId, params = {}) {
   return listPatientsCore(params);
 }
 
-// -------------------- ODONTOGRAM (dentist can annotate own patients only) --------------------
-export async function dentistUpdateOdontogram(dentistId, patientPublicId, body) {
-  // Write access is restricted to the patient's assigned dentist (owner is
-  // unrestricted and doesn't go through this path). Checked here, separately
-  // from the shared upsert helper, so the owner-side call stays unrestricted.
+// -------------------- ODONTOGRAM (dentist writes: own patients or own visit) --------------------
+/**
+ * A dentist may write to a patient's tooth chart when EITHER:
+ *   - they are the patient's assigned dentist (Patient.primaryDentist), or
+ *   - they are the treating dentist on the appointment being worked (the
+ *     visit's provider owns that visit's clinical record — the standard
+ *     model in Open Dental / CareStack).
+ * Owner never reaches this path (unrestricted via the owner service).
+ * Exported so the per-tooth prescription path reuses the identical rule
+ * instead of re-implementing it.
+ */
+export async function assertDentistCanEditChart(dentistId, patientPublicId, appointmentPublicId = "") {
   const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() }).select("primaryDentist");
   if (!patient) throw new Error("Patient not found");
 
-  if (!patient.primaryDentist || String(patient.primaryDentist) !== String(dentistId)) {
-    const err = new Error("Only the patient's assigned dentist can edit the tooth chart");
-    err.status = 403;
-    throw err;
+  if (patient.primaryDentist && String(patient.primaryDentist) === String(dentistId)) return patient;
+
+  const apptId = String(appointmentPublicId || "").trim();
+  if (apptId) {
+    const appt = await Appointment.findOne({ publicId: apptId }).select("dentist patient").lean();
+    if (
+      appt &&
+      String(appt.dentist) === String(dentistId) &&
+      String(appt.patient) === String(patient._id)
+    ) {
+      return patient;
+    }
   }
 
+  const err = new Error("Only the patient's assigned dentist or the treating dentist for this visit can edit the tooth chart");
+  err.status = 403;
+  throw err;
+}
+
+export async function dentistUpdateOdontogram(dentistId, patientPublicId, body) {
+  await assertDentistCanEditChart(dentistId, patientPublicId, body?.appointmentId);
   return upsertOdontogramEntry(patientPublicId, body, dentistId);
 }
 

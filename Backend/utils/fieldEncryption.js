@@ -29,6 +29,14 @@ export const PRESCRIPTION_PHI_STRING_FIELDS = [
   "notes",
 ];
 
+// Array-valued PHI on Prescription — each is JSON-serialized then encrypted as
+// a single ciphertext string (see encryptMedications/decryptMedications, which
+// are generic JSON-array helpers despite the historical name).
+//   medications  — general, one list per prescription
+//   toothEntries — per-tooth clinical record {toothNumber, diagnosis,
+//                  treatment, clinicalFinding, note, xrayRequested, xrayNote}
+export const PRESCRIPTION_PHI_ARRAY_FIELDS = ["medications", "toothEntries"];
+
 // The PHI free-text fields on Patient.medicalInfo that we encrypt. None of
 // these are ever queried/filtered/sorted on (Rule A) — search/list only
 // touch name/phone/publicId/city/status. `allergies` is handled separately
@@ -208,8 +216,10 @@ export function encryptPrescriptionDoc(obj) {
     }
   }
 
-  if ("medications" in result) {
-    result.medications = encryptMedications(result.medications);
+  for (const field of PRESCRIPTION_PHI_ARRAY_FIELDS) {
+    if (field in result) {
+      result[field] = encryptMedications(result[field]);
+    }
   }
 
   return result;
@@ -229,8 +239,10 @@ export function decryptPrescriptionDoc(obj) {
     }
   }
 
-  if ("medications" in result) {
-    result.medications = decryptMedications(result.medications);
+  for (const field of PRESCRIPTION_PHI_ARRAY_FIELDS) {
+    if (field in result) {
+      result[field] = decryptMedications(result[field]);
+    }
   }
 
   return result;

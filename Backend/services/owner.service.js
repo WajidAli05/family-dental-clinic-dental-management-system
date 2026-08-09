@@ -2182,6 +2182,39 @@ function mapOwnerAppt(populated) {
   };
 }
 
+/**
+ * Full clinical record for one appointment (owner, read-only): the booking
+ * info plus the dentist's prescription for that visit if one exists —
+ * per-tooth diagnosis/treatment/findings, x-ray requests, general
+ * medications, and the patient's current tooth chart.
+ *
+ * Link resolution: prefer the explicit appointmentId written by newer
+ * prescriptions; fall back to patientId+date so the 15 pre-existing
+ * prescriptions (written before the link existed) still resolve.
+ */
+export async function ownerAppointmentClinical(_ownerId, apptPublicId) {
+  const appt = await Appointment.findOne({ publicId: normalize(apptPublicId) })
+    .populate("patient", "name publicId phone odontogram")
+    .populate("dentist", "name publicId")
+    .lean();
+  if (!appt) throw new Error("Appointment not found");
+
+  const booking = mapOwnerAppt(appt);
+  const patientId = appt.patient?.publicId || "";
+
+  let rx = await Prescription.findOne({ appointmentId: appt.publicId }).lean();
+  if (!rx && patientId && appt.date) {
+    rx = await Prescription.findOne({ patientId, date: appt.date }).lean();
+  }
+
+  return {
+    ...booking,
+    odontogram: mapOdontogram(appt.patient),
+    // Owner is authorized to read PHI — decrypt for this view only.
+    prescription: rx ? decryptPrescriptionDoc(rx) : null,
+  };
+}
+
 export async function ownerCreateAppointment(_ownerId, body) {
   const result = await createAppointmentCore(body);
   return mapOwnerAppt(result.original || result);
