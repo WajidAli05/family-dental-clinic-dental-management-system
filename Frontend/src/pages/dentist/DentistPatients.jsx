@@ -8,7 +8,6 @@ import Wave from "react-wavify";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import TablePagination from "@/components/ui/TablePagination";
 import { dentistApi } from "@/lib/dentistApi";
-import { useUserStore } from "@/store/userStore";
 import { toast } from "sonner";
 import DentistPatientViewModal from "@/components/dentist/DentistPatientViewModal";
 
@@ -16,7 +15,6 @@ const PAGE_LIMIT = 50;
 
 const DentistPatients = () => {
   const { t } = useTranslation();
-  const currentUser = useUserStore((s) => s.currentUser);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -70,12 +68,14 @@ const DentistPatients = () => {
   // searching; everything else keeps its existing sort order. Client-side on
   // the already-fetched, already search-filtered rows — no extra endpoint.
   const orderedRows = useMemo(() => {
-    const isMine = (p) => Boolean(currentUser?.publicId) && p.dentistId === currentUser.publicId;
-    return [...rows].sort((a, b) => Number(isMine(b)) - Number(isMine(a)));
-  }, [rows, currentUser?.publicId]);
+    // isMyPatient is computed server-side from appointments (this dentist has
+    // an appointment with the patient) — the same relationship that grants
+    // chart edit rights, so the badge always matches actual permissions.
+    return [...rows].sort((a, b) => Number(Boolean(b.isMyPatient)) - Number(Boolean(a.isMyPatient)));
+  }, [rows]);
 
   const renderRow = (p) => {
-    const isMine = Boolean(currentUser?.publicId) && p.dentistId === currentUser.publicId;
+    const isMine = Boolean(p.isMyPatient);
     return (
     <tr
       key={p.id || p.publicId}

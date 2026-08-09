@@ -242,5 +242,26 @@
     "xrayRequested": "أشعة سينية مطلوبة",
     "xrayNote": "ملاحظة / نوع الأشعة (اختياري)",
     "legacyClinicalBlock": "مسجل سابقاً (على مستوى الزيارة)"
+  },
+  "rx": {
+    "previewTitle": "معاينة الوصفة",
+    "clinical": "الملاحظات السريرية",
+    "clinicalFdi": "الملاحظات السريرية — ترقيم الأسنان FDI",
+    "colTooth": "السن",
+    "colDiagnosis": "التشخيص",
+    "colTreatment": "العلاج",
+    "colFinding": "ملاحظة سريرية",
+    "colXray": "أشعة",
+    "yes": "نعم",
+    "xrayRequested": "أشعة سينية مطلوبة",
+    "teeth": "الأسنان",
+    "medications": "الأدوية",
+    "noMedications": "لم توصف أي أدوية.",
+    "sig": "التعليمات",
+    "forDays": "لمدة {{count}} يوم",
+    "foodBefore": "قبل الطعام",
+    "foodAfter": "بعد الطعام",
+    "foodWith": "مع الطعام",
+    "advice": "نصائح / ملاحظات"
   }
 }

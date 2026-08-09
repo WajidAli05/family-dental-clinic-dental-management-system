@@ -259,6 +259,16 @@ export async function dentistCreatePrescription(user, body) {
     throw Object.assign(new Error("Patient not found or inactive"), { status: 404 });
   }
 
+  // Same appointment-based rule as the tooth chart: only a dentist who has an
+  // appointment with this patient may write their clinical record.
+  const hasAppointment = await Appointment.exists({ patient: patient._id, dentist: user?._id });
+  if (!hasAppointment) {
+    throw Object.assign(
+      new Error("You can only prescribe for a patient you have an appointment with"),
+      { status: 403 }
+    );
+  }
+
   const toothEntries = sanitizeToothEntries(body?.toothEntries);
 
   // Build plaintext payload first (all PHI in the clear at this point)
@@ -512,46 +522,65 @@ export async function dentistCreateCase(dentistId, body) {
 }
 
 // -------------------- PATIENTS (read-only list for dentist) --------------------
-export async function dentistGetPatients(_dentistId, params = {}) {
-  return listPatientsCore(params);
+/**
+ * Shared patient list, annotated with `isMyPatient` — true when this dentist
+ * has an appointment with that patient. Same relationship that grants chart
+ * edit rights (assertDentistCanEditChart), so the badge in the UI always
+ * matches what the dentist can actually edit.
+ */
+export async function dentistGetPatients(dentistId, params = {}) {
+  const result = await listPatientsCore(params);
+  if (!result.rows.length) return result;
+
+  // One indexed query for this dentist's patient set, resolved to publicIds
+  // so it can be matched against the already-mapped rows.
+  const patientObjectIds = await Appointment.distinct("patient", { dentist: dentistId });
+  if (!patientObjectIds.length) {
+    return { ...result, rows: result.rows.map((r) => ({ ...r, isMyPatient: false })) };
+  }
+
+  const mine = await Patient.find({ _id: { $in: patientObjectIds } }).select("publicId").lean();
+  const minePublicIds = new Set(mine.map((p) => p.publicId));
+
+  return {
+    ...result,
+    rows: result.rows.map((r) => ({ ...r, isMyPatient: minePublicIds.has(r.id) })),
+  };
 }
 
-// -------------------- ODONTOGRAM (dentist writes: own patients or own visit) --------------------
+// -------------------- ODONTOGRAM (dentist writes: patients they treat) --------------------
 /**
- * A dentist may write to a patient's tooth chart when EITHER:
- *   - they are the patient's assigned dentist (Patient.primaryDentist), or
- *   - they are the treating dentist on the appointment being worked (the
- *     visit's provider owns that visit's clinical record — the standard
- *     model in Open Dental / CareStack).
+ * PERMISSION RULE (appointment-based).
+ *
+ * A dentist may write a patient's tooth chart / per-tooth clinical record
+ * when they have ANY appointment booked with that patient — booking the visit
+ * is what makes them that patient's treating dentist. There is no
+ * primaryDentist concept driving this: patients routinely exist with no
+ * assigned dentist, so keying off an assignment field locks almost everyone
+ * out. Any appointment (any date, any status) counts, so a dentist can chart
+ * before, during, or after the visit.
+ *
+ * A dentist with NO appointment for the patient gets 403.
  * Owner never reaches this path (unrestricted via the owner service).
+ *
  * Exported so the per-tooth prescription path reuses the identical rule
  * instead of re-implementing it.
  */
-export async function assertDentistCanEditChart(dentistId, patientPublicId, appointmentPublicId = "") {
-  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() }).select("primaryDentist");
-  if (!patient) throw new Error("Patient not found");
+export async function assertDentistCanEditChart(dentistId, patientPublicId) {
+  const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() }).select("_id");
+  if (!patient) throw Object.assign(new Error("Patient not found"), { status: 404 });
 
-  if (patient.primaryDentist && String(patient.primaryDentist) === String(dentistId)) return patient;
+  // Indexed on { patient, dentist } individually — cheap existence check.
+  const hasAppointment = await Appointment.exists({ patient: patient._id, dentist: dentistId });
+  if (hasAppointment) return patient;
 
-  const apptId = String(appointmentPublicId || "").trim();
-  if (apptId) {
-    const appt = await Appointment.findOne({ publicId: apptId }).select("dentist patient").lean();
-    if (
-      appt &&
-      String(appt.dentist) === String(dentistId) &&
-      String(appt.patient) === String(patient._id)
-    ) {
-      return patient;
-    }
-  }
-
-  const err = new Error("Only the patient's assigned dentist or the treating dentist for this visit can edit the tooth chart");
+  const err = new Error("You can only edit the tooth chart of a patient you have an appointment with");
   err.status = 403;
   throw err;
 }
 
 export async function dentistUpdateOdontogram(dentistId, patientPublicId, body) {
-  await assertDentistCanEditChart(dentistId, patientPublicId, body?.appointmentId);
+  await assertDentistCanEditChart(dentistId, patientPublicId);
   return upsertOdontogramEntry(patientPublicId, body, dentistId);
 }
 

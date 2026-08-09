@@ -130,9 +130,13 @@ const DentistAppointments = () => {
         visualStatus: rx.visualStatus || "none",
         notes: rx.notes || "",
         medications: Array.isArray(rx.medications) ? rx.medications : [],
+        toothEntries: Array.isArray(rx.toothEntries) ? rx.toothEntries : [],
         patientId: rx.patientId || "",
         date: rx.date || "",
         patientName: row.patient || row.patientName || "",
+        patientAge: row.age ?? "",
+        patientGender: row.gender || "",
+        dentistName: rx.dentistName || "",
       });
     } catch (e) {
       toast.error(e.message || "Failed to print");

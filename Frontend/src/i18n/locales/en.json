@@ -242,5 +242,26 @@
     "xrayRequested": "X-ray requested",
     "xrayNote": "X-ray note / type (optional)",
     "legacyClinicalBlock": "Previously recorded (visit-level)"
+  },
+  "rx": {
+    "previewTitle": "Prescription Preview",
+    "clinical": "Clinical Findings",
+    "clinicalFdi": "Clinical Findings — FDI Tooth Notation",
+    "colTooth": "Tooth",
+    "colDiagnosis": "Diagnosis",
+    "colTreatment": "Treatment",
+    "colFinding": "Clinical Finding",
+    "colXray": "X-Ray",
+    "yes": "Yes",
+    "xrayRequested": "X-ray requested",
+    "teeth": "Teeth",
+    "medications": "Medications",
+    "noMedications": "No medications prescribed.",
+    "sig": "Sig",
+    "forDays": "for {{count}} day(s)",
+    "foodBefore": "before food",
+    "foodAfter": "after food",
+    "foodWith": "with food",
+    "advice": "Advice / Notes"
   }
 }

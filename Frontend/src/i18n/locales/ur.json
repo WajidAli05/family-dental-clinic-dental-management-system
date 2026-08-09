@@ -242,5 +242,26 @@
     "xrayRequested": "ایکس رے درخواست شدہ",
     "xrayNote": "ایکس رے نوٹ / قسم (اختیاری)",
     "legacyClinicalBlock": "پہلے درج شدہ (وزٹ کی سطح پر)"
+  },
+  "rx": {
+    "previewTitle": "نسخے کا پیش منظر",
+    "clinical": "طبی مشاہدات",
+    "clinicalFdi": "طبی مشاہدات — FDI دانت نمبر",
+    "colTooth": "دانت",
+    "colDiagnosis": "تشخیص",
+    "colTreatment": "علاج",
+    "colFinding": "طبی مشاہدہ",
+    "colXray": "ایکس رے",
+    "yes": "ہاں",
+    "xrayRequested": "ایکس رے درخواست شدہ",
+    "teeth": "دانت",
+    "medications": "ادویات",
+    "noMedications": "کوئی دوا تجویز نہیں کی گئی۔",
+    "sig": "ہدایت",
+    "forDays": "{{count}} دن کے لیے",
+    "foodBefore": "کھانے سے پہلے",
+    "foodAfter": "کھانے کے بعد",
+    "foodWith": "کھانے کے ساتھ",
+    "advice": "مشورہ / نوٹس"
   }
 }

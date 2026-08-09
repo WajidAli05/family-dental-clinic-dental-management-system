@@ -38,20 +38,21 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
   const [history, setHistory] = useState([]);
   const [allergies, setAllergies] = useState([]);
   const [odontogram, setOdontogram] = useState([]);
-  const [chartDentistId, setChartDentistId] = useState("");
+  const [isMyPatient, setIsMyPatient] = useState(false);
+  const [patientMeta, setPatientMeta] = useState({ age: "", gender: "", dateOfBirth: "" });
 
   const patientId = appointment?.patientId || appointment?.patient?.publicId || "";
   const appointmentId = appointment?.id || appointment?.publicId || "";
 
   // Write access mirrors the server rule (assertDentistCanEditChart): the
-  // patient's assigned dentist OR the treating dentist on this visit. Most
-  // patients have no primaryDentist, so the visit check is what normally
-  // grants access here. Server still 403s independently.
-  const isAssignedDentist = Boolean(currentUser?.publicId) && currentUser.publicId === chartDentistId;
+  // dentist has an appointment with this patient. We are prescribing FROM an
+  // appointment here, so the patient-list flag (isMyPatient, appointment-
+  // derived) is authoritative; fall back to this appointment's own dentist so
+  // editing works on first render before the list row resolves.
   const isTreatingDentist =
     Boolean(currentUser?.publicId) &&
     currentUser.publicId === (appointment?.dentistId || "");
-  const canEditChart = isAssignedDentist || isTreatingDentist;
+  const canEditChart = isMyPatient || isTreatingDentist;
 
   // Select the raw arrays (stable store references), then derive the option
   // lists with useMemo. A selector returning a NEW object literal each call
@@ -82,7 +83,8 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
       setHistory([]);
       setAllergies([]);
       setOdontogram([]);
-      setChartDentistId("");
+      setIsMyPatient(false);
+      setPatientMeta({ age: "", gender: "", dateOfBirth: "" });
       return;
     }
 
@@ -112,7 +114,8 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
           const row = (res?.data || []).find((r) => r.id === patientId);
           setAllergies(row?.allergies || []);
           setOdontogram(row?.odontogram || []);
-          setChartDentistId(row?.dentistId || "");
+          setIsMyPatient(Boolean(row?.isMyPatient));
+          setPatientMeta({ age: row?.age ?? "", gender: row?.gender || "", dateOfBirth: row?.dateOfBirth || "" });
         })
         .catch(() => {});
     }
@@ -168,6 +171,15 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
         appointment?.patient?.name ||
         appointment?.patient ||
         "",
+      // Identity blocks for the standard Rx header. patientMeta comes from the
+      // already-fetched list row; registration number is omitted when the
+      // system has none (no such field on User today).
+      patientAge: patientMeta.age,
+      patientGender: patientMeta.gender,
+      patientDob: patientMeta.dateOfBirth,
+      dentistName: currentUser?.name || "",
+      dentistSpecialization: currentUser?.specialization || "",
+      dentistRegNo: currentUser?.registrationNumber || currentUser?.licenseNumber || "",
     });
   };
 
