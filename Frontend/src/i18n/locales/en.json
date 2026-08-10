@@ -241,7 +241,9 @@
     "xrayRequest": "Request X-ray for this tooth",
     "xrayRequested": "X-ray requested",
     "xrayNote": "X-ray note / type (optional)",
-    "legacyClinicalBlock": "Previously recorded (visit-level)"
+    "legacyClinicalBlock": "Previously recorded (visit-level)",
+    "teethWithClinicalRecord": "Teeth with a clinical record: {{count}}",
+    "toothClinicalRecord": "Clinical record for this tooth"
   },
   "rx": {
     "previewTitle": "Prescription Preview",
@@ -262,6 +264,10 @@
     "foodBefore": "before food",
     "foodAfter": "after food",
     "foodWith": "with food",
-    "advice": "Advice / Notes"
+    "advice": "Advice / Notes",
+    "patientName": "Patient Name",
+    "patientId": "Patient ID",
+    "ageDob": "Age / DOB",
+    "gender": "Gender"
   }
 }

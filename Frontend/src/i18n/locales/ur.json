@@ -241,7 +241,9 @@
     "xrayRequest": "اس دانت کے لیے ایکس رے کی درخواست",
     "xrayRequested": "ایکس رے درخواست شدہ",
     "xrayNote": "ایکس رے نوٹ / قسم (اختیاری)",
-    "legacyClinicalBlock": "پہلے درج شدہ (وزٹ کی سطح پر)"
+    "legacyClinicalBlock": "پہلے درج شدہ (وزٹ کی سطح پر)",
+    "teethWithClinicalRecord": "طبی ریکارڈ والے دانت: {{count}}",
+    "toothClinicalRecord": "اس دانت کا طبی ریکارڈ"
   },
   "rx": {
     "previewTitle": "نسخے کا پیش منظر",
@@ -262,6 +264,10 @@
     "foodBefore": "کھانے سے پہلے",
     "foodAfter": "کھانے کے بعد",
     "foodWith": "کھانے کے ساتھ",
-    "advice": "مشورہ / نوٹس"
+    "advice": "مشورہ / نوٹس",
+    "patientName": "مریض کا نام",
+    "patientId": "مریض شناخت",
+    "ageDob": "عمر / تاریخ پیدائش",
+    "gender": "جنس"
   }
 }

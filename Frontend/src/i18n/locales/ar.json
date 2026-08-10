@@ -241,7 +241,9 @@
     "xrayRequest": "طلب أشعة سينية لهذا السن",
     "xrayRequested": "أشعة سينية مطلوبة",
     "xrayNote": "ملاحظة / نوع الأشعة (اختياري)",
-    "legacyClinicalBlock": "مسجل سابقاً (على مستوى الزيارة)"
+    "legacyClinicalBlock": "مسجل سابقاً (على مستوى الزيارة)",
+    "teethWithClinicalRecord": "الأسنان ذات سجل سريري: {{count}}",
+    "toothClinicalRecord": "السجل السريري لهذا السن"
   },
   "rx": {
     "previewTitle": "معاينة الوصفة",
@@ -262,6 +264,10 @@
     "foodBefore": "قبل الطعام",
     "foodAfter": "بعد الطعام",
     "foodWith": "مع الطعام",
-    "advice": "نصائح / ملاحظات"
+    "advice": "نصائح / ملاحظات",
+    "patientName": "اسم المريض",
+    "patientId": "معرّف المريض",
+    "ageDob": "العمر / تاريخ الميلاد",
+    "gender": "الجنس"
   }
 }

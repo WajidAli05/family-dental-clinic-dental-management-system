@@ -67,9 +67,9 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
     };
   }, [open, patient?.id, seedDemoProfile, fetchProfile]);
 
-  const handleSaveTooth = async (toothNumber, { condition, note }) => {
+  const handleSaveTooth = async (toothNumber, entry) => {
     try {
-      const res = await ownerApi.updateOdontogram(patient.id, { toothNumber, condition, note });
+      const res = await ownerApi.updateOdontogram(patient.id, { toothNumber, ...entry });
       setOdontogram(res?.data || []);
     } catch (e) {
       toast.error(e.message || "Failed to save tooth chart");
@@ -215,7 +215,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
 
           <div className="lg:col-span-3">
             <Panel title={t("patients.sectionOdontogram")}>
-              <Odontogram odontogram={odontogram} editable onSave={handleSaveTooth} />
+              <Odontogram odontogram={odontogram} editable chartClinical onSave={handleSaveTooth} />
             </Panel>
           </div>
 

@@ -246,7 +246,7 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-4">
               {t("patients.sectionOdontogram")}
             </p>
-            <Odontogram odontogram={patient?.odontogram || []} editable={false} />
+            <Odontogram odontogram={patient?.odontogram || []} editable={false} chartClinical />
           </div>
 
           {/* Notification */}

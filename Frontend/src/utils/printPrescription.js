@@ -19,6 +19,19 @@ const fmtDate = (d) => {
   try { return new Date(d + "T00:00:00").toLocaleDateString("en-PK"); } catch { return String(d); }
 };
 
+/** Age in years: explicit value wins, else derived from DOB. "" when unknown. */
+const ageFrom = (age, dob) => {
+  if (age !== undefined && age !== null && String(age).trim() !== "") return String(age).trim();
+  if (!dob) return "";
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a >= 0 ? String(a) : "";
+};
+
 /** "1+0+1" from either explicit m/n/e counts or a stored dose string. */
 const doseTriplet = (med) => {
   const parts = String(med.dose || "0+0+0").split("+");
@@ -110,9 +123,14 @@ export const printPrescription = (data) => {
   const savedY = y;
   y = innerY;
 
-  const dobOrAge = data.patientDob
-    ? `${data.patientAge || "—"} (${data.patientDob})`
-    : (data.patientAge !== "" && data.patientAge != null ? String(data.patientAge) : "—");
+  // Age: prefer an explicit value, otherwise derive it from DOB. Show DOB
+  // alongside when both are known. Falls back to "—" (never "undefined").
+  const ageVal = ageFrom(data.patientAge, data.patientDob);
+  const dobOrAge =
+    ageVal && data.patientDob ? `${ageVal} (${data.patientDob})`
+    : ageVal                  ? String(ageVal)
+    : data.patientDob         ? String(data.patientDob)
+    : "—";
 
   pair("PATIENT NAME", data.patientName || data.name, margin + 3, colW - 6);
   pair("PATIENT ID",   data.patientId,                margin + colW + 3, colW - 6);

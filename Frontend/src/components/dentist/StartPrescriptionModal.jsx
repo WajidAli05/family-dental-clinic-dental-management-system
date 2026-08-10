@@ -270,7 +270,15 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
         ) : (
           <div className="space-y-6">
             <PrescriptionForm />
-            <PrescriptionPreview />
+            <PrescriptionPreview
+              patient={{
+                name: appointment?.patientName || appointment?.patient?.name || "",
+                id: patientId,
+                age: patientMeta.age,
+                gender: patientMeta.gender,
+                dob: patientMeta.dateOfBirth,
+              }}
+            />
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 

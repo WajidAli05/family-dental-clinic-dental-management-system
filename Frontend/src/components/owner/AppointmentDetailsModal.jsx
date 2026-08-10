@@ -186,7 +186,7 @@ const AppointmentDetailsModal = ({ open, onClose, appointment }) => {
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 {t("patients.sectionOdontogram")}
               </p>
-              <Odontogram odontogram={clinical.odontogram} editable={false} />
+              <Odontogram odontogram={clinical.odontogram} editable={false} chartClinical />
             </div>
           )}
         </div>

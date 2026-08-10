@@ -60,6 +60,12 @@ const patientSchema = new Schema(
     // One entry per annotated tooth, keyed by FDI (ISO-3950) two-digit tooth
     // number ("11".."48"). Teeth with no entry are implicitly "healthy" /
     // unannotated — a patient with no chart simply has an empty array.
+    // The free-text fields below (note, diagnosis, treatment, clinicalFinding,
+    // xrayNote) are PHI and are stored AES-256-GCM encrypted via
+    // fieldEncryption — see ODONTOGRAM_PHI_FIELDS. Decryption happens in
+    // mapOdontogram() for authorized roles only. Legacy rows written before
+    // encryption remain readable (decryptField passes plaintext through).
+    // None of these are ever queried/filtered/sorted on (Rule A).
     odontogram: {
       type: [
         {
@@ -72,6 +78,16 @@ const patientSchema = new Schema(
           },
           surfaces: { type: [String], default: [] },
           note: { type: String, default: "" },
+
+          // Persistent per-tooth clinical record on the CHART itself (distinct
+          // from Prescription.toothEntries, which records one visit). Owner
+          // maintains these; receptionist reads them.
+          diagnosis:       { type: String, default: "" },
+          treatment:       { type: String, default: "" },
+          clinicalFinding: { type: String, default: "" },
+          xrayRequested:   { type: Boolean, default: false },
+          xrayNote:        { type: String, default: "" },
+
           updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
           updatedAt: { type: Date, default: Date.now },
         },

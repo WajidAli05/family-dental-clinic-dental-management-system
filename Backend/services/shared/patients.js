@@ -116,21 +116,33 @@ export const TOOTH_CONDITIONS = [
   "implant", "root_canal", "extraction_needed", "bridge",
 ];
 
-/** Odontogram entries as plain objects for API responses (no ObjectId leaks). */
+// Free-text PHI on each odontogram entry — encrypted at rest, decrypted only
+// when mapped out to an authorized role. `xrayRequested` is a boolean flag and
+// is deliberately NOT encrypted (nothing to protect, and it drives UI markers).
+export const ODONTOGRAM_PHI_FIELDS = ["note", "diagnosis", "treatment", "clinicalFinding", "xrayNote"];
+
+/** Odontogram entries as plain objects for API responses (no ObjectId leaks).
+ * Decrypts the per-tooth PHI text — callers are already role-gated. */
 export function mapOdontogram(p) {
   const arr = Array.isArray(p?.odontogram) ? p.odontogram : [];
-  return arr.map((e) => ({
-    toothNumber: e.toothNumber,
-    condition: e.condition,
-    surfaces: Array.isArray(e.surfaces) ? e.surfaces : [],
-    note: e.note || "",
-    updatedAt: e.updatedAt || null,
-  }));
+  return arr.map((e) => {
+    const out = {
+      toothNumber: e.toothNumber,
+      condition: e.condition,
+      surfaces: Array.isArray(e.surfaces) ? e.surfaces : [],
+      xrayRequested: Boolean(e.xrayRequested),
+      updatedAt: e.updatedAt || null,
+    };
+    for (const f of ODONTOGRAM_PHI_FIELDS) out[f] = decryptField(e[f] || "");
+    return out;
+  });
 }
 
 /** Create-or-replace the chart entry for one tooth. Shared by owner + dentist
  * so both permission-gated write paths use identical validation/persistence. */
-export async function upsertOdontogramEntry(patientPublicId, { toothNumber, condition, surfaces, note }, updatedByUserId) {
+export async function upsertOdontogramEntry(patientPublicId, body = {}, updatedByUserId) {
+  const { toothNumber, condition, surfaces } = body;
+
   const tooth = String(toothNumber || "").trim();
   if (!FDI_TEETH.includes(tooth)) throw new Error("Invalid tooth number");
 
@@ -140,18 +152,31 @@ export async function upsertOdontogramEntry(patientPublicId, { toothNumber, cond
   const patient = await Patient.findOne({ publicId: String(patientPublicId || "").trim() });
   if (!patient) throw new Error("Patient not found");
 
+  const existing = (patient.odontogram || []).find((e) => e.toothNumber === tooth);
+
   const entry = {
     toothNumber: tooth,
     condition: cond,
     surfaces: Array.isArray(surfaces) ? surfaces.map((s) => String(s).trim()).filter(Boolean) : [],
-    note: String(note || "").trim(),
+    // MERGE, don't replace: the dentist's chart save only sends condition+note,
+    // and must not wipe clinical fields the owner recorded on the same tooth.
+    xrayRequested:
+      body.xrayRequested !== undefined ? Boolean(body.xrayRequested) : Boolean(existing?.xrayRequested),
     updatedBy: updatedByUserId || null,
     updatedAt: new Date(),
   };
 
-  const idx = (patient.odontogram || []).findIndex((e) => e.toothNumber === tooth);
-  if (idx >= 0) patient.odontogram[idx] = entry;
-  else patient.odontogram = [...(patient.odontogram || []), entry];
+  for (const f of ODONTOGRAM_PHI_FIELDS) {
+    entry[f] = body[f] !== undefined
+      ? encryptField(String(body[f] || "").trim())
+      : (existing?.[f] || "");
+  }
+
+  // Rebuild the array rather than mutating a DocumentArray index in place —
+  // in-place subdocument replacement can escape Mongoose dirty-checking.
+  const current = Array.isArray(patient.odontogram) ? patient.odontogram.toObject() : [];
+  patient.odontogram = [...current.filter((e) => e.toothNumber !== tooth), entry];
+  patient.markModified("odontogram");
 
   await patient.save();
   return { entry, odontogram: mapOdontogram(patient) };

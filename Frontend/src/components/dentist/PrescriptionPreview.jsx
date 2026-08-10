@@ -7,6 +7,26 @@ const FOOD_LABEL_KEYS = {
   with: "rx.foodWith",
 };
 
+/** Age in years: explicit value wins, else derived from DOB. "" when unknown. */
+const ageFrom = (age, dob) => {
+  if (age !== undefined && age !== null && String(age).trim() !== "") return String(age).trim();
+  if (!dob) return "";
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a >= 0 ? String(a) : "";
+};
+
+/** "34 (1992-03-04)" / "34" / "1992-03-04" / "" — never "undefined". */
+const ageDobLabel = (p) => {
+  const age = ageFrom(p?.age, p?.dob);
+  if (age && p?.dob) return `${age} (${p.dob})`;
+  return age || p?.dob || "";
+};
+
 const doseTriplet = (med) => {
   const parts = String(med.dose || "0+0+0").split("+");
   const m = med.m !== undefined ? (med.m | 0) : parseInt(parts[0]) || 0;
@@ -21,7 +41,7 @@ const doseTriplet = (med) => {
  * distinct from the Rx / medications block. Labels are translated; patient
  * and clinical VALUES are never translated.
  */
-const PrescriptionPreview = () => {
+const PrescriptionPreview = ({ patient = {} }) => {
   const { t } = useTranslation();
   const patientType     = usePrescriptionStore((s) => s.patientType);
   const selectedTeeth   = usePrescriptionStore((s) => s.selectedTeeth);
@@ -50,6 +70,14 @@ const PrescriptionPreview = () => {
       </div>
 
       <div className="p-4 space-y-4">
+        {/* ── Patient block (superscription) ── */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 rounded-lg border border-gray-200 p-3">
+          <Field label={t("rx.patientName")} value={patient.name} />
+          <Field label={t("rx.patientId")} value={patient.id} />
+          <Field label={t("rx.ageDob")} value={ageDobLabel(patient)} />
+          <Field label={t("rx.gender")} value={patient.gender} />
+        </section>
+
         {/* ── Clinical section ── */}
         <section>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[#14468C] border-b border-[#14468C]/30 pb-1">
@@ -154,6 +182,13 @@ const PrescriptionPreview = () => {
     </div>
   );
 };
+
+const Field = ({ label, value }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] uppercase tracking-wide text-gray-400">{label}</p>
+    <p className="text-xs font-semibold text-gray-900 truncate">{value || "—"}</p>
+  </div>
+);
 
 const Row = ({ label, value }) => (
   <p>

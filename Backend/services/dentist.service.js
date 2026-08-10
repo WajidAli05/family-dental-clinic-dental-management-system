@@ -14,7 +14,7 @@ import {
   updateAppointmentCore,
   updateAppointmentStatusCore,
 } from "./shared/appointments.js";
-import { listPatientsCore, upsertOdontogramEntry } from "./shared/patients.js";
+import { listPatientsCore, upsertOdontogramEntry, computeAge } from "./shared/patients.js";
 import { updateLabCaseStatus } from "./shared/labCases.js";
 import {
   encryptPrescriptionDoc,
@@ -151,7 +151,8 @@ export async function dentistGetAppointments(dentistId, { date, page, limit, sor
   // erasure.js), so populate("patient") comes back null for it and it must be
   // filtered out BEFORE pagination, or `total`/page slicing would be wrong.
   const rows = await Appointment.find(query)
-    .populate("patient", "name publicId mr")
+    // age/gender/dateOfBirth feed the prescription letterhead patient block
+    .populate("patient", "name publicId mr age gender dateOfBirth")
     .sort(sort)
     .lean();
 
@@ -162,6 +163,11 @@ export async function dentistGetAppointments(dentistId, { date, page, limit, sor
       patientId: a.patient?.publicId || "",
       mr: a.patient?.mr || null,
       patientName: a.patient?.name || "",
+      patientAge: a.patient?.dateOfBirth ? computeAge(a.patient.dateOfBirth) : (a.patient?.age ?? ""),
+      patientGender: a.patient?.gender || "",
+      patientDob: a.patient?.dateOfBirth
+        ? new Date(a.patient.dateOfBirth).toISOString().slice(0, 10)
+        : "",
       date: a.date,
       time: a.time,
       reason: a.reason,
