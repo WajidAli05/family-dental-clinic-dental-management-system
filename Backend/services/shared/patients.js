@@ -1,10 +1,12 @@
 import Patient from "../../models/Patient.model.js";
+import Prescription from "../../models/Prescription.model.js";
 import { parsePagination, buildSort } from "./paginate.js";
 import {
   encryptField,
   decryptField,
   encryptMedications,
   decryptMedications,
+  decryptPrescriptionDoc,
   PATIENT_MEDICAL_PHI_STRING_FIELDS,
 } from "../../utils/fieldEncryption.js";
 import { getNextSequence } from "./counters.js";
@@ -136,6 +138,91 @@ export function mapOdontogram(p) {
     for (const f of ODONTOGRAM_PHI_FIELDS) out[f] = decryptField(e[f] || "");
     return out;
   });
+}
+
+/**
+ * Per-tooth clinical data lives in TWO places by design:
+ *   - Patient.odontogram  — the persistent chart (owner maintains it)
+ *   - Prescription.toothEntries — what was diagnosed/treated at a VISIT
+ *     (this is what the dentist fills in while prescribing)
+ *
+ * A tooth the dentist worked on therefore has clinical detail that the chart
+ * itself has never seen. These helpers overlay the most recent prescription
+ * entry per tooth onto the mapped chart so owner/receptionist views show the
+ * real clinical picture instead of blank fields. The chart stays the system
+ * of record for owner edits — prescription values only fill gaps.
+ *
+ * @returns Map<patientPublicId, Map<toothNumber, entry>>
+ */
+export async function latestToothEntriesByPatient(patientPublicIds = []) {
+  const ids = [...new Set((patientPublicIds || []).filter(Boolean))];
+  if (!ids.length) return new Map();
+
+  // Oldest first so later (newer) prescriptions overwrite earlier ones.
+  const rxs = await Prescription.find({ patientId: { $in: ids } })
+    .select("patientId toothEntries date createdAt")
+    .sort({ date: 1, createdAt: 1 })
+    .lean();
+
+  const out = new Map();
+  for (const rx of rxs) {
+    const entries = decryptPrescriptionDoc(rx)?.toothEntries;
+    if (!Array.isArray(entries) || !entries.length) continue;
+    if (!out.has(rx.patientId)) out.set(rx.patientId, new Map());
+    const byTooth = out.get(rx.patientId);
+    for (const e of entries) {
+      if (e?.toothNumber) byTooth.set(String(e.toothNumber), e);
+    }
+  }
+  return out;
+}
+
+/** Overlay prescription tooth entries onto a mapped odontogram.
+ * Chart values win per field; prescription fills only what the chart lacks.
+ * Teeth that exist only in a prescription are surfaced as chart-less entries
+ * so the owner still sees (and can adopt) the dentist's findings. */
+export function mergeToothClinical(mappedOdontogram = [], byTooth) {
+  if (!byTooth || !byTooth.size) return mappedOdontogram;
+
+  const seen = new Set();
+  const merged = mappedOdontogram.map((chart) => {
+    const rx = byTooth.get(String(chart.toothNumber));
+    seen.add(String(chart.toothNumber));
+    if (!rx) return chart;
+    return {
+      ...chart,
+      diagnosis:       chart.diagnosis       || rx.diagnosis       || "",
+      treatment:       chart.treatment       || rx.treatment       || "",
+      clinicalFinding: chart.clinicalFinding || rx.clinicalFinding || "",
+      note:            chart.note            || rx.note            || "",
+      xrayRequested:   Boolean(chart.xrayRequested || rx.xrayRequested),
+      xrayNote:        chart.xrayNote        || rx.xrayNote        || "",
+    };
+  });
+
+  for (const [tooth, rx] of byTooth) {
+    if (seen.has(tooth)) continue;
+    merged.push({
+      toothNumber: tooth,
+      condition: "healthy", // no chart status recorded for this tooth yet
+      surfaces: [],
+      note: rx.note || "",
+      diagnosis: rx.diagnosis || "",
+      treatment: rx.treatment || "",
+      clinicalFinding: rx.clinicalFinding || "",
+      xrayRequested: Boolean(rx.xrayRequested),
+      xrayNote: rx.xrayNote || "",
+      updatedAt: null,
+    });
+  }
+  return merged;
+}
+
+/** Convenience for single-patient callers. */
+export async function mapOdontogramWithClinical(patientDoc) {
+  const mapped = mapOdontogram(patientDoc);
+  const byPatient = await latestToothEntriesByPatient([patientDoc?.publicId]);
+  return mergeToothClinical(mapped, byPatient.get(patientDoc?.publicId));
 }
 
 /** Create-or-replace the chart entry for one tooth. Shared by owner + dentist

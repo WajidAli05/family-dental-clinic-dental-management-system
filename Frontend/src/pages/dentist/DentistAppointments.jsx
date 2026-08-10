@@ -11,7 +11,7 @@ import StartPrescriptionModal from "@/components/dentist/StartPrescriptionModal"
 import DentistBookAppointmentModal from "@/components/dentist/DentistBookAppointmentModal";
 import DentistEditAppointmentModal from "@/components/dentist/DentistEditAppointmentModal";
 import { dentistApi } from "@/lib/dentistApi";
-import { printPrescription } from "@/utils/printPrescription";
+import { printPrescription, buildRxPatient } from "@/utils/printPrescription";
 import { localISODate } from "@/utils/localISODate";
 
 const DentistAppointments = () => {
@@ -87,6 +87,11 @@ const DentistAppointments = () => {
         time: a?.time || "",
         patient: a?.patientName || original?.patientName || "",
         type: a?.reason || original?.reason || "Consultation",
+        // Carried through so the print button has the full patient block
+        // (this row object replaces `a`, so anything omitted here is lost).
+        patientAge: a?.patientAge ?? original?.patientAge ?? "",
+        patientGender: a?.patientGender || original?.patientGender || "",
+        patientDob: a?.patientDob || original?.patientDob || "",
         original: a,
         patientId,
         prescription,
@@ -133,9 +138,13 @@ const DentistAppointments = () => {
         toothEntries: Array.isArray(rx.toothEntries) ? rx.toothEntries : [],
         patientId: rx.patientId || "",
         date: rx.date || "",
-        patientName: row.patient || row.patientName || "",
-        patientAge: row.age ?? "",
-        patientGender: row.gender || "",
+        // Single source — the row supplies patientAge/patientGender/patientDob
+        // (see dentistGetAppointments); rx/legacy names are covered too.
+        ...buildRxPatient(
+          { patientName: row.patient || row.patientName },
+          row,
+          rx
+        ),
         dentistName: rx.dentistName || "",
       });
     } catch (e) {

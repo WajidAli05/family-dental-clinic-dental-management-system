@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 import { usePrescriptionStore } from "@/store/prescriptionStore";
-import { printPrescription } from "@/utils/printPrescription";
+import { printPrescription, buildRxPatient } from "@/utils/printPrescription";
 
 import PatientTypeSelector from "./PatientTypeSelector";
 import PrescriptionForm from "./PrescriptionForm";
@@ -166,17 +166,20 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
   const handlePrint = () => {
     printPrescription({
       ...store,
-      patientName:
-        appointment?.patientName ||
-        appointment?.patient?.name ||
-        appointment?.patient ||
-        "",
-      // Identity blocks for the standard Rx header. patientMeta comes from the
-      // already-fetched list row; registration number is omitted when the
-      // system has none (no such field on User today).
-      patientAge: patientMeta.age,
-      patientGender: patientMeta.gender,
-      patientDob: patientMeta.dateOfBirth,
+      // Identity block via the shared builder so this path and the
+      // appointments-table path always produce the same shape.
+      ...buildRxPatient(
+        {
+          patientName:
+            appointment?.patientName ||
+            appointment?.patient?.name ||
+            appointment?.patient ||
+            "",
+          patientId,
+        },
+        { age: patientMeta.age, gender: patientMeta.gender, dob: patientMeta.dateOfBirth },
+        appointment
+      ),
       dentistName: currentUser?.name || "",
       dentistSpecialization: currentUser?.specialization || "",
       dentistRegNo: currentUser?.registrationNumber || currentUser?.licenseNumber || "",

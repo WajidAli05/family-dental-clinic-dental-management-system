@@ -10,7 +10,7 @@ import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
-import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram } from "./shared/patients.js";
+import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
 import { generateAppointmentPublicId } from "./shared/appointments.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
@@ -714,6 +714,8 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
 
   const lastVisitMap = new Map(lastVisits.map((x) => [String(x._id), x.lastVisit]));
 
+  const toothClinicalByPatient = await latestToothEntriesByPatient(patients.map((p) => p.publicId));
+
   const rows = patients.map((p) => {
     const lastVisitISO = lastVisitMap.get(String(p._id)) || p.lastVisit || null;
 
@@ -733,7 +735,9 @@ export async function receptionistGetPatients(_receptionistId, { q, limit, page,
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
       ...mapMedicalInfo(p),
-      odontogram: mapOdontogram(p),
+      // Same prescription overlay as the owner view — receptionist sees the
+      // full per-tooth clinical picture (read-only).
+      odontogram: mergeToothClinical(mapOdontogram(p), toothClinicalByPatient.get(p.publicId)),
       lastVisit: isoToPretty(lastVisitISO),
       status: p.status || "active",
       mr: p.mr ?? null,

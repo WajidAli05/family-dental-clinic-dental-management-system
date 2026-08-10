@@ -38,7 +38,7 @@ import {
   updateAppointmentStatusCore,
   deleteAppointmentCore,
 } from "./shared/appointments.js";
-import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo, mapOdontogram, upsertOdontogramEntry } from "./shared/patients.js";
+import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo, mapOdontogram, mapOdontogramWithClinical, latestToothEntriesByPatient, mergeToothClinical, upsertOdontogramEntry } from "./shared/patients.js";
 import {
   PERMISSION_ROLES,
   OWNER_PERMISSION_KEYS,
@@ -489,6 +489,8 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
     ])
   );
 
+  const toothClinicalByPatient = await latestToothEntriesByPatient(patients.map((p) => p.publicId));
+
   const mapped = patients.map((p) => {
     const inv = invoiceMap.get(String(p._id)) || { totalSpent: 0, lastInvoiceAmount: 0 };
     return {
@@ -507,7 +509,9 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
       emergencyContact: mapEmergencyContact(p),
       insurance: mapInsurance(p),
       ...mapMedicalInfo(p),
-      odontogram: mapOdontogram(p),
+      // Overlay the dentist's per-visit tooth findings so the owner's tooth
+      // dialog is populated instead of blank (see mergeToothClinical).
+      odontogram: mergeToothClinical(mapOdontogram(p), toothClinicalByPatient.get(p.publicId)),
       status: p.status || "active",
       createdAt: p.registrationDate || toISO(p.createdAt),
       lastVisit: p.lastVisit || "",
@@ -2209,7 +2213,7 @@ export async function ownerAppointmentClinical(_ownerId, apptPublicId) {
 
   return {
     ...booking,
-    odontogram: mapOdontogram(appt.patient),
+    odontogram: await mapOdontogramWithClinical(appt.patient),
     // Owner is authorized to read PHI — decrypt for this view only.
     prescription: rx ? decryptPrescriptionDoc(rx) : null,
   };

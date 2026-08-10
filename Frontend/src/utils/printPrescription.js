@@ -32,6 +32,38 @@ const ageFrom = (age, dob) => {
   return a >= 0 ? String(a) : "";
 };
 
+/**
+ * SINGLE SOURCE for the prescription patient block.
+ *
+ * printPrescription is triggered from more than one place (the prescribing
+ * modal and the appointments-table print button) and those callers hold the
+ * patient under different shapes/field names. Normalising here — rather than
+ * at each call site — is what keeps age/DOB/gender from silently going
+ * missing on one path but not the other.
+ *
+ * Accepts any mix of: {patientName|name}, {patientId|id},
+ * {patientAge|age}, {patientGender|gender}, {patientDob|dob|dateOfBirth}.
+ */
+export const buildRxPatient = (...sources) => {
+  const pick = (...keys) => {
+    for (const src of sources) {
+      if (!src) continue;
+      for (const k of keys) {
+        const v = src[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+      }
+    }
+    return "";
+  };
+  return {
+    patientName:   String(pick("patientName", "name") || ""),
+    patientId:     String(pick("patientId", "id") || ""),
+    patientAge:    pick("patientAge", "age"),
+    patientGender: String(pick("patientGender", "gender") || ""),
+    patientDob:    String(pick("patientDob", "dob", "dateOfBirth") || "").slice(0, 10),
+  };
+};
+
 /** "1+0+1" from either explicit m/n/e counts or a stored dose string. */
 const doseTriplet = (med) => {
   const parts = String(med.dose || "0+0+0").split("+");
@@ -41,7 +73,11 @@ const doseTriplet = (med) => {
   return `${m}+${n}+${e}`;
 };
 
-export const printPrescription = (data) => {
+export const printPrescription = (rawData) => {
+  // Normalise defensively: even a caller passing legacy field names gets a
+  // complete patient block.
+  const data = { ...rawData, ...buildRxPatient(rawData) };
+
   const doc = new jsPDF("p", "mm", "a4");
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 18;
