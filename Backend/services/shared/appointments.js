@@ -3,35 +3,29 @@ import Appointment from "../../models/Appointment.model.js";
 import Patient from "../../models/Patient.model.js";
 import User from "../../models/User.model.js";
 import { getNextSequence } from "./counters.js";
+import {
+  canonicalStatus,
+  canTransition,
+  allowedNextStatuses,
+  statusLabel,
+  normalizeAppointmentType,
+  NON_BLOCKING_STORED_STATUSES,
+  ALLOWED_APPOINTMENT_TRANSITIONS,
+} from "./appointmentConfig.js";
 
-// ── Transition guard ─────────────────────────────────────────────────────────
-export const ALLOWED_APPOINTMENT_TRANSITIONS = {
-  scheduled:  ["completed", "cancelled"],
-  checked_in: ["completed", "cancelled"],
-  completed:  ["scheduled"],
-  cancelled:  ["scheduled"],
-  no_show:    ["scheduled"],
-};
+// Re-exported so existing importers keep working — the definitions now live
+// in appointmentConfig.js (single source for model + every role service).
+export { ALLOWED_APPOINTMENT_TRANSITIONS, allowedNextStatuses, canonicalStatus };
 
 // ── Status mappers ────────────────────────────────────────────────────────────
+/** Any inbound form (UI label, legacy value, canonical) → canonical db value. */
 export function toDbAppointmentStatus(ui) {
-  const v = String(ui || "").trim().toLowerCase();
-  if (v === "scheduled")                              return "scheduled";
-  if (v === "checked in" || v === "checked_in")      return "checked_in";
-  if (v === "completed")                             return "completed";
-  if (v === "cancelled" || v === "canceled")         return "cancelled";
-  if (v === "no show"   || v === "no_show")          return "no_show";
-  return "scheduled";
+  return canonicalStatus(ui);
 }
 
+/** Db value (incl. legacy) → human label. */
 export function toUiAppointmentStatus(db) {
-  const v = String(db || "").trim().toLowerCase();
-  if (v === "scheduled")  return "Scheduled";
-  if (v === "checked_in") return "Checked In";
-  if (v === "completed")  return "Completed";
-  if (v === "cancelled" || v === "canceled") return "Cancelled";
-  if (v === "no_show")    return "No Show";
-  return "Scheduled";
+  return statusLabel(db);
 }
 
 // ── ID generator ──────────────────────────────────────────────────────────────
@@ -72,9 +66,14 @@ export function mapAppointmentToUI(a) {
     specialization: a.dentist?.specialization || "",
     date:    a.date,
     time:    a.time,
+    appointmentType: a.appointmentType || "",
     reason:  a.reason  || "",
     notes:   a.notes   || "",
+    // `status` stays the humanised label (existing consumers depend on it);
+    // statusCode is the canonical machine value for logic/UI transitions.
     status:  toUiAppointmentStatus(a.status),
+    statusCode: canonicalStatus(a.status),
+    allowedNext: allowedNextStatuses(a.status),
     original: a,
   };
 }
@@ -128,6 +127,7 @@ export async function createAppointmentCore(body, { forceDentistId } = {}) {
   const time   = String(body?.time   || "").trim();
   const reason = String(body?.reason || "").trim();
   const notes  = String(body?.notes  || "").trim();
+  const appointmentType = normalizeAppointmentType(body?.appointmentType);
 
   const patientKey = body?.patientId || body?.mr || body?.phone;
   if (!patientKey) throw new Error("patientId is required");
@@ -146,18 +146,19 @@ export async function createAppointmentCore(body, { forceDentistId } = {}) {
     dentist = await resolveDentist(dk);
   }
 
+  // cancelled / rescheduled / no_show release the slot
   const conflict = await Appointment.findOne({
     dentist: dentist._id,
     date,
     time,
-    status: { $ne: "cancelled" },
+    status: { $nin: NON_BLOCKING_STORED_STATUSES },
   });
   if (conflict) throw new Error("Dentist already has an appointment at this time");
 
   const publicId = await generateAppointmentPublicId();
   const created  = await Appointment.create({
     publicId, patient: patient._id, dentist: dentist._id,
-    date, time, reason, notes, status: "scheduled",
+    date, time, appointmentType, reason, notes, status: "confirmed",
   });
 
   const populated = await Appointment.findById(created._id)
@@ -192,7 +193,7 @@ export async function updateAppointmentCore(apptPublicId, body, { ownDentistId }
       dentist: appt.dentist,
       date: newDate,
       time: newTime,
-      status: { $ne: "cancelled" },
+      status: { $nin: NON_BLOCKING_STORED_STATUSES },
     });
     if (conflict) throw new Error("Dentist already has an appointment at this time");
   }
@@ -201,6 +202,9 @@ export async function updateAppointmentCore(apptPublicId, body, { ownDentistId }
   if (body?.time   !== undefined) appt.time   = newTime;
   if (body?.reason !== undefined) appt.reason = String(body.reason || "");
   if (body?.notes  !== undefined) appt.notes  = String(body.notes  || "");
+  if (body?.appointmentType !== undefined) {
+    appt.appointmentType = normalizeAppointmentType(body.appointmentType);
+  }
 
   await appt.save();
 
@@ -230,10 +234,12 @@ export async function updateAppointmentStatusCore(apptPublicId, uiStatus, { ownD
 
   await assertPatientActive(appt.patient);
 
-  const allowed = ALLOWED_APPOINTMENT_TRANSITIONS[appt.status] || [];
-  if (appt.status !== dbStatus && !allowed.includes(dbStatus)) {
-    throw new Error(
-      `Cannot move from ${toUiAppointmentStatus(appt.status)} to ${toUiAppointmentStatus(dbStatus)}`
+  if (!canTransition(appt.status, dbStatus)) {
+    throw Object.assign(
+      new Error(
+        `Cannot move from ${toUiAppointmentStatus(appt.status)} to ${toUiAppointmentStatus(dbStatus)}`
+      ),
+      { status: 400 }
     );
   }
 

@@ -699,7 +699,7 @@ export const ownerUpdateAppointmentCtrl = async (req, res) => {
 export const ownerUpdateAppointmentStatusCtrl = async (req, res) => {
   try {
     const data = await ownerUpdateAppointmentStatus(req.user?._id, req.params.id, req.body?.status);
-    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { status: req.body?.status } });
+    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { status: data?.status, statusLabel: data?.statusLabel, appointmentType: data?.appointmentType || "" } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

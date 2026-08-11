@@ -269,5 +269,34 @@
     "patientId": "معرّف المريض",
     "ageDob": "العمر / تاريخ الميلاد",
     "gender": "الجنس"
+  },
+  "appointments": {
+    "typeLabel": "نوع الموعد",
+    "typeSelect": "اختر النوع",
+    "statusLabel": "الحالة",
+    "advanceStatus": "تحديث الحالة",
+    "noTransitions": "لا توجد تغييرات أخرى متاحة",
+    "type": {
+      "consultation": "استشارة",
+      "checkup": "فحص",
+      "cleaning": "تنظيف",
+      "filling": "حشوة",
+      "rct": "علاج عصب (RCT)",
+      "extraction": "خلع",
+      "crown_fitting": "تركيب تاج",
+      "follow_up": "متابعة",
+      "emergency": "طارئ"
+    },
+    "status": {
+      "requested": "مطلوب",
+      "confirmed": "مؤكد",
+      "arrived": "وصل",
+      "waiting": "في الانتظار",
+      "in_treatment": "قيد العلاج",
+      "completed": "مكتمل",
+      "cancelled": "ملغى",
+      "rescheduled": "أُعيدت جدولته",
+      "no_show": "لم يحضر"
+    }
   }
 }

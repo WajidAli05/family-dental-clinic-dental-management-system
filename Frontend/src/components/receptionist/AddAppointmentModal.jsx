@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import AppointmentTypeSelect from "@/components/appointments/AppointmentTypeSelect";
 
 // Stores
 import { useAppointmentStore } from "@/store/appointmentStore";
@@ -51,6 +52,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     date: "",
     time: "",
     dentist: "", // dentistId OR dentistName (we will store dentistId)
+    appointmentType: "",
     reason: "",
   });
 
@@ -61,7 +63,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
     setResults([]);
     setPatient(null);
     setError("");
-    setAppointment({ date: "", time: "", dentist: "", reason: "" });
+    setAppointment({ date: "", time: "", dentist: "", appointmentType: "", reason: "" });
     setNotification(null);
     setIsSubmitting(false);
     setLoading(false);
@@ -125,6 +127,7 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
           dentistId: appointment.dentist, // dentist publicId
           date: appointment.date,
           time: appointment.time,
+          appointmentType: appointment.appointmentType,
           reason: appointment.reason,
         });
       } else {
@@ -293,6 +296,14 @@ const AddAppointmentModal = ({ open, onOpenChange }) => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="col-span-2">
+                <AppointmentTypeSelect
+                  value={appointment.appointmentType}
+                  onChange={(v) => setAppointment({ ...appointment, appointmentType: v })}
+                  disabled={isSubmitting}
+                />
               </div>
 
               <div className="space-y-1 col-span-2">

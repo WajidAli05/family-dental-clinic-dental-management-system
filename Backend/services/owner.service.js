@@ -45,6 +45,7 @@ import {
   DEFAULT_ROLE_GRANTS,
 } from "./shared/permissionsConfig.js";
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus } from "./shared/labCases.js";
+import { canonicalStatus, statusLabel, allowedNextStatuses, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -366,8 +367,13 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
 
   if (status && status !== "all") {
     const st = lower(status);
-    const allowed = ["scheduled", "checked_in", "completed", "cancelled", "no_show"];
-    if (allowed.includes(st)) filter.status = st;
+    // Filtering by a canonical status must also match the legacy value it
+    // replaced, otherwise old appointments vanish from the filtered list.
+    if (ALL_STORED_STATUSES.includes(st)) {
+      const canon = canonicalStatus(st);
+      const equivalents = ALL_STORED_STATUSES.filter((v) => canonicalStatus(v) === canon);
+      filter.status = equivalents.length > 1 ? { $in: equivalents } : canon;
+    }
   }
 
   if (dentistId && dentistId !== "all") {
@@ -384,19 +390,9 @@ export async function ownerListAppointments(_ownerId, { dateFrom, dateTo, dentis
     .sort(sort)
     .lean();
 
-  let mapped = rows.map((a) => ({
-    id: a.publicId,
-    date: a.date,
-    time: a.time,
-    patientId: a.patient?.publicId || "",
-    patientName: a.patient?.name || "",
-    patientPhone: a.patient?.phone || "",
-    dentistId: a.dentist?.publicId || "",
-    dentistName: a.dentist?.name || "",
-    status: a.status,
-    reason: a.reason || "",
-    notes: a.notes || "",
-  }));
+  // Reuse mapOwnerAppt so the list, create and update paths all expose the
+  // same shape — canonical status, label, allowedNext and appointmentType.
+  let mapped = rows.map(mapOwnerAppt);
 
   const needle = lower(q);
   if (needle) {
@@ -2158,10 +2154,12 @@ export async function ownerDashboardOverview(_ownerId, { date } = {}) {
     },
     appointmentsSummary: {
       total: Object.values(apptMap).reduce((s, n) => s + n, 0),
-      scheduled: apptMap["scheduled"] || 0,
-      checkedIn: apptMap["checked_in"] || 0,
-      completed: apptMap["completed"] || 0,
-      cancelled: apptMap["cancelled"] || 0,
+      // Legacy scheduled/checked_in fold into confirmed/arrived so the cards
+      // stay correct across both old and new records.
+      scheduled: sumByCanonical(apptMap, "confirmed") + sumByCanonical(apptMap, "requested"),
+      checkedIn: sumByCanonical(apptMap, "arrived") + sumByCanonical(apptMap, "waiting") + sumByCanonical(apptMap, "in_treatment"),
+      completed: sumByCanonical(apptMap, "completed"),
+      cancelled: sumByCanonical(apptMap, "cancelled"),
     },
   };
 }
@@ -2169,6 +2167,15 @@ export async function ownerDashboardOverview(_ownerId, { date } = {}) {
 // =====================================================
 // ✅ OWNER APPOINTMENT CRUD
 // =====================================================
+
+/** Sum every stored status value that canonicalizes to `canon`. */
+function sumByCanonical(map, canon) {
+  let n = 0;
+  for (const [k, v] of Object.entries(map || {})) {
+    if (canonicalStatus(k) === canon) n += v;
+  }
+  return n;
+}
 
 function mapOwnerAppt(populated) {
   return {
@@ -2180,7 +2187,13 @@ function mapOwnerAppt(populated) {
     patientPhone: populated.patient?.phone   || "",
     dentistId:   populated.dentist?.publicId || "",
     dentistName: populated.dentist?.name     || "",
-    status:      populated.status,
+    // Owner UI keys off the raw db value — expose the CANONICAL one so old
+    // records render as their modern equivalent, plus a label and the legal
+    // next-states for the status control.
+    status:      canonicalStatus(populated.status),
+    statusLabel: statusLabel(populated.status),
+    allowedNext: allowedNextStatuses(populated.status),
+    appointmentType: populated.appointmentType || "",
     reason:      populated.reason  || "",
     notes:       populated.notes   || "",
   };

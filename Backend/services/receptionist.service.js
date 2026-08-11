@@ -11,7 +11,8 @@ import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.j
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
-import { generateAppointmentPublicId } from "./shared/appointments.js";
+import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus } from "./shared/appointments.js";
+import { canonicalStatus, canTransition, allowedNextStatuses, statusLabel, normalizeAppointmentType, NON_BLOCKING_STORED_STATUSES } from "./shared/appointmentConfig.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
 const pick = (obj, keys) =>
@@ -29,32 +30,8 @@ const pad = (n, width = 4) => String(n).padStart(width, "0");
 const cleanPhone = (s) => String(s || "").replace(/[^\d]/g, ""); // digits only
 
 // -------------------- STATUS MAPPERS --------------------
+const humanizeAppointmentStatus = (status) => statusLabel(status);
 
-// APPOINTMENTS
-function toDbAppointmentStatus(ui) {
-  const v = String(ui || "").trim().toLowerCase();
-
-  if (v === "scheduled") return "scheduled";
-  if (v === "checked in" || v === "checked_in") return "checked_in";
-  if (v === "completed") return "completed";
-  if (v === "cancelled" || v === "canceled") return "cancelled";
-  if (v === "no show" || v === "no_show") return "no_show";
-
-  // default safe:
-  return "scheduled";
-}
-
-function toUiAppointmentStatus(db) {
-  const v = String(db || "").trim().toLowerCase();
-
-  if (v === "scheduled") return "Scheduled";
-  if (v === "checked_in") return "Checked In";
-  if (v === "completed") return "Completed";
-  if (v === "cancelled" || v === "canceled") return "Cancelled";
-  if (v === "no_show") return "No Show";
-
-  return "Scheduled";
-}
 
 // LAB SAMPLES
 function toDbLabStatus(ui) {
@@ -167,11 +144,16 @@ export async function receptionistGetStats(_receptionistId, { date } = {}) {
       ]),
     ]);
 
+  // Canonicalize so legacy ("scheduled"/"checked_in") and new lifecycle values
+  // both land in the right bucket. `scheduled` keeps its name in the response
+  // for backward compatibility with the existing dashboard cards, and now
+  // means "booked but not yet completed/cancelled".
   const todayBreakdown = { total: appointmentsToday, scheduled: 0, completed: 0, cancelled: 0 };
   for (const { _id, count } of breakdownAgg) {
-    if (_id === "scheduled") todayBreakdown.scheduled = count;
-    else if (_id === "completed") todayBreakdown.completed = count;
-    else if (_id === "cancelled") todayBreakdown.cancelled = count;
+    const c = canonicalStatus(_id);
+    if (c === "completed") todayBreakdown.completed += count;
+    else if (c === "cancelled") todayBreakdown.cancelled += count;
+    else if (c !== "no_show" && c !== "rescheduled") todayBreakdown.scheduled += count;
   }
 
   return {
@@ -211,15 +193,6 @@ export async function receptionistGetAppointments(_receptionistId, { date } = {}
   }));
 }
 
-function humanizeAppointmentStatus(status) {
-  const s = normalizeStatus(status);
-  if (!s) return "Scheduled";
-  if (s === "scheduled") return "Scheduled";
-  if (s === "completed") return "Completed";
-  if (s === "cancelled" || s === "canceled") return "Cancelled";
-  if (s === "in_progress") return "In Progress";
-  return status;
-}
 
 // -------------------- LAB SAMPLES (for home table) --------------------
 export async function receptionistGetLabSamples(_receptionistId, { date } = {}) {
@@ -631,7 +604,7 @@ export async function receptionistCreateAppointment(_user, body) {
     dentist: dentist._id,
     date,
     time,
-    status: { $ne: "cancelled" },
+    status: { $nin: NON_BLOCKING_STORED_STATUSES },
   });
   if (conflict) throw new Error("Dentist already has an appointment at this time");
 
@@ -644,7 +617,7 @@ const created = await Appointment.create({
   date,
   time,
   reason,
-  status: "scheduled",
+  status: "confirmed",
 });
 
   const populated = await Appointment.findById(created._id)
@@ -854,13 +827,6 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
 }
 
 // ✅ Update status by publicId
-// Allowed receptionist-driven appointment status transitions (db statuses).
-const ALLOWED_APPOINTMENT_TRANSITIONS = {
-  scheduled: ["completed", "cancelled"],
-  completed: ["scheduled"],
-  cancelled: ["scheduled"],
-};
-
 export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
   const uiStatus = String(status || "").trim();
   if (!uiStatus) throw new Error("status is required");
@@ -870,11 +836,12 @@ export async function receptionistUpdateAppointmentStatus(_receptionistId, apptP
   const appt = await Appointment.findOne({ publicId: apptPublicId });
   if (!appt) throw new Error("Appointment not found");
 
-  const currentStatus = appt.status;
-  const allowedNext = ALLOWED_APPOINTMENT_TRANSITIONS[currentStatus] || [];
-  if (currentStatus !== dbStatus && !allowedNext.includes(dbStatus)) {
-    throw new Error(
-      `Cannot move appointment from ${toUiAppointmentStatus(currentStatus)} to ${toUiAppointmentStatus(dbStatus)}`
+  if (!canTransition(appt.status, dbStatus)) {
+    throw Object.assign(
+      new Error(
+        `Cannot move appointment from ${toUiAppointmentStatus(appt.status)} to ${toUiAppointmentStatus(dbStatus)}`
+      ),
+      { status: 400 }
     );
   }
 

@@ -269,5 +269,34 @@
     "patientId": "مریض شناخت",
     "ageDob": "عمر / تاریخ پیدائش",
     "gender": "جنس"
+  },
+  "appointments": {
+    "typeLabel": "ملاقات کی قسم",
+    "typeSelect": "قسم منتخب کریں",
+    "statusLabel": "حیثیت",
+    "advanceStatus": "حیثیت تبدیل کریں",
+    "noTransitions": "مزید کوئی تبدیلی دستیاب نہیں",
+    "type": {
+      "consultation": "مشاورت",
+      "checkup": "معائنہ",
+      "cleaning": "صفائی",
+      "filling": "فلنگ",
+      "rct": "روٹ کینال (RCT)",
+      "extraction": "دانت نکالنا",
+      "crown_fitting": "کراؤن فٹنگ",
+      "follow_up": "فالو اپ",
+      "emergency": "ہنگامی"
+    },
+    "status": {
+      "requested": "درخواست شدہ",
+      "confirmed": "تصدیق شدہ",
+      "arrived": "پہنچ گئے",
+      "waiting": "انتظار میں",
+      "in_treatment": "زیرِ علاج",
+      "completed": "مکمل",
+      "cancelled": "منسوخ",
+      "rescheduled": "دوبارہ شیڈول",
+      "no_show": "غیر حاضر"
+    }
   }
 }

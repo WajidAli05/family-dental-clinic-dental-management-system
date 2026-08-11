@@ -1,5 +1,7 @@
 // src/pages/owner/OwnerAppointments.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { APPOINTMENT_STATUSES, statusKey } from "@/lib/appointmentConfig";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDentistStore } from "@/store/dentistStore";
@@ -43,6 +45,7 @@ const filterAppointments = (appointments, filters) => {
 };
 
 const OwnerAppointments = () => {
+  const { t } = useTranslation();
   const dentists = useDentistStore((s) => s.dentists);
   const fetchAllDentists = useDentistStore((s) => s.fetchAllDentists);
 
@@ -152,10 +155,9 @@ const OwnerAppointments = () => {
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30"
               >
                 <option value="all">All Status</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="checked_in">Checked-in</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+                {APPOINTMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{t(statusKey(s))}</option>
+                ))}
               </select>
             </Field>
 

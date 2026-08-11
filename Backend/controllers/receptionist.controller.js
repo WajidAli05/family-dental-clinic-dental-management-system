@@ -196,7 +196,7 @@ export const updateReceptionistAppointmentStatus = async (req, res) => {
     const { id } = req.params; // publicId e.g. APT-0001
     const { status } = req.body; // "Completed" | "Cancelled" | "Scheduled"
     const updated = await receptionistUpdateAppointmentStatus(req.user._id, id, { status });
-    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: id, entityLabel: id, after: { status } });
+    await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: id, entityLabel: id, after: { status: updated?.statusCode || updated?.status, requested: status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

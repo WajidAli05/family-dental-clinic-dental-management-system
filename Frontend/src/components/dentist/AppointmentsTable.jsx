@@ -7,6 +7,9 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
+import AppointmentStatusControl from "@/components/appointments/AppointmentStatusControl";
+import { typeKey } from "@/lib/appointmentConfig";
 
 const AppointmentsTable = ({
   data,
@@ -15,13 +18,15 @@ const AppointmentsTable = ({
   onEdit,
   onStatusChange,
 }) => {
+  const { t } = useTranslation();
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Time</TableHead>
           <TableHead>Patient</TableHead>
-          <TableHead>Treatment</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Status</TableHead>
           <TableHead></TableHead>
         </TableRow>
       </TableHeader>
@@ -29,16 +34,23 @@ const AppointmentsTable = ({
       <TableBody>
         {data.map((apt) => {
           const hasRx = !!apt.prescription;
-          const rawStatus = apt.original?.status || "";
-          const canComplete = rawStatus === "scheduled" || rawStatus === "checked_in";
-          const canCancel   = rawStatus === "scheduled" || rawStatus === "checked_in";
-          const canReopen   = rawStatus === "completed"  || rawStatus === "cancelled";
 
           return (
             <TableRow key={apt.id}>
               <TableCell>{apt.time}</TableCell>
               <TableCell>{apt.patient}</TableCell>
-              <TableCell>{apt.type}</TableCell>
+              <TableCell>
+                {apt.appointmentType
+                  ? t(typeKey(apt.appointmentType))
+                  : (apt.type || "—")}
+              </TableCell>
+              <TableCell>
+                <AppointmentStatusControl
+                  status={apt.original?.statusCode || apt.original?.status || apt.status}
+                  allowedNext={apt.original?.allowedNext}
+                  onChange={onStatusChange ? (next) => onStatusChange(apt, next) : undefined}
+                />
+              </TableCell>
               <TableCell>
                 <div className="flex gap-2 justify-end flex-wrap">
                   <Button
@@ -69,26 +81,6 @@ const AppointmentsTable = ({
                     </Button>
                   )}
 
-                  {onStatusChange && canComplete && (
-                    <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                      onClick={() => onStatusChange(apt, "completed")}>
-                      Complete
-                    </Button>
-                  )}
-
-                  {onStatusChange && canCancel && (
-                    <Button size="sm" variant="outline" className="text-rose-600 border-rose-200 hover:bg-rose-50"
-                      onClick={() => onStatusChange(apt, "cancelled")}>
-                      Cancel
-                    </Button>
-                  )}
-
-                  {onStatusChange && canReopen && (
-                    <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                      onClick={() => onStatusChange(apt, "scheduled")}>
-                      Reopen
-                    </Button>
-                  )}
                 </div>
               </TableCell>
             </TableRow>

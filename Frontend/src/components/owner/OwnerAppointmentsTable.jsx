@@ -1,27 +1,7 @@
 import { Button } from "@/components/ui/button";
-
-const badgeClass = (status) => {
-  switch (status) {
-    case "scheduled":
-      return "bg-blue-50 text-blue-700 border-blue-100";
-    case "checked_in":
-      return "bg-amber-50 text-amber-700 border-amber-100";
-    case "completed":
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
-    case "cancelled":
-      return "bg-rose-50 text-rose-700 border-rose-100";
-    default:
-      return "bg-gray-50 text-gray-700 border-gray-100";
-  }
-};
-
-const statusText = (s) =>
-  ({
-    scheduled: "Scheduled",
-    checked_in: "Checked-in",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  }[s] || s);
+import { useTranslation } from "react-i18next";
+import AppointmentStatusControl from "@/components/appointments/AppointmentStatusControl";
+import { typeKey } from "@/lib/appointmentConfig";
 
 const OwnerAppointmentsTable = ({
   data = [],
@@ -30,6 +10,7 @@ const OwnerAppointmentsTable = ({
   onStatusChange,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -53,10 +34,6 @@ const OwnerAppointmentsTable = ({
             </tr>
           ) : (
             data.map((a) => {
-              const st = a.status;
-              const canComplete = st === "scheduled" || st === "checked_in";
-              const canCancel   = st === "scheduled" || st === "checked_in";
-              const canReopen   = st === "completed"  || st === "cancelled";
               return (
                 <tr key={a.id} className="hover:bg-gray-50/60 transition">
                   <td className="py-3 pr-4 whitespace-nowrap">
@@ -72,12 +49,21 @@ const OwnerAppointmentsTable = ({
                   <td className="py-3 pr-4">{a.dentistName}</td>
 
                   <td className="py-3 pr-4">
-                    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass(a.status)}`}>
-                      {statusText(a.status)}
-                    </span>
+                    <AppointmentStatusControl
+                      status={a.status}
+                      allowedNext={a.allowedNext}
+                      onChange={onStatusChange ? (next) => onStatusChange(a, next) : undefined}
+                    />
                   </td>
 
-                  <td className="py-3 pr-4 max-w-[200px] truncate text-gray-700">{a.reason}</td>
+                  <td className="py-3 pr-4 max-w-[200px] text-gray-700">
+                    {a.appointmentType && (
+                      <span className="mb-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                        {t(typeKey(a.appointmentType))}
+                      </span>
+                    )}
+                    <div className="truncate">{a.reason}</div>
+                  </td>
 
                   <td className="py-3 text-right">
                     <div className="flex items-center justify-end gap-1 flex-wrap">
@@ -87,24 +73,6 @@ const OwnerAppointmentsTable = ({
                       {onEdit && (
                         <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onEdit(a)}>
                           Edit
-                        </Button>
-                      )}
-                      {onStatusChange && canComplete && (
-                        <Button size="sm" className="rounded-xl text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
-                          onClick={() => onStatusChange(a, "completed")}>
-                          Complete
-                        </Button>
-                      )}
-                      {onStatusChange && canCancel && (
-                        <Button size="sm" variant="outline" className="rounded-xl text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
-                          onClick={() => onStatusChange(a, "cancelled")}>
-                          Cancel
-                        </Button>
-                      )}
-                      {onStatusChange && canReopen && (
-                        <Button size="sm" variant="outline" className="rounded-xl text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                          onClick={() => onStatusChange(a, "scheduled")}>
-                          Reopen
                         </Button>
                       )}
                       {onDelete && (

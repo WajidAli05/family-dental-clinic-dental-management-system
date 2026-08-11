@@ -269,5 +269,34 @@
     "patientId": "Patient ID",
     "ageDob": "Age / DOB",
     "gender": "Gender"
+  },
+  "appointments": {
+    "typeLabel": "Appointment Type",
+    "typeSelect": "Select type",
+    "statusLabel": "Status",
+    "advanceStatus": "Update status",
+    "noTransitions": "No further status changes available",
+    "type": {
+      "consultation": "Consultation",
+      "checkup": "Check-up",
+      "cleaning": "Cleaning",
+      "filling": "Filling",
+      "rct": "Root Canal (RCT)",
+      "extraction": "Extraction",
+      "crown_fitting": "Crown Fitting",
+      "follow_up": "Follow-up",
+      "emergency": "Emergency"
+    },
+    "status": {
+      "requested": "Requested",
+      "confirmed": "Confirmed",
+      "arrived": "Arrived",
+      "waiting": "Waiting",
+      "in_treatment": "In Treatment",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rescheduled": "Rescheduled",
+      "no_show": "No Show"
+    }
   }
 }

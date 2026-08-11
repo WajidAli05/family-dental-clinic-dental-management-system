@@ -13,6 +13,7 @@ import { Search, Loader2, Calendar, User, Phone } from "lucide-react";
 import { useDentistStore } from "@/store/dentistStore";
 import { ownerApi } from "@/lib/ownerApi";
 import { toast } from "sonner";
+import AppointmentTypeSelect from "@/components/appointments/AppointmentTypeSelect";
 
 const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
   const dentists         = useDentistStore((s) => s.dentists);
@@ -28,6 +29,7 @@ const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
     dentistId: "",
     date: "",
     time: "",
+    appointmentType: "",
     reason: "",
     notes: "",
   });
@@ -35,7 +37,7 @@ const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
   const reset = () => {
     setQuery(""); setSearching(false); setResults([]); setPatient(null);
     setSubmitting(false);
-    setForm({ dentistId: "", date: "", time: "", reason: "", notes: "" });
+    setForm({ dentistId: "", date: "", time: "", appointmentType: "", reason: "", notes: "" });
   };
 
   useEffect(() => {
@@ -74,6 +76,7 @@ const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
         patientId: patient.id,
         date: form.date,
         time: form.time,
+        appointmentType: form.appointmentType,
         reason: form.reason,
         notes: form.notes,
       });
@@ -175,6 +178,13 @@ const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
           <div className="space-y-1">
             <Label>Time</Label>
             <Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} disabled={submitting} />
+          </div>
+          <div className="col-span-2">
+            <AppointmentTypeSelect
+              value={form.appointmentType}
+              onChange={(v) => setForm({ ...form, appointmentType: v })}
+              disabled={submitting}
+            />
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Reason</Label>

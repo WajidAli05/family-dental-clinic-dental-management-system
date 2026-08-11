@@ -10,6 +10,7 @@ import { Search, Loader2, Calendar, User, Phone } from "lucide-react";
 import { dentistApi } from "@/lib/dentistApi";
 import { localISODate } from "@/utils/localISODate";
 import { toast } from "sonner";
+import AppointmentTypeSelect from "@/components/appointments/AppointmentTypeSelect";
 
 const DentistBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
   const [query, setQuery]           = useState("");
@@ -21,6 +22,7 @@ const DentistBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
   const [form, setForm] = useState({
     date: localISODate(),
     time: "",
+    appointmentType: "",
     reason: "",
     notes: "",
   });
@@ -28,7 +30,7 @@ const DentistBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
   const reset = () => {
     setQuery(""); setSearching(false); setResults([]); setPatient(null);
     setSubmitting(false);
-    setForm({ date: localISODate(), time: "", reason: "", notes: "" });
+    setForm({ date: localISODate(), time: "", appointmentType: "", reason: "", notes: "" });
   };
 
   useEffect(() => { if (!open) reset(); }, [open]);
@@ -59,6 +61,7 @@ const DentistBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
         patientId: patient.id,
         date: form.date,
         time: form.time,
+        appointmentType: form.appointmentType,
         reason: form.reason,
         notes: form.notes,
       });
@@ -154,6 +157,13 @@ const DentistBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
               type="time"
               value={form.time}
               onChange={(e) => setForm({ ...form, time: e.target.value })}
+              disabled={submitting}
+            />
+          </div>
+          <div className="col-span-2">
+            <AppointmentTypeSelect
+              value={form.appointmentType}
+              onChange={(v) => setForm({ ...form, appointmentType: v })}
               disabled={submitting}
             />
           </div>
