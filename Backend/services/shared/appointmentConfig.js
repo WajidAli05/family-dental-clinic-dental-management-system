@@ -72,7 +72,13 @@ export const ALLOWED_APPOINTMENT_TRANSITIONS = Object.freeze({
   arrived:      ["waiting", "in_treatment", "cancelled", "no_show"],
   waiting:      ["in_treatment", "cancelled", "no_show"],
   in_treatment: ["completed", "cancelled"],
-  completed:    [],                            // terminal — no completed→requested
+  // REOPEN: a finished/cancelled visit can be put back on the books. Both are
+  // slot-FREEING statuses, so re-entering `confirmed` re-occupies the slot —
+  // updateAppointmentStatusCore re-runs assertNoSlotConflict for exactly this
+  // case and rejects with 409 if someone else took the time meanwhile.
+  // Deliberately narrow: reopen only ever lands on `confirmed`, never back to
+  // requested/in_treatment, so history can't be rewritten.
+  completed:    ["confirmed"],
   cancelled:    ["confirmed", "rescheduled"],
   rescheduled:  ["confirmed", "cancelled"],
   no_show:      ["confirmed", "rescheduled"],

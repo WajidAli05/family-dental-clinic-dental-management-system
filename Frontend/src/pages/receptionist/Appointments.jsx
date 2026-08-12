@@ -10,6 +10,7 @@ import { useAppointmentStore } from "@/store/appointmentStore";
 import { useDentistStore } from "@/store/dentistStore";
 
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
+import EditAppointmentModal from "@/components/receptionist/EditAppointmentModal";
 
 import AppointmentStats from "@/components/receptionist/AppointmentStats";
 import AppointmentFilters from "@/components/receptionist/AppointmentFilters";
@@ -38,6 +39,7 @@ const Appointments = () => {
   const { sortBy, sortDir } = useTableSort("date", "desc");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editAppt, setEditAppt] = useState(null);
   const [view, setView] = useState("list");
 
   const [search, setSearch] = useState("");
@@ -173,9 +175,8 @@ const Appointments = () => {
             ) : (
               <AppointmentManagementTable
                 data={filteredAppointments}
-                onComplete={(id) => updateAppointmentStatus(id, "Completed")}
-                onCancel={(id) => updateAppointmentStatus(id, "Cancelled")}
-                onReopen={(id) => updateAppointmentStatus(id, "Scheduled")}
+                onStatusChange={(id, next) => updateAppointmentStatus(id, next)}
+                onEdit={(a) => setEditAppt(a)}
               />
             )}
 
@@ -193,6 +194,13 @@ const Appointments = () => {
       )}
 
       <AddAppointmentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+
+      <EditAppointmentModal
+        open={!!editAppt}
+        appointment={editAppt}
+        onOpenChange={(v) => { if (!v) setEditAppt(null); }}
+        onSaved={() => { setEditAppt(null); load(); }}
+      />
     </div>
   );
 };

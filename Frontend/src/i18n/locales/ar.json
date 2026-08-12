@@ -297,6 +297,16 @@
       "cancelled": "ملغى",
       "rescheduled": "أُعيدت جدولته",
       "no_show": "لم يحضر"
-    }
+    },
+    "edit": "تعديل",
+    "reopen": "إعادة فتح",
+    "editTitle": "تعديل الموعد",
+    "editSubtitle": "صحّح أي تفصيل في الحجز",
+    "slotTaken": "هذا الموعد لم يعد متاحاً",
+    "saved": "تم تحديث الموعد",
+    "patientLabel": "المريض",
+    "dentistLabel": "الطبيب",
+    "searchPatient": "ابحث عن مريض (الاسم / المعرّف / الهاتف)",
+    "keepPatient": "الإبقاء على المريض الحالي"
   }
 }

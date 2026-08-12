@@ -297,6 +297,16 @@
       "cancelled": "Cancelled",
       "rescheduled": "Rescheduled",
       "no_show": "No Show"
-    }
+    },
+    "edit": "Edit",
+    "reopen": "Reopen",
+    "editTitle": "Edit Appointment",
+    "editSubtitle": "Correct any booking detail",
+    "slotTaken": "This slot is no longer available",
+    "saved": "Appointment updated",
+    "patientLabel": "Patient",
+    "dentistLabel": "Dentist",
+    "searchPatient": "Search patient (name / ID / phone)",
+    "keepPatient": "Keep current patient"
   }
 }

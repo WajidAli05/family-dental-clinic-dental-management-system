@@ -45,7 +45,8 @@ export const ALLOWED_APPOINTMENT_TRANSITIONS = {
   arrived:      ["waiting", "in_treatment", "cancelled", "no_show"],
   waiting:      ["in_treatment", "cancelled", "no_show"],
   in_treatment: ["completed", "cancelled"],
-  completed:    [],
+  // Reopen — server re-checks the slot and 409s if it is no longer free.
+  completed:    ["confirmed"],
   cancelled:    ["confirmed", "rescheduled"],
   rescheduled:  ["confirmed", "cancelled"],
   no_show:      ["confirmed", "rescheduled"],

@@ -11,8 +11,8 @@ import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.j
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
-import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore } from "./shared/appointments.js";
-import { canonicalStatus, canTransition, allowedNextStatuses, statusLabel, normalizeAppointmentType, NON_BLOCKING_STORED_STATUSES } from "./shared/appointmentConfig.js";
+import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore, updateAppointmentStatusCore } from "./shared/appointments.js";
+import { canonicalStatus, allowedNextStatuses, statusLabel } from "./shared/appointmentConfig.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
 const pick = (obj, keys) =>
@@ -799,7 +799,12 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     date: a.date,
     time: a.time,
     reason: a.reason || "",
+    appointmentType: a.appointmentType || "",
     status: toUiAppointmentStatus(a.status),
+    // Canonical value + legal next-states drive AppointmentStatusControl
+    // (incl. the Reopen option) in the receptionist table.
+    statusCode: canonicalStatus(a.status),
+    allowedNext: allowedNextStatuses(a.status),
     original: a,
   }));
 
@@ -831,46 +836,16 @@ export async function receptionistUpdateAppointment(_receptionistId, apptPublicI
   return updateAppointmentCore(apptPublicId, body);
 }
 
+/**
+ * Status change — delegates to the shared core so the receptionist gets the
+ * SAME rules as every other role: transition validation AND the slot re-check
+ * that runs when an appointment moves back into an occupying status (reopen).
+ * This previously had its own copy that skipped assertNoSlotConflict, which
+ * let a receptionist reopen straight into a slot someone else had taken.
+ */
 export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
-  const uiStatus = String(status || "").trim();
-  if (!uiStatus) throw new Error("status is required");
-
-  const dbStatus = toDbAppointmentStatus(uiStatus);
-
-  const appt = await Appointment.findOne({ publicId: apptPublicId });
-  if (!appt) throw new Error("Appointment not found");
-
-  if (!canTransition(appt.status, dbStatus)) {
-    throw Object.assign(
-      new Error(
-        `Cannot move appointment from ${toUiAppointmentStatus(appt.status)} to ${toUiAppointmentStatus(dbStatus)}`
-      ),
-      { status: 400 }
-    );
-  }
-
-  appt.status = dbStatus;
-  await appt.save();
-
-  const populated = await Appointment.findById(appt._id)
-    .populate("patient", "name publicId mr phone age gender")
-    .populate("dentist", "name publicId specialization")
-    .lean();
-
-  return {
-    id: populated.publicId,
-    mr: populated.patient?.mr ?? null,
-    patientId: populated.patient?.publicId || "",
-    patientName: populated.patient?.name || "",
-    dentistId: populated.dentist?.publicId || "",
-    dentist: populated.dentist?.name || "",
-    specialization: populated.dentist?.specialization || "",
-    date: populated.date,
-    time: populated.time,
-    reason: populated.reason || "",
-    status: toUiAppointmentStatus(populated.status),
-    original: populated,
-  };
+  if (!String(status || "").trim()) throw new Error("status is required");
+  return updateAppointmentStatusCore(apptPublicId, status);
 }
 
 

@@ -2,20 +2,24 @@ import {
   Table, TableHeader, TableRow, TableHead,
   TableBody, TableCell
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
+import AppointmentStatusControl from "@/components/appointments/AppointmentStatusControl";
+import { typeKey } from "@/lib/appointmentConfig";
 
+/**
+ * Status is rendered by the shared AppointmentStatusControl, which offers
+ * exactly the transitions the server allows for the current status (including
+ * Reopen from completed/cancelled). The previous hardcoded
+ * Complete/Cancel/Reopen buttons keyed off literal "Scheduled"/"Completed"
+ * strings, so they silently disappeared once the lifecycle statuses landed.
+ */
 export default function AppointmentManagementTable({
   data,
-  onComplete,
-  onCancel,
-  onReopen,
+  onStatusChange,
+  onEdit,
 }) {
-  const statusColor = {
-    Scheduled: "bg-blue-100 text-blue-700",
-    Completed: "bg-green-100 text-green-700",
-    Cancelled: "bg-red-100 text-red-700",
-  };
+  const { t } = useTranslation();
 
   return (
     <Table>
@@ -25,6 +29,7 @@ export default function AppointmentManagementTable({
           <TableHead>Dentist</TableHead>
           <TableHead>Date</TableHead>
           <TableHead>Time</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Actions</TableHead>
         </TableRow>
@@ -38,32 +43,19 @@ export default function AppointmentManagementTable({
             <TableCell>{a.date}</TableCell>
             <TableCell>{a.time}</TableCell>
             <TableCell>
-              <Badge className={statusColor[a.status]}>
-                {a.status}
-              </Badge>
+              {a.appointmentType ? t(typeKey(a.appointmentType)) : "—"}
             </TableCell>
-            <TableCell className="flex gap-2">
-              {a.status === "Scheduled" && (
-                <>
-                  <Button size="sm" onClick={() => onComplete(a.id)}>
-                    Complete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => onCancel(a.id)}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              )}
-              {(a.status === "Completed" || a.status === "Cancelled") && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onReopen(a.id)}
-                >
-                  Reopen
+            <TableCell>
+              <AppointmentStatusControl
+                status={a.statusCode || a.status}
+                allowedNext={a.allowedNext}
+                onChange={onStatusChange ? (next) => onStatusChange(a.id, next) : undefined}
+              />
+            </TableCell>
+            <TableCell>
+              {onEdit && (
+                <Button size="sm" variant="outline" onClick={() => onEdit(a)}>
+                  {t("appointments.edit")}
                 </Button>
               )}
             </TableCell>
