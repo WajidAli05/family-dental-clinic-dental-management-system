@@ -18,6 +18,7 @@ export default function AppointmentManagementTable({
   data,
   onStatusChange,
   onEdit,
+  onReschedule,
 }) {
   const { t } = useTranslation();
 
@@ -50,6 +51,7 @@ export default function AppointmentManagementTable({
                 status={a.statusCode || a.status}
                 allowedNext={a.allowedNext}
                 onChange={onStatusChange ? (next) => onStatusChange(a.id, next) : undefined}
+                onReschedule={onReschedule ? () => onReschedule(a) : undefined}
               />
             </TableCell>
             <TableCell>

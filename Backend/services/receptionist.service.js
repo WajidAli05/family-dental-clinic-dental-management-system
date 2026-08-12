@@ -11,7 +11,7 @@ import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.j
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
-import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore, updateAppointmentStatusCore } from "./shared/appointments.js";
+import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore, updateAppointmentStatusCore, rescheduleAppointmentCore } from "./shared/appointments.js";
 import { canonicalStatus, allowedNextStatuses, statusLabel, isEditLocked } from "./shared/appointmentConfig.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
@@ -844,6 +844,11 @@ export async function receptionistUpdateAppointment(_receptionistId, apptPublicI
  * This previously had its own copy that skipped assertNoSlotConflict, which
  * let a receptionist reopen straight into a slot someone else had taken.
  */
+/** Front-desk reschedule — same shared core (and slot check) as the owner. */
+export async function receptionistRescheduleAppointment(_receptionistId, apptPublicId, body) {
+  return rescheduleAppointmentCore(apptPublicId, body);
+}
+
 export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
   if (!String(status || "").trim()) throw new Error("status is required");
   return updateAppointmentStatusCore(apptPublicId, status);

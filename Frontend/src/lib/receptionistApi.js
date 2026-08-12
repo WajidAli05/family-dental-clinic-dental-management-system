@@ -59,6 +59,8 @@ export const receptionistApi = {
   // Full front-desk appointment edit (date/time/dentist/patient/type/reason/notes)
   updateAppointment: (id, body) =>
     request(`/receptionist/appointments/${id}`, { method: "PATCH", body }),
+  rescheduleAppointment: (id, body) =>
+    request(`/receptionist/appointments/${id}/reschedule`, { method: "PATCH", body }),
   updateAppointmentStatus: (id, body) =>
     request(`/receptionist/appointments/${id}/status`, { method: "PATCH", body }),
 

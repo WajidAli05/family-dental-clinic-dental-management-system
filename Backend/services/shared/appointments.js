@@ -12,6 +12,7 @@ import {
   SLOT_OCCUPYING_STATUSES,
   occupiesSlot,
   isEditLocked,
+  canTransition as _canTransition,
   statusLabel as _statusLabel,
   ALLOWED_APPOINTMENT_TRANSITIONS,
 } from "./appointmentConfig.js";
@@ -327,6 +328,91 @@ export async function updateAppointmentStatusCore(apptPublicId, uiStatus, { ownD
     .lean();
 
   return mapAppointmentToUI(populated);
+}
+
+/**
+ * RESCHEDULE — move an appointment to a NEW date/time (optionally a new
+ * dentist) and land it back in an ACTIVE status.
+ *
+ * MODEL: the appointment MOVES; it does not linger in a "rescheduled" state.
+ * `rescheduled` is a slot-FREEING status, so parking the record there while
+ * pointing it at the new time would leave the new slot unowned — anyone could
+ * book straight over it. Instead the record takes the new date/time and
+ * becomes `confirmed`, which means:
+ *   - the OLD slot is released automatically (nothing references it any more)
+ *   - the NEW slot is occupied and conflict-checked before the move
+ * The "this was rescheduled" history lives in the audit log (old → new), which
+ * is where an immutable trail belongs.
+ *
+ * Permitted only from statuses whose lifecycle allows `rescheduled`
+ * (requested / confirmed / cancelled / no_show) — notably NOT from completed.
+ */
+export async function rescheduleAppointmentCore(apptPublicId, body, { ownDentistId } = {}) {
+  const newDate = String(body?.date || "").trim();
+  const newTime = String(body?.time || "").trim();
+  if (!newDate) throw Object.assign(new Error("A new date is required to reschedule"), { status: 400 });
+  if (!newTime) throw Object.assign(new Error("A new time is required to reschedule"), { status: 400 });
+
+  const appt = await Appointment.findOne({ publicId: apptPublicId });
+  if (!appt) throw Object.assign(new Error("Appointment not found"), { status: 404 });
+
+  if (ownDentistId && String(appt.dentist) !== String(ownDentistId)) {
+    throw Object.assign(new Error("Not authorized to reschedule this appointment"), { status: 403 });
+  }
+
+  await assertPatientActive(appt.patient);
+
+  // Gate on the existing lifecycle: only statuses that may go to `rescheduled`
+  // can be rescheduled (so a completed visit cannot be moved).
+  if (!_canTransition(appt.status, "rescheduled")) {
+    throw Object.assign(
+      new Error(`Cannot reschedule an appointment that is ${_statusLabel(appt.status).toLowerCase()}`),
+      { status: 400 }
+    );
+  }
+
+  let targetDentist = appt.dentist;
+  const dentistKey = body?.dentistId || body?.dentist || body?.dentistName;
+  if (dentistKey !== undefined && dentistKey !== null && String(dentistKey).trim() !== "") {
+    const d = await resolveDentist(dentistKey);
+    targetDentist = d._id;
+  }
+
+  // Snapshot BEFORE mutating — the controller audits old → new.
+  const previous = { date: appt.date, time: appt.time, dentist: String(appt.dentist) };
+
+  const unchanged =
+    previous.date === newDate &&
+    previous.time === newTime &&
+    String(targetDentist) === previous.dentist;
+  if (unchanged) {
+    throw Object.assign(
+      new Error("Pick a different date, time or dentist to reschedule to"),
+      { status: 400 }
+    );
+  }
+
+  // Authoritative: the NEW slot must be free (own id excluded so a partial
+  // move — e.g. same slot, different dentist — never conflicts with itself).
+  await assertNoSlotConflict({
+    dentist: targetDentist,
+    date: newDate,
+    time: newTime,
+    excludeAppointmentId: appt._id,
+  });
+
+  appt.date    = newDate;
+  appt.time    = newTime;
+  appt.dentist = targetDentist;
+  appt.status  = "confirmed"; // occupies the NEW slot
+  await appt.save();
+
+  const populated = await Appointment.findById(appt._id)
+    .populate("patient", "name publicId mr phone gender age")
+    .populate("dentist", "name publicId specialization")
+    .lean();
+
+  return { ...mapAppointmentToUI(populated), previous };
 }
 
 /** Soft-delete (owner only) — sets deletedAt; excluded from all normal queries thereafter. */

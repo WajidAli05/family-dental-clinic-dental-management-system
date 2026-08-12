@@ -6,6 +6,7 @@ import {
   ownerCreateAppointmentCtrl,
   ownerUpdateAppointmentCtrl,
   ownerUpdateAppointmentStatusCtrl,
+  ownerRescheduleAppointmentCtrl,
   ownerDeleteAppointmentCtrl,
 
   ownerListPatients,
@@ -111,6 +112,7 @@ router.get("/appointments/:id/clinical", ownerAppointmentClinicalCtrl);
 router.post("/appointments",             ownerCreateAppointmentCtrl);
 router.patch("/appointments/:id",        ownerUpdateAppointmentCtrl);
 router.patch("/appointments/:id/status", ownerUpdateAppointmentStatusCtrl);
+router.patch("/appointments/:id/reschedule", ownerRescheduleAppointmentCtrl);
 router.delete("/appointments/:id",       ownerDeleteAppointmentCtrl);
 
 // Patients

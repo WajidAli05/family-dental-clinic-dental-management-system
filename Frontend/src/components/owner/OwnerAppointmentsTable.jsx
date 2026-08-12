@@ -8,6 +8,7 @@ const OwnerAppointmentsTable = ({
   onView,
   onEdit,
   onStatusChange,
+  onReschedule,
   onDelete,
 }) => {
   const { t } = useTranslation();
@@ -53,6 +54,7 @@ const OwnerAppointmentsTable = ({
                       status={a.status}
                       allowedNext={a.allowedNext}
                       onChange={onStatusChange ? (next) => onStatusChange(a, next) : undefined}
+                      onReschedule={onReschedule ? () => onReschedule(a) : undefined}
                     />
                   </td>
 

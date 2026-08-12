@@ -309,6 +309,17 @@
     "searchPatient": "ابحث عن مريض (الاسم / المعرّف / الهاتف)",
     "keepPatient": "الإبقاء على المريض الحالي",
     "editLockedHint": "أعد فتح هذا الموعد قبل التعديل",
-    "editLockedShort": "أعد الفتح للتعديل"
+    "editLockedShort": "أعد الفتح للتعديل",
+    "rescheduleTitle": "إعادة جدولة الموعد",
+    "rescheduleSubtitle": "انقل هذا الموعد إلى وقت جديد",
+    "currentSlot": "الموعد الحالي",
+    "pickNewSlot": "اختر وقتاً جديداً",
+    "newDate": "التاريخ الجديد",
+    "newTime": "الوقت الجديد",
+    "newDateRequired": "يرجى اختيار تاريخ جديد",
+    "newTimeRequired": "يرجى اختيار وقت جديد",
+    "confirmReschedule": "إعادة الجدولة",
+    "rescheduling": "جارٍ إعادة الجدولة…",
+    "rescheduleNote": "يتم تحرير الوقت القديم وحجز الجديد. يصبح الموعد مؤكداً في الوقت الجديد."
   }
 }

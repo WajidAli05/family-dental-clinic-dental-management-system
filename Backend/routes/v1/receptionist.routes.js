@@ -14,6 +14,7 @@ import {
   lookupReceptionistPatient,
   updateReceptionistAppointmentStatus,
   updateReceptionistAppointment,
+  rescheduleReceptionistAppointment,
 
     getReceptionistLabSamples,
   createReceptionistLabSample,
@@ -58,6 +59,7 @@ router.get("/appointments", requirePermission("tab_receptionist_appointments"), 
 router.post("/appointments", requirePermission("tab_receptionist_appointments"), createReceptionistAppointment);
 router.patch("/appointments/:id/status", requirePermission("tab_receptionist_appointments"), updateReceptionistAppointmentStatus);
 router.patch("/appointments/:id",        requirePermission("tab_receptionist_appointments"), updateReceptionistAppointment);
+router.patch("/appointments/:id/reschedule", requirePermission("tab_receptionist_appointments"), rescheduleReceptionistAppointment);
 
 // patients tab
 router.get("/patients", requirePermission("tab_receptionist_patients"), getReceptionistPatients);

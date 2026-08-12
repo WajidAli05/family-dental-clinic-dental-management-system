@@ -47,6 +47,7 @@ export const ownerApi = {
   getAppointments: (params) => request("/owner/appointments", { params }),
   createAppointment: (body) => request("/owner/appointments", { method: "POST", body }),
   updateAppointment: (id, body) => request(`/owner/appointments/${id}`, { method: "PATCH", body }),
+  rescheduleAppointment: (id, body) => request(`/owner/appointments/${id}/reschedule`, { method: "PATCH", body }),
   updateAppointmentStatus: (id, status) =>
     request(`/owner/appointments/${id}/status`, { method: "PATCH", body: { status } }),
   deleteAppointment: (id) => request(`/owner/appointments/${id}`, { method: "DELETE" }),

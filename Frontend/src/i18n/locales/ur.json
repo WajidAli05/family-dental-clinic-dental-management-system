@@ -309,6 +309,17 @@
     "searchPatient": "مریض تلاش کریں (نام / آئی ڈی / فون)",
     "keepPatient": "موجودہ مریض برقرار رکھیں",
     "editLockedHint": "ترمیم سے پہلے اس ملاقات کو دوبارہ کھولیں",
-    "editLockedShort": "ترمیم کے لیے دوبارہ کھولیں"
+    "editLockedShort": "ترمیم کے لیے دوبارہ کھولیں",
+    "rescheduleTitle": "ملاقات دوبارہ شیڈول کریں",
+    "rescheduleSubtitle": "اس ملاقات کو نئے وقت پر منتقل کریں",
+    "currentSlot": "موجودہ وقت",
+    "pickNewSlot": "نیا وقت منتخب کریں",
+    "newDate": "نئی تاریخ",
+    "newTime": "نیا وقت",
+    "newDateRequired": "براہ کرم نئی تاریخ منتخب کریں",
+    "newTimeRequired": "براہ کرم نیا وقت منتخب کریں",
+    "confirmReschedule": "دوبارہ شیڈول کریں",
+    "rescheduling": "دوبارہ شیڈول ہو رہا ہے…",
+    "rescheduleNote": "پرانا وقت خالی ہو جائے گا اور نیا بک ہو جائے گا۔ ملاقات نئے وقت پر تصدیق شدہ ہو جائے گی۔"
   }
 }

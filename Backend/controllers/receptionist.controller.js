@@ -15,6 +15,7 @@
     receptionistListAppointments,
   receptionistUpdateAppointmentStatus,
   receptionistUpdateAppointment,
+  receptionistRescheduleAppointment,
 
     receptionistListLabSamples,
   receptionistCreateLabSample,
@@ -146,6 +147,16 @@ export const createReceptionistAppointment = async (req, res) => {
     const created = await receptionistCreateAppointment(req.user, req.body);
     await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: created?.id, entityLabel: created?.id, after: { status: created?.status, date: created?.date } });
     return res.json({ success: true, data: created });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const rescheduleReceptionistAppointment = async (req, res) => {
+  try {
+    const data = await receptionistRescheduleAppointment(req.user._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "appointment.update", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { rescheduled: true, from: { date: data?.previous?.date, time: data?.previous?.time }, to: { date: data?.date, time: data?.time }, dentistId: data?.dentistId, status: data?.statusCode } });
+    return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 400).json({ success: false, message: e.message });
   }

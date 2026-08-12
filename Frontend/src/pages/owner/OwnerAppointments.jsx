@@ -6,9 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDentistStore } from "@/store/dentistStore";
 import { useOwnerAppointmentsStore } from "@/store/ownerAppointmentsStore";
+import { ownerApi } from "@/lib/ownerApi";
 import OwnerAppointmentsTable from "@/components/owner/OwnerAppointmentsTable";
 import OwnerBookAppointmentModal from "@/components/owner/OwnerBookAppointmentModal";
 import OwnerEditAppointmentModal from "@/components/owner/OwnerEditAppointmentModal";
+import RescheduleAppointmentModal from "@/components/appointments/RescheduleAppointmentModal";
 import AppointmentDetailsModal from "@/components/owner/AppointmentDetailsModal";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 import TableSkeleton from "@/components/ui/TableSkeleton";
@@ -65,6 +67,7 @@ const OwnerAppointments = () => {
 
   const [bookOpen, setBookOpen] = useState(false);
   const [editAppt, setEditAppt] = useState(null);
+  const [reschedAppt, setReschedAppt] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -196,6 +199,7 @@ const OwnerAppointments = () => {
                 data={data}
                 onView={openDetails}
                 onEdit={(a) => setEditAppt(a)}
+                onReschedule={(a) => setReschedAppt(a)}
                 onStatusChange={handleStatusChange}
                 onDelete={(a) => setDeleteTarget(a)}
               />
@@ -214,6 +218,17 @@ const OwnerAppointments = () => {
         open={bookOpen}
         onOpenChange={setBookOpen}
         onSuccess={() => { setBookOpen(false); useOwnerAppointmentsStore.getState().fetchAppointments(); }}
+      />
+
+      <RescheduleAppointmentModal
+        open={!!reschedAppt}
+        appointment={reschedAppt}
+        onOpenChange={(v) => { if (!v) setReschedAppt(null); }}
+        onSubmit={async (payload) => {
+          await ownerApi.rescheduleAppointment(reschedAppt.id, payload);
+          setReschedAppt(null);
+          useOwnerAppointmentsStore.getState().fetchAppointments();
+        }}
       />
 
       <OwnerEditAppointmentModal

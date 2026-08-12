@@ -11,6 +11,8 @@ import { useDentistStore } from "@/store/dentistStore";
 
 import AddAppointmentModal from "@/components/receptionist/AddAppointmentModal";
 import EditAppointmentModal from "@/components/receptionist/EditAppointmentModal";
+import RescheduleAppointmentModal from "@/components/appointments/RescheduleAppointmentModal";
+import { receptionistApi } from "@/lib/receptionistApi";
 
 import AppointmentStats from "@/components/receptionist/AppointmentStats";
 import AppointmentFilters from "@/components/receptionist/AppointmentFilters";
@@ -40,6 +42,7 @@ const Appointments = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editAppt, setEditAppt] = useState(null);
+  const [reschedAppt, setReschedAppt] = useState(null);
   const [view, setView] = useState("list");
 
   const [search, setSearch] = useState("");
@@ -177,6 +180,7 @@ const Appointments = () => {
                 data={filteredAppointments}
                 onStatusChange={(id, next) => updateAppointmentStatus(id, next)}
                 onEdit={(a) => setEditAppt(a)}
+                onReschedule={(a) => setReschedAppt(a)}
               />
             )}
 
@@ -194,6 +198,17 @@ const Appointments = () => {
       )}
 
       <AddAppointmentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+
+      <RescheduleAppointmentModal
+        open={!!reschedAppt}
+        appointment={reschedAppt}
+        onOpenChange={(v) => { if (!v) setReschedAppt(null); }}
+        onSubmit={async (payload) => {
+          await receptionistApi.rescheduleAppointment(reschedAppt.id, payload);
+          setReschedAppt(null);
+          load();
+        }}
+      />
 
       <EditAppointmentModal
         open={!!editAppt}

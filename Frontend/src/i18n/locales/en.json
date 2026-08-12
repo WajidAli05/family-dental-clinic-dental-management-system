@@ -309,6 +309,17 @@
     "searchPatient": "Search patient (name / ID / phone)",
     "keepPatient": "Keep current patient",
     "editLockedHint": "Reopen this appointment before editing",
-    "editLockedShort": "Reopen to edit"
+    "editLockedShort": "Reopen to edit",
+    "rescheduleTitle": "Reschedule Appointment",
+    "rescheduleSubtitle": "Move this appointment to a new slot",
+    "currentSlot": "Current slot",
+    "pickNewSlot": "pick a new slot",
+    "newDate": "New Date",
+    "newTime": "New Time",
+    "newDateRequired": "Please choose a new date",
+    "newTimeRequired": "Please choose a new time",
+    "confirmReschedule": "Reschedule",
+    "rescheduling": "Rescheduling…",
+    "rescheduleNote": "The old slot is released and the new one is booked. The appointment becomes Confirmed at the new time."
   }
 }

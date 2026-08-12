@@ -3,6 +3,7 @@ import {
   ownerDashboardOverview,
   ownerListAppointments,
   ownerCreateAppointment,
+  ownerRescheduleAppointment,
   ownerUpdateAppointment,
   ownerUpdateAppointmentStatus,
   ownerDeleteAppointment,
@@ -694,6 +695,17 @@ export const ownerUpdateAppointmentCtrl = async (req, res) => {
     return res.json({ success: true, data });
   } catch (e) {
     // 409 = slot conflict; preserve it so the client can show the right message
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerRescheduleAppointmentCtrl = async (req, res) => {
+  try {
+    const data = await ownerRescheduleAppointment(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "appointment.update", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { rescheduled: true, from: { date: data?.previous?.date, time: data?.previous?.time }, to: { date: data?.date, time: data?.time }, dentistId: data?.dentistId, status: data?.status } });
+    return res.json({ success: true, data });
+  } catch (e) {
+    // 409 = new slot taken; 400 = invalid/absent new time
     return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };

@@ -18,7 +18,7 @@ import {
  * `status` accepts any stored/humanised form (legacy included) — it is
  * canonicalized here, so old appointments show their modern equivalent.
  */
-const AppointmentStatusControl = ({ status, allowedNext, onChange, disabled = false }) => {
+const AppointmentStatusControl = ({ status, allowedNext, onChange, onReschedule, disabled = false }) => {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
@@ -48,6 +48,14 @@ const AppointmentStatusControl = ({ status, allowedNext, onChange, disabled = fa
   }
 
   const handle = async (value) => {
+    // "Rescheduled" is not a plain status flip — a reschedule must actually
+    // move the appointment, so hand off to the prompt that collects the new
+    // date/time. Falls through to a normal status change if no handler is
+    // wired (the server would still reject a bare flip as meaningless).
+    if (value === "rescheduled" && onReschedule) {
+      onReschedule();
+      return;
+    }
     setBusy(true);
     try {
       await onChange(value);

@@ -36,6 +36,7 @@ import {
   createAppointmentCore,
   updateAppointmentCore,
   updateAppointmentStatusCore,
+  rescheduleAppointmentCore,
   deleteAppointmentCore,
 } from "./shared/appointments.js";
 import { createPatientCore, updatePatientCore, computeAge, mapInsurance, mapEmergencyContact, mapMedicalInfo, mapOdontogram, mapOdontogramWithClinical, latestToothEntriesByPatient, mergeToothClinical, upsertOdontogramEntry } from "./shared/patients.js";
@@ -2231,6 +2232,10 @@ export async function ownerAppointmentClinical(_ownerId, apptPublicId) {
     // Owner is authorized to read PHI — decrypt for this view only.
     prescription: rx ? decryptPrescriptionDoc(rx) : null,
   };
+}
+
+export async function ownerRescheduleAppointment(_ownerId, apptPublicId, body) {
+  return rescheduleAppointmentCore(apptPublicId, body);
 }
 
 export async function ownerCreateAppointment(_ownerId, body) {
