@@ -9,7 +9,8 @@ import {
   allowedNextStatuses,
   statusLabel,
   normalizeAppointmentType,
-  NON_BLOCKING_STORED_STATUSES,
+  SLOT_OCCUPYING_STATUSES,
+  occupiesSlot,
   ALLOWED_APPOINTMENT_TRANSITIONS,
 } from "./appointmentConfig.js";
 
@@ -116,6 +117,34 @@ async function resolveDentist(key) {
   return dentist;
 }
 
+// ── Slot conflict — THE single check used by every booking path ──────────────
+/**
+ * Throws 409 when the dentist already has a slot-OCCUPYING appointment at this
+ * date+time. Completed / cancelled / rescheduled / no_show appointments do NOT
+ * block (see SLOT_OCCUPYING_STATUSES) — their time is free to rebook.
+ *
+ * Every create / edit / re-activation path calls this, so the rule can never
+ * diverge between roles. Server-side and authoritative: a stale or bypassed
+ * client cannot double-book.
+ */
+export async function assertNoSlotConflict({ dentist, date, time, excludeAppointmentId }) {
+  const query = {
+    dentist,
+    date: String(date || "").trim(),
+    time: String(time || "").trim(),
+    status: { $in: SLOT_OCCUPYING_STATUSES },
+  };
+  if (excludeAppointmentId) query._id = { $ne: excludeAppointmentId };
+
+  const conflict = await Appointment.findOne(query).select("publicId").lean();
+  if (conflict) {
+    throw Object.assign(
+      new Error(`This slot is no longer available — ${conflict.publicId} already occupies it`),
+      { status: 409 }
+    );
+  }
+}
+
 // ── Core CRUD ─────────────────────────────────────────────────────────────────
 
 /**
@@ -146,14 +175,7 @@ export async function createAppointmentCore(body, { forceDentistId } = {}) {
     dentist = await resolveDentist(dk);
   }
 
-  // cancelled / rescheduled / no_show release the slot
-  const conflict = await Appointment.findOne({
-    dentist: dentist._id,
-    date,
-    time,
-    status: { $nin: NON_BLOCKING_STORED_STATUSES },
-  });
-  if (conflict) throw new Error("Dentist already has an appointment at this time");
+  await assertNoSlotConflict({ dentist: dentist._id, date, time });
 
   const publicId = await generateAppointmentPublicId();
   const created  = await Appointment.create({
@@ -187,19 +209,43 @@ export async function updateAppointmentCore(apptPublicId, body, { ownDentistId }
   const newDate = body?.date ? String(body.date).trim() : appt.date;
   const newTime = body?.time ? String(body.time).trim() : appt.time;
 
-  if (body?.date || body?.time) {
-    const conflict = await Appointment.findOne({
-      _id: { $ne: appt._id },
-      dentist: appt.dentist,
-      date: newDate,
-      time: newTime,
-      status: { $nin: NON_BLOCKING_STORED_STATUSES },
-    });
-    if (conflict) throw new Error("Dentist already has an appointment at this time");
+  // Full-field edit: a front-desk correction may need to move the visit to a
+  // different dentist or fix the wrong patient, not just the time.
+  let newDentistId = appt.dentist;
+  const dentistKey = body?.dentistId || body?.dentist || body?.dentistName;
+  if (dentistKey !== undefined && dentistKey !== null && String(dentistKey).trim() !== "") {
+    const d = await resolveDentist(dentistKey);
+    newDentistId = d._id;
   }
 
-  if (body?.date   !== undefined) appt.date   = newDate;
-  if (body?.time   !== undefined) appt.time   = newTime;
+  let newPatientId = appt.patient;
+  const patientKey = body?.patientId || body?.mr || body?.phone;
+  if (patientKey !== undefined && patientKey !== null && String(patientKey).trim() !== "") {
+    const pt = await resolvePatient(patientKey);
+    newPatientId = pt._id;
+  }
+
+  // Re-check whenever anything that defines the slot changes.
+  const slotChanged =
+    newDate !== appt.date ||
+    newTime !== appt.time ||
+    String(newDentistId) !== String(appt.dentist);
+
+  // Only matters while this appointment actually holds a slot — an edit to a
+  // cancelled/completed one can't double-book anyone.
+  if (slotChanged && occupiesSlot(appt.status)) {
+    await assertNoSlotConflict({
+      dentist: newDentistId,
+      date: newDate,
+      time: newTime,
+      excludeAppointmentId: appt._id,
+    });
+  }
+
+  appt.date    = newDate;
+  appt.time    = newTime;
+  appt.dentist = newDentistId;
+  appt.patient = newPatientId;
   if (body?.reason !== undefined) appt.reason = String(body.reason || "");
   if (body?.notes  !== undefined) appt.notes  = String(body.notes  || "");
   if (body?.appointmentType !== undefined) {
@@ -233,6 +279,18 @@ export async function updateAppointmentStatusCore(apptPublicId, uiStatus, { ownD
   }
 
   await assertPatientActive(appt.patient);
+
+  // BUG FIX: moving an appointment back INTO an occupying status (confirming
+  // or re-activating a cancelled/no-show/rescheduled visit) must re-verify the
+  // slot — another appointment may have taken it in the meantime.
+  if (!occupiesSlot(appt.status) && occupiesSlot(dbStatus)) {
+    await assertNoSlotConflict({
+      dentist: appt.dentist,
+      date: appt.date,
+      time: appt.time,
+      excludeAppointmentId: appt._id,
+    });
+  }
 
   if (!canTransition(appt.status, dbStatus)) {
     throw Object.assign(

@@ -90,13 +90,34 @@ export function canTransition(from, to) {
   return (ALLOWED_APPOINTMENT_TRANSITIONS[f] || []).includes(t);
 }
 
-// Statuses that do NOT occupy a dentist's slot — used by double-booking checks
-// so a cancelled/rescheduled/no-show visit frees its time.
-export const NON_BLOCKING_STATUSES = Object.freeze(["cancelled", "rescheduled", "no_show"]);
+// ── Slot occupancy — THE authority for double-booking checks ────────────────
+// A dentist's date+time slot is held only while the visit is still live.
+//   OCCUPYING : requested, confirmed, arrived, waiting, in_treatment
+//   FREEING   : completed, cancelled, rescheduled, no_show
+// `completed` frees the slot deliberately: the visit is finished, so the time
+// is available to book again. Everything else that ends a visit (cancelled /
+// rescheduled / no_show) frees it too.
+export const SLOT_OCCUPYING_CANONICAL = Object.freeze([
+  "requested", "confirmed", "arrived", "waiting", "in_treatment",
+]);
 
-/** Every stored value that maps to a non-blocking canonical status. */
+/** Every STORED value (incl. legacy scheduled/checked_in) that holds a slot.
+ *  Use directly in queries: `status: { $in: SLOT_OCCUPYING_STATUSES }`. */
+export const SLOT_OCCUPYING_STATUSES = Object.freeze(
+  ALL_STORED_STATUSES.filter((s) => SLOT_OCCUPYING_CANONICAL.includes(canonicalStatus(s)))
+);
+
+/** True when this status holds the dentist's time slot. */
+export const occupiesSlot = (v) => SLOT_OCCUPYING_CANONICAL.includes(canonicalStatus(v));
+
+// Derived complement — kept so existing importers keep working and can never
+// drift from the occupancy rule above.
+export const NON_BLOCKING_STATUSES = Object.freeze(
+  APPOINTMENT_STATUSES.filter((s) => !SLOT_OCCUPYING_CANONICAL.includes(s))
+);
+
 export const NON_BLOCKING_STORED_STATUSES = Object.freeze(
-  ALL_STORED_STATUSES.filter((s) => NON_BLOCKING_STATUSES.includes(canonicalStatus(s)))
+  ALL_STORED_STATUSES.filter((s) => !occupiesSlot(s))
 );
 
 // Human labels for server-rendered/humanised contexts. The frontend

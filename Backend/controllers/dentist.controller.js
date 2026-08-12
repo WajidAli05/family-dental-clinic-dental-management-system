@@ -81,7 +81,7 @@ export const createDentistAppointmentCtrl = async (req, res) => {
     const data = await dentistCreateAppointment(req.user._id, req.body);
     return res.json({ success: true, data });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

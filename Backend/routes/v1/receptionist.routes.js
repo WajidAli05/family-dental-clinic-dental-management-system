@@ -13,6 +13,7 @@ import {
   getReceptionistDentists,
   lookupReceptionistPatient,
   updateReceptionistAppointmentStatus,
+  updateReceptionistAppointment,
 
     getReceptionistLabSamples,
   createReceptionistLabSample,
@@ -56,6 +57,7 @@ router.get("/stats", requirePermission("tab_receptionist_dashboard"), getRecepti
 router.get("/appointments", requirePermission("tab_receptionist_appointments"), getReceptionistAppointments);
 router.post("/appointments", requirePermission("tab_receptionist_appointments"), createReceptionistAppointment);
 router.patch("/appointments/:id/status", requirePermission("tab_receptionist_appointments"), updateReceptionistAppointmentStatus);
+router.patch("/appointments/:id",        requirePermission("tab_receptionist_appointments"), updateReceptionistAppointment);
 
 // patients tab
 router.get("/patients", requirePermission("tab_receptionist_patients"), getReceptionistPatients);

@@ -91,7 +91,9 @@ const OwnerBookAppointmentModal = ({ open, onOpenChange, onSuccess }) => {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-lg">
+      {/* max-h + overflow so every field AND the action buttons stay reachable
+          on short screens. Vertical-only scroll — RTL-safe. */}
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Book Appointment</DialogTitle>
         </DialogHeader>

@@ -42,7 +42,7 @@ const OwnerEditAppointmentModal = ({ open, appointment, onOpenChange, onSuccess 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!submitting) onOpenChange(v); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Appointment</DialogTitle>
         </DialogHeader>

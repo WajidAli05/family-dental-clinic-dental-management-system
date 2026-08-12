@@ -14,6 +14,7 @@
   receptionistLookupPatient,
     receptionistListAppointments,
   receptionistUpdateAppointmentStatus,
+  receptionistUpdateAppointment,
 
     receptionistListLabSamples,
   receptionistCreateLabSample,
@@ -146,7 +147,17 @@ export const createReceptionistAppointment = async (req, res) => {
     await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: created?.id, entityLabel: created?.id, after: { status: created?.status, date: created?.date } });
     return res.json({ success: true, data: created });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateReceptionistAppointment = async (req, res) => {
+  try {
+    const updated = await receptionistUpdateAppointment(req.user._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "appointment.update", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { date: updated?.date, time: updated?.time, dentistId: updated?.dentistId, patientId: updated?.patientId, appointmentType: updated?.appointmentType || "", status: updated?.statusCode } });
+    return res.json({ success: true, data: updated });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 
@@ -199,7 +210,7 @@ export const updateReceptionistAppointmentStatus = async (req, res) => {
     await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: id, entityLabel: id, after: { status: updated?.statusCode || updated?.status, requested: status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

@@ -11,7 +11,7 @@ import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.j
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
-import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus } from "./shared/appointments.js";
+import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore } from "./shared/appointments.js";
 import { canonicalStatus, canTransition, allowedNextStatuses, statusLabel, normalizeAppointmentType, NON_BLOCKING_STORED_STATUSES } from "./shared/appointmentConfig.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
@@ -600,13 +600,7 @@ export async function receptionistCreateAppointment(_user, body) {
   if (!dentist) throw new Error("Dentist not found");
 
   // ✅ prevent double booking
-  const conflict = await Appointment.findOne({
-    dentist: dentist._id,
-    date,
-    time,
-    status: { $nin: NON_BLOCKING_STORED_STATUSES },
-  });
-  if (conflict) throw new Error("Dentist already has an appointment at this time");
+  await assertNoSlotConflict({ dentist: dentist._id, date, time });
 
   const publicId = await generateAppointmentPublicId();
 
@@ -827,6 +821,16 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
 }
 
 // ✅ Update status by publicId
+/**
+ * Full front-desk appointment edit — date, time, dentist, patient, type,
+ * reason, notes. Delegates to the shared core so the slot-conflict rule and
+ * field coverage are identical to the owner's edit (no third copy).
+ * Route is gated by tab_receptionist_appointments.
+ */
+export async function receptionistUpdateAppointment(_receptionistId, apptPublicId, body) {
+  return updateAppointmentCore(apptPublicId, body);
+}
+
 export async function receptionistUpdateAppointmentStatus(_receptionistId, apptPublicId, { status }) {
   const uiStatus = String(status || "").trim();
   if (!uiStatus) throw new Error("status is required");

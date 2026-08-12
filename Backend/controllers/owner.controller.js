@@ -683,16 +683,18 @@ export const ownerCreateAppointmentCtrl = async (req, res) => {
     await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: data?.id, entityLabel: data?.id, after: { status: data?.status, date: data?.date } });
     return res.json({ success: true, data });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 
 export const ownerUpdateAppointmentCtrl = async (req, res) => {
   try {
     const data = await ownerUpdateAppointment(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "appointment.update", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { date: data?.date, time: data?.time, dentistId: data?.dentistId, patientId: data?.patientId, appointmentType: data?.appointmentType || "", status: data?.status } });
     return res.json({ success: true, data });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    // 409 = slot conflict; preserve it so the client can show the right message
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 
@@ -702,7 +704,7 @@ export const ownerUpdateAppointmentStatusCtrl = async (req, res) => {
     await recordAudit({ req, action: "appointment.status_change", entityType: "Appointment", entityId: req.params.id, entityLabel: req.params.id, after: { status: data?.status, statusLabel: data?.statusLabel, appointmentType: data?.appointmentType || "" } });
     return res.json({ success: true, data });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 
