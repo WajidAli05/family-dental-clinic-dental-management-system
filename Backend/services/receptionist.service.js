@@ -12,7 +12,7 @@ import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js"
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
 import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore, updateAppointmentStatusCore } from "./shared/appointments.js";
-import { canonicalStatus, allowedNextStatuses, statusLabel } from "./shared/appointmentConfig.js";
+import { canonicalStatus, allowedNextStatuses, statusLabel, isEditLocked } from "./shared/appointmentConfig.js";
 import { encryptField } from "../utils/fieldEncryption.js";
 
 const pick = (obj, keys) =>
@@ -805,6 +805,7 @@ export async function receptionistListAppointments(_receptionistId, { date, dent
     // (incl. the Reopen option) in the receptionist table.
     statusCode: canonicalStatus(a.status),
     allowedNext: allowedNextStatuses(a.status),
+    editLocked: isEditLocked(a.status),
     original: a,
   }));
 

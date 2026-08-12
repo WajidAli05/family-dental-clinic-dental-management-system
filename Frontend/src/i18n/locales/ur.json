@@ -307,6 +307,8 @@
     "patientLabel": "مریض",
     "dentistLabel": "ڈاکٹر",
     "searchPatient": "مریض تلاش کریں (نام / آئی ڈی / فون)",
-    "keepPatient": "موجودہ مریض برقرار رکھیں"
+    "keepPatient": "موجودہ مریض برقرار رکھیں",
+    "editLockedHint": "ترمیم سے پہلے اس ملاقات کو دوبارہ کھولیں",
+    "editLockedShort": "ترمیم کے لیے دوبارہ کھولیں"
   }
 }

@@ -126,6 +126,18 @@ export const NON_BLOCKING_STORED_STATUSES = Object.freeze(
   ALL_STORED_STATUSES.filter((s) => !occupiesSlot(s))
 );
 
+// ── Edit lock ────────────────────────────────────────────────────────────────
+// A finished or cancelled visit is a closed record: its fields must not be
+// silently rewritten. To change one, REOPEN it first (completed→confirmed /
+// cancelled→confirmed — which re-checks the slot), then edit normally.
+// Status transitions themselves stay allowed while locked, otherwise the
+// appointment could never be reopened.
+export const LOCKED_FOR_EDIT_STATUSES = Object.freeze(["completed", "cancelled"]);
+
+/** True when field-edits must be refused until the appointment is reopened.
+ *  Legacy-safe: canonicalizes first, so scheduled/checked_in are never locked. */
+export const isEditLocked = (v) => LOCKED_FOR_EDIT_STATUSES.includes(canonicalStatus(v));
+
 // Human labels for server-rendered/humanised contexts. The frontend
 // translates via i18n (appointments.status.*) — these are the fallback.
 const STATUS_LABELS = Object.freeze({

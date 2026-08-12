@@ -45,7 +45,7 @@ import {
   DEFAULT_ROLE_GRANTS,
 } from "./shared/permissionsConfig.js";
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus } from "./shared/labCases.js";
-import { canonicalStatus, statusLabel, allowedNextStatuses, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
+import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
 
 const normalize = (v) => String(v || "").trim();
 const lower = (v) => normalize(v).toLowerCase();
@@ -2193,6 +2193,7 @@ function mapOwnerAppt(populated) {
     status:      canonicalStatus(populated.status),
     statusLabel: statusLabel(populated.status),
     allowedNext: allowedNextStatuses(populated.status),
+    editLocked: isEditLocked(populated.status),
     appointmentType: populated.appointmentType || "",
     reason:      populated.reason  || "",
     notes:       populated.notes   || "",

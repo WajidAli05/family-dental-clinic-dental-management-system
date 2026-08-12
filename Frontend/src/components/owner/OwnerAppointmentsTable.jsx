@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import AppointmentStatusControl from "@/components/appointments/AppointmentStatusControl";
-import { typeKey } from "@/lib/appointmentConfig";
+import { typeKey, isEditLocked } from "@/lib/appointmentConfig";
 
 const OwnerAppointmentsTable = ({
   data = [],
@@ -70,11 +70,23 @@ const OwnerAppointmentsTable = ({
                       <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onView?.(a)}>
                         View
                       </Button>
-                      {onEdit && (
-                        <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => onEdit(a)}>
-                          Edit
-                        </Button>
-                      )}
+                      {onEdit && (() => {
+                        // Completed/cancelled are closed records — reopen
+                        // first. Server enforces this too (409).
+                        const locked = a.editLocked ?? isEditLocked(a.status);
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl text-xs"
+                            disabled={locked}
+                            title={locked ? t("appointments.editLockedHint") : undefined}
+                            onClick={() => onEdit(a)}
+                          >
+                            {locked ? t("appointments.editLockedShort") : t("appointments.edit")}
+                          </Button>
+                        );
+                      })()}
                       {onDelete && (
                         <Button size="sm" variant="outline" className="rounded-xl text-xs text-red-600 border-red-200 hover:bg-red-50"
                           onClick={() => onDelete(a)}>

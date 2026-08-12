@@ -16,6 +16,7 @@ import { useDentistStore } from "@/store/dentistStore";
 import { usePatientStore } from "@/store/patientStore";
 import { receptionistApi } from "@/lib/receptionistApi";
 import AppointmentTypeSelect from "@/components/appointments/AppointmentTypeSelect";
+import { isEditLocked } from "@/lib/appointmentConfig";
 
 /**
  * Full front-desk appointment edit — date, time, dentist, patient, type,
@@ -56,6 +57,12 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
   }, [open, appointment, fetchAllDentists]);
 
   if (!open || !appointment) return null;
+
+  // Closed record — fields stay locked until the visit is reopened. The server
+  // rejects the PATCH regardless (409 APPOINTMENT_EDIT_LOCKED); this keeps the
+  // UI honest instead of letting the user type into a doomed form.
+  const locked = appointment.editLocked ?? isEditLocked(appointment.statusCode || appointment.status);
+  const disabled = saving || locked;
 
   const searchPatient = async () => {
     const q = patientQuery.trim();
@@ -109,6 +116,12 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
         </DialogHeader>
 
         <div className="space-y-4">
+          {locked && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {t("appointments.editLockedHint")}
+            </div>
+          )}
+
           {/* Patient — current by default, replaceable */}
           <div className="space-y-1">
             <Label>{t("appointments.patientLabel")}</Label>
@@ -133,13 +146,13 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
                 value={patientQuery}
                 onChange={(e) => setPatientQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && searchPatient()}
-                disabled={saving}
+                disabled={disabled}
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={searchPatient}
-                disabled={saving || searching || !patientQuery.trim()}
+                disabled={disabled || searching || !patientQuery.trim()}
               >
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
@@ -152,7 +165,7 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
             <Select
               value={form.dentistId || undefined}
               onValueChange={(v) => setForm((f) => ({ ...f, dentistId: v }))}
-              disabled={saving}
+              disabled={disabled}
             >
               <SelectTrigger><SelectValue placeholder={t("appointments.dentistLabel")} /></SelectTrigger>
               <SelectContent>
@@ -172,7 +185,7 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                disabled={saving}
+                disabled={disabled}
               />
             </div>
             <div className="space-y-1">
@@ -181,7 +194,7 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
                 type="time"
                 value={form.time}
                 onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                disabled={saving}
+                disabled={disabled}
               />
             </div>
           </div>
@@ -189,7 +202,7 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
           <AppointmentTypeSelect
             value={form.appointmentType}
             onChange={(v) => setForm((f) => ({ ...f, appointmentType: v }))}
-            disabled={saving}
+            disabled={disabled}
           />
 
           <div className="space-y-1">
@@ -197,7 +210,7 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
             <Input
               value={form.reason}
               onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-              disabled={saving}
+              disabled={disabled}
             />
           </div>
 
@@ -206,15 +219,15 @@ const EditAppointmentModal = ({ open, onOpenChange, appointment, onSaved }) => {
             <Input
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              disabled={saving}
+              disabled={disabled}
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={disabled}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-[#2ec4b6] hover:bg-[#26a699]">
+            <Button onClick={handleSave} disabled={disabled} className="bg-[#2ec4b6] hover:bg-[#26a699]">
               {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" />Saving…</> : "Save Changes"}
             </Button>
           </div>

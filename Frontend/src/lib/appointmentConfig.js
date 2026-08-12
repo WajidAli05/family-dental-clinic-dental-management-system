@@ -55,6 +55,13 @@ export const ALLOWED_APPOINTMENT_TRANSITIONS = {
 export const allowedNextStatuses = (current) =>
   ALLOWED_APPOINTMENT_TRANSITIONS[canonicalStatus(current)] || [];
 
+// Mirror of the server rule (appointmentConfig.isEditLocked): a completed or
+// cancelled visit is a closed record — reopen it before editing. The server is
+// authoritative and 409s regardless; this only shapes the UI.
+export const LOCKED_FOR_EDIT_STATUSES = ["completed", "cancelled"];
+
+export const isEditLocked = (v) => LOCKED_FOR_EDIT_STATUSES.includes(canonicalStatus(v));
+
 // i18n keys — labels are translated, values never are.
 export const statusKey = (v) => `appointments.status.${canonicalStatus(v)}`;
 export const typeKey = (v) => `appointments.type.${String(v || "").trim().toLowerCase()}`;

@@ -307,6 +307,8 @@
     "patientLabel": "Patient",
     "dentistLabel": "Dentist",
     "searchPatient": "Search patient (name / ID / phone)",
-    "keepPatient": "Keep current patient"
+    "keepPatient": "Keep current patient",
+    "editLockedHint": "Reopen this appointment before editing",
+    "editLockedShort": "Reopen to edit"
   }
 }

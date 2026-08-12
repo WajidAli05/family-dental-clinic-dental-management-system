@@ -5,7 +5,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import AppointmentStatusControl from "@/components/appointments/AppointmentStatusControl";
-import { typeKey } from "@/lib/appointmentConfig";
+import { typeKey, isEditLocked } from "@/lib/appointmentConfig";
 
 /**
  * Status is rendered by the shared AppointmentStatusControl, which offers
@@ -53,11 +53,22 @@ export default function AppointmentManagementTable({
               />
             </TableCell>
             <TableCell>
-              {onEdit && (
-                <Button size="sm" variant="outline" onClick={() => onEdit(a)}>
-                  {t("appointments.edit")}
-                </Button>
-              )}
+              {onEdit && (() => {
+                // Completed/cancelled are closed records — reopen first.
+                // Server enforces this too (409); this mirrors it.
+                const locked = a.editLocked ?? isEditLocked(a.statusCode || a.status);
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={locked}
+                    title={locked ? t("appointments.editLockedHint") : undefined}
+                    onClick={() => onEdit(a)}
+                  >
+                    {locked ? t("appointments.editLockedShort") : t("appointments.edit")}
+                  </Button>
+                );
+              })()}
             </TableCell>
           </TableRow>
         ))}

@@ -8,10 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ownerApi } from "@/lib/ownerApi";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { isEditLocked } from "@/lib/appointmentConfig";
 
 const OwnerEditAppointmentModal = ({ open, appointment, onOpenChange, onSuccess }) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ date: "", time: "", reason: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
+
+  // Closed record — reopen before editing. Server 409s regardless.
+  const locked = appointment
+    ? (appointment.editLocked ?? isEditLocked(appointment.status))
+    : false;
+  const disabled = submitting || locked;
 
   useEffect(() => {
     if (open && appointment) {
@@ -47,6 +56,12 @@ const OwnerEditAppointmentModal = ({ open, appointment, onOpenChange, onSuccess 
           <DialogTitle>Edit Appointment</DialogTitle>
         </DialogHeader>
 
+        {locked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {t("appointments.editLockedHint")}
+          </div>
+        )}
+
         {appointment && (
           <div className="text-sm text-gray-600 space-y-0.5">
             <p>Patient: <span className="font-semibold text-gray-900">{appointment.patientName}</span></p>
@@ -57,25 +72,25 @@ const OwnerEditAppointmentModal = ({ open, appointment, onOpenChange, onSuccess 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label>Date</Label>
-            <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} disabled={submitting} />
+            <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} disabled={disabled} />
           </div>
           <div className="space-y-1">
             <Label>Time</Label>
-            <Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} disabled={submitting} />
+            <Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} disabled={disabled} />
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Reason</Label>
-            <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} disabled={submitting} />
+            <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} disabled={disabled} />
           </div>
           <div className="col-span-2 space-y-1">
             <Label>Notes</Label>
-            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} disabled={submitting} />
+            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} disabled={disabled} />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={submitting} className="bg-[#2ec4b6] hover:bg-[#26a699]">
+          <Button onClick={handleSubmit} disabled={disabled} className="bg-[#2ec4b6] hover:bg-[#26a699]">
             {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
           </Button>
         </div>

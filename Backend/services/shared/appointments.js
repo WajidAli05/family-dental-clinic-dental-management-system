@@ -11,6 +11,8 @@ import {
   normalizeAppointmentType,
   SLOT_OCCUPYING_STATUSES,
   occupiesSlot,
+  isEditLocked,
+  statusLabel as _statusLabel,
   ALLOWED_APPOINTMENT_TRANSITIONS,
 } from "./appointmentConfig.js";
 
@@ -75,6 +77,8 @@ export function mapAppointmentToUI(a) {
     status:  toUiAppointmentStatus(a.status),
     statusCode: canonicalStatus(a.status),
     allowedNext: allowedNextStatuses(a.status),
+    // UI mirrors the server rule: fields locked until the visit is reopened.
+    editLocked: isEditLocked(a.status),
     original: a,
   };
 }
@@ -202,6 +206,19 @@ export async function updateAppointmentCore(apptPublicId, body, { ownDentistId }
 
   if (ownDentistId && String(appt.dentist) !== String(ownDentistId)) {
     throw new Error("Not authorized to edit this appointment");
+  }
+
+  // A completed/cancelled visit is a closed record — its fields are locked
+  // until it is reopened (status transitions remain available, so reopening
+  // is always possible). Enforced HERE so owner, receptionist and dentist all
+  // inherit it: every field-edit path funnels through this function.
+  if (isEditLocked(appt.status)) {
+    throw Object.assign(
+      new Error(
+        `This appointment is ${_statusLabel(appt.status).toLowerCase()} — reopen it before editing.`
+      ),
+      { status: 409, code: "APPOINTMENT_EDIT_LOCKED" }
+    );
   }
 
   await assertPatientActive(appt.patient);

@@ -307,6 +307,8 @@
     "patientLabel": "المريض",
     "dentistLabel": "الطبيب",
     "searchPatient": "ابحث عن مريض (الاسم / المعرّف / الهاتف)",
-    "keepPatient": "الإبقاء على المريض الحالي"
+    "keepPatient": "الإبقاء على المريض الحالي",
+    "editLockedHint": "أعد فتح هذا الموعد قبل التعديل",
+    "editLockedShort": "أعد الفتح للتعديل"
   }
 }
