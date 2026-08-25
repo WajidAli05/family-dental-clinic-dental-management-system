@@ -20,6 +20,11 @@ import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
 import { revenueCollected, outstanding } from "./shared/billing.js";
+import {
+  ensureFeeSchedules,
+  defaultScheduleIdFrom,
+  mapTreatmentsForSchedule,
+} from "./shared/feeSchedules.js";
 import { decryptPrescriptionDoc } from "../utils/fieldEncryption.js";
 import LabBillPayment from "../models/LabBillPayment.model.js";
 import {
@@ -1616,12 +1621,20 @@ function nextIdFromList(prefix, list = []) {
 }
 
 // ---------- GET ALL ----------
-export async function ownerClinicalMasterGetAll(_ownerId) {
-  const doc = await ensureClinicalMasterDoc();
+export async function ownerClinicalMasterGetAll(_ownerId, { scheduleId } = {}) {
+  await ensureClinicalMasterDoc();
+  // Guarantees the exactly-one-default invariant before anything is priced.
+  const doc = await ensureFeeSchedules();
   const plain = doc.toObject ? doc.toObject() : doc;
 
   return {
-    treatments: Array.isArray(plain.treatments) ? plain.treatments : [],
+    // Every row carries the RESOLVED fee for the active schedule plus an
+    // `inherited` flag, so the UI can show an inherited price as such instead
+    // of pretending it was set on this schedule.
+    treatments: mapTreatmentsForSchedule(doc, scheduleId),
+    feeSchedules: (plain.feeSchedules || []).map((f) => ({ ...f })),
+    activeScheduleId: String(scheduleId || defaultScheduleIdFrom(doc) || ""),
+    defaultScheduleId: defaultScheduleIdFrom(doc),
     diagnosisTemplates: Array.isArray(plain.diagnosisTemplates) ? plain.diagnosisTemplates : [],
     clinicalFindingTemplates: Array.isArray(plain.clinicalFindingTemplates) ? plain.clinicalFindingTemplates : [],
     documentationTemplates: Array.isArray(plain.documentationTemplates) ? plain.documentationTemplates : [],
@@ -1639,11 +1652,17 @@ export async function ownerClinicalCreateTreatment(_ownerId, payload = {}) {
 
   const id = nextIdFromList("TRM", doc.treatments);
 
+  // DEFAULT-SYNC: a new treatment's fee IS its default-schedule price, so it
+  // is written to BOTH places at birth and stays consistent from the start.
+  const fee = Math.max(0, money(payload.fee));
+  const defaultScheduleId = defaultScheduleIdFrom(await ensureFeeSchedules());
+
   const row = {
     id,
     name,
     code: normalize(payload.code),
-    fee: Math.max(0, money(payload.fee)),
+    fee,
+    prices: defaultScheduleId ? [{ scheduleId: defaultScheduleId, fee }] : [],
     active: payload.active !== undefined ? !!payload.active : true,
     notes: normalize(payload.notes),
   };
@@ -1665,7 +1684,21 @@ export async function ownerClinicalUpdateTreatment(_ownerId, treatmentId, patch 
 
   if (patch.name !== undefined) doc.treatments[idx].name = normalize(patch.name);
   if (patch.code !== undefined) doc.treatments[idx].code = normalize(patch.code);
-  if (patch.fee !== undefined) doc.treatments[idx].fee = Math.max(0, money(patch.fee));
+  if (patch.fee !== undefined) {
+    // The plain "Fee" field edits the DEFAULT schedule. Mirror it into both
+    // legacy `fee` and prices[] so raw `.fee` readers and the resolver agree.
+    const fee = Math.max(0, money(patch.fee));
+    doc.treatments[idx].fee = fee;
+
+    const defaultScheduleId = defaultScheduleIdFrom(await ensureFeeSchedules());
+    if (defaultScheduleId) {
+      const t = doc.treatments[idx];
+      t.prices = Array.isArray(t.prices) ? t.prices : [];
+      const existing = t.prices.find((pr) => String(pr.scheduleId) === defaultScheduleId);
+      if (existing) existing.fee = fee;
+      else t.prices.push({ scheduleId: defaultScheduleId, fee });
+    }
+  }
   if (patch.active !== undefined) doc.treatments[idx].active = !!patch.active;
   if (patch.notes !== undefined) doc.treatments[idx].notes = normalize(patch.notes);
 

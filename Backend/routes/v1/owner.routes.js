@@ -71,6 +71,13 @@ import {
     ownerInventoryCreatePurchaseController,
 
       ownerClinicalMasterGetAllController,
+  ownerListFeeSchedulesController,
+  ownerCreateFeeScheduleController,
+  ownerRenameFeeScheduleController,
+  ownerSetDefaultFeeScheduleController,
+  ownerDeleteFeeScheduleController,
+  ownerSetTreatmentPriceController,
+  ownerClearTreatmentPriceController,
 
   ownerClinicalCreateTreatmentController,
   ownerClinicalUpdateTreatmentController,
@@ -202,6 +209,15 @@ router.post("/inventory/purchases", ownerInventoryCreatePurchaseController);
 router.get("/clinical-master", ownerClinicalMasterGetAllController);
 
 // Treatments
+// Fee schedules — same clinical-master surface, owner-gated at the mount.
+router.get("/clinical-master/fee-schedules", ownerListFeeSchedulesController);
+router.post("/clinical-master/fee-schedules", ownerCreateFeeScheduleController);
+router.patch("/clinical-master/fee-schedules/:id", ownerRenameFeeScheduleController);
+router.patch("/clinical-master/fee-schedules/:id/default", ownerSetDefaultFeeScheduleController);
+router.delete("/clinical-master/fee-schedules/:id", ownerDeleteFeeScheduleController);
+router.patch("/clinical-master/treatments/:id/price", ownerSetTreatmentPriceController);
+router.delete("/clinical-master/treatments/:id/price/:scheduleId", ownerClearTreatmentPriceController);
+
 router.post("/clinical-master/treatments", ownerClinicalCreateTreatmentController);
 router.patch("/clinical-master/treatments/:id", ownerClinicalUpdateTreatmentController);
 router.patch("/clinical-master/treatments/:id/toggle", ownerClinicalToggleTreatmentActiveController);

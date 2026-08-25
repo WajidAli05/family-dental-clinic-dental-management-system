@@ -1,5 +1,6 @@
 // src/pages/owner/OwnerClinicalMaster.jsx
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
@@ -8,6 +9,7 @@ import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 import OwnerClinicalFilters from "@/components/owner/OwnerClinicalFilters";
 
 import TreatmentsTable from "@/components/owner/TreatmentsTable";
+import FeeScheduleBar from "@/components/owner/FeeScheduleBar";
 import SimpleTemplatesTable from "@/components/owner/SimpleTemplatesTable";
 
 import TreatmentModal from "@/components/owner/TreatmentModal";
@@ -46,6 +48,7 @@ const filterList = (category, filters, data) => {
 };
 
 const OwnerClinicalMaster = () => {
+  const { t } = useTranslation();
   const activeCategory = useOwnerClinicalMasterStore((s) => s.activeCategory);
   const setActiveCategory = useOwnerClinicalMasterStore((s) => s.setActiveCategory);
 
@@ -75,6 +78,18 @@ const OwnerClinicalMaster = () => {
   const runConfirm = useOwnerClinicalMasterStore((s) => s.runConfirm);
 
   // crud
+  // fee schedules — one selector per field (a selector returning a new object
+  // literal re-renders forever under zustand v5 + React 19).
+  const feeSchedules = useOwnerClinicalMasterStore((s) => s.feeSchedules);
+  const activeScheduleId = useOwnerClinicalMasterStore((s) => s.activeScheduleId);
+  const defaultScheduleId = useOwnerClinicalMasterStore((s) => s.defaultScheduleId);
+  const setActiveSchedule = useOwnerClinicalMasterStore((s) => s.setActiveSchedule);
+  const createFeeSchedule = useOwnerClinicalMasterStore((s) => s.createFeeSchedule);
+  const renameFeeSchedule = useOwnerClinicalMasterStore((s) => s.renameFeeSchedule);
+  const setDefaultFeeSchedule = useOwnerClinicalMasterStore((s) => s.setDefaultFeeSchedule);
+  const setTreatmentPrice = useOwnerClinicalMasterStore((s) => s.setTreatmentPrice);
+  const clearTreatmentPrice = useOwnerClinicalMasterStore((s) => s.clearTreatmentPrice);
+
   const addTreatment = useOwnerClinicalMasterStore((s) => s.addTreatment);
   const updateTreatment = useOwnerClinicalMasterStore((s) => s.updateTreatment);
   const toggleTreatmentActive = useOwnerClinicalMasterStore((s) => s.toggleTreatmentActive);
@@ -127,6 +142,27 @@ const OwnerClinicalMaster = () => {
         </Button>
       </div>
 
+      {activeCategory === "treatments" ? (
+        <FeeScheduleBar
+          schedules={feeSchedules}
+          activeScheduleId={activeScheduleId}
+          defaultScheduleId={defaultScheduleId}
+          disabled={loading}
+          onSelect={setActiveSchedule}
+          onCreate={createFeeSchedule}
+          onRename={renameFeeSchedule}
+          onSetDefault={setDefaultFeeSchedule}
+          onDelete={(s) =>
+            openConfirm({
+              title: t("feeSchedules.deleteTitle"),
+              message: t("feeSchedules.deleteMessage", { name: s.name }),
+              onConfirmKey: "deleteFeeSchedule",
+              onConfirmPayload: s.id,
+            })
+          }
+        />
+      ) : null}
+
       <OwnerClinicalFilters category={activeCategory} filters={filters} onChange={setFilter} onReset={resetFilters} />
 
       <Card className="rounded-2xl">
@@ -141,6 +177,10 @@ const OwnerClinicalMaster = () => {
           {activeCategory === "treatments" ? (
             <TreatmentsTable
               data={filtered}
+              activeScheduleId={activeScheduleId}
+              defaultScheduleId={defaultScheduleId}
+              onSetPrice={setTreatmentPrice}
+              onClearPrice={clearTreatmentPrice}
               onEdit={(t) => openEdit("treatments", t)}
               onToggle={(t) => toggleTreatmentActive(t.id)}
               onDelete={(t) =>

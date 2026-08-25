@@ -13,7 +13,12 @@ export const useOwnerClinicalMasterStore = create((set, get) => ({
   error: "",
 
   // ---------- MASTER DATA ----------
+  // ONE treatment list, re-priced for whichever schedule is active — the list
+  // is never duplicated per schedule.
   treatments: [],
+  feeSchedules: [],
+  activeScheduleId: "",
+  defaultScheduleId: "",
   diagnosisTemplates: [], // ✅ keep key for compatibility; UI label will be "Clinical Diagnosis"
   clinicalFindingTemplates: [],
 
@@ -46,11 +51,16 @@ export const useOwnerClinicalMasterStore = create((set, get) => ({
   refreshAll: async () => {
     set({ loading: true, error: "" });
     try {
-      const res = await ownerApi.getClinicalMaster();
+      // Prices come back already resolved for this schedule (getTreatmentFee
+      // on the server) — the UI never does price math or fallback itself.
+      const res = await ownerApi.getClinicalMaster({ scheduleId: get().activeScheduleId || undefined });
       const data = res?.data || {};
 
       set({
         treatments: Array.isArray(data.treatments) ? data.treatments : [],
+        feeSchedules: Array.isArray(data.feeSchedules) ? data.feeSchedules : [],
+        activeScheduleId: data.activeScheduleId || "",
+        defaultScheduleId: data.defaultScheduleId || "",
         diagnosisTemplates: Array.isArray(data.diagnosisTemplates) ? data.diagnosisTemplates : [],
         clinicalFindingTemplates: Array.isArray(data.clinicalFindingTemplates) ? data.clinicalFindingTemplates : [],
       });
@@ -65,6 +75,48 @@ export const useOwnerClinicalMasterStore = create((set, get) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  // ---------- FEE SCHEDULES ----------
+  setActiveSchedule: async (scheduleId) => {
+    set({ activeScheduleId: scheduleId });
+    await get().refreshAll();
+  },
+
+  createFeeSchedule: async (name) => {
+    const res = await ownerApi.createFeeSchedule(name);
+    set({ activeScheduleId: res?.data?.id || get().activeScheduleId });
+    await get().refreshAll();
+  },
+
+  renameFeeSchedule: async (id, name) => {
+    await ownerApi.renameFeeSchedule(id, name);
+    await get().refreshAll();
+  },
+
+  setDefaultFeeSchedule: async (id) => {
+    await ownerApi.setDefaultFeeSchedule(id);
+    await get().refreshAll();
+  },
+
+  deleteFeeSchedule: async (id) => {
+    await ownerApi.deleteFeeSchedule(id);
+    // Fall back to the default so the view never points at a dead schedule.
+    if (get().activeScheduleId === id) set({ activeScheduleId: get().defaultScheduleId });
+    await get().refreshAll();
+  },
+
+  // Sets THIS schedule's price for one treatment. When the active schedule is
+  // the default, the server mirrors it into the legacy `fee` too.
+  setTreatmentPrice: async (treatmentId, fee) => {
+    await ownerApi.setTreatmentPrice(treatmentId, get().activeScheduleId, fee);
+    await get().refreshAll();
+  },
+
+  // Drops the override so the row inherits from the default again.
+  clearTreatmentPrice: async (treatmentId) => {
+    await ownerApi.clearTreatmentPrice(treatmentId, get().activeScheduleId);
+    await get().refreshAll();
   },
 
   // ---------- CATEGORY ----------
@@ -96,6 +148,7 @@ export const useOwnerClinicalMasterStore = create((set, get) => ({
 
     const actionMap = {
       deleteTreatment: async (id) => get().deleteTreatment(id),
+      deleteFeeSchedule: async (id) => get().deleteFeeSchedule(id),
       deleteDiagnosis: async (id) => get().deleteDiagnosis(id),
       deleteFinding: async (id) => get().deleteFinding(id),
     };

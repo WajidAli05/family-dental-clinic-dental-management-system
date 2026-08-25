@@ -37,6 +37,22 @@ const clinicalMasterSchema = new Schema(
   {
     _id: { type: String, default: "CLINICAL-MASTER" },
 
+    // Named price lists. Exactly one isDefault:true, always — the invariant is
+    // enforced (and self-healed) by services/shared/feeSchedules.js.
+    feeSchedules: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true }, // "FS-1"
+            name: { type: String, required: true },
+            isDefault: { type: Boolean, default: false },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+
     treatments: {
       type: [
         new Schema(
@@ -44,7 +60,23 @@ const clinicalMasterSchema = new Schema(
             id: { type: String, required: true }, // "TRM-1"
             name: { type: String, required: true },
             code: { type: String, default: "" },
+            // LEGACY single price. It IS the default schedule's price and is
+            // never removed, renamed or repurposed — any reader still doing a
+            // raw `.fee` stays correct. See getTreatmentFee for precedence.
             fee: { type: Number, min: 0, default: 0 },
+            // Per-schedule overrides. A missing entry falls back (never 0).
+            prices: {
+              type: [
+                new Schema(
+                  {
+                    scheduleId: { type: String, required: true }, // "FS-1"
+                    fee: { type: Number, min: 0, default: 0 },
+                  },
+                  { _id: false }
+                ),
+              ],
+              default: [],
+            },
             active: { type: Boolean, default: true },
             notes: { type: String, default: "" },
           },

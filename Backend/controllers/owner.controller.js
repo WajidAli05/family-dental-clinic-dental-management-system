@@ -93,6 +93,15 @@ import {
 
 import { findPatientsByPhone, medicalFieldsChanged } from "../services/shared/patients.js";
 import { recordAudit } from "../services/shared/audit.js";
+import {
+  listFeeSchedules,
+  createFeeSchedule,
+  renameFeeSchedule,
+  setDefaultFeeSchedule,
+  deleteFeeSchedule,
+  setTreatmentPrice,
+  clearTreatmentPrice,
+} from "../services/shared/feeSchedules.js";
 
 export const phoneCheckOwnerPatients = async (req, res) => {
   try {
@@ -532,11 +541,71 @@ export const ownerInventoryCreatePurchaseController = async (req, res) => {
 // ==============================
 export const ownerClinicalMasterGetAllController = async (req, res) => {
   try {
-    const data = await ownerClinicalMasterGetAll(req.user?._id);
+    const data = await ownerClinicalMasterGetAll(req.user?._id, { scheduleId: req.query?.scheduleId });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
+};
+
+// ---------- Fee schedules ----------
+// Owner-only by mount: router.use("/owner", auth(["owner"]), ownerRoutes).
+// Audited as config.update — ClinicalMaster IS clinic configuration, so no new
+// audit enum action is needed. Prices are business config, never PHI.
+const feeFail = (res, e) => res.status(e.status || 400).json({ success: false, message: e.message });
+
+export const ownerListFeeSchedulesController = async (_req, res) => {
+  try {
+    return res.json({ success: true, data: await listFeeSchedules() });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerCreateFeeScheduleController = async (req, res) => {
+  try {
+    const data = await createFeeSchedule(req.body?.name);
+    await recordAudit({ req, action: "config.update", entityType: "FeeSchedule", entityId: data.id, entityLabel: data.name, after: { created: data.id, name: data.name } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerRenameFeeScheduleController = async (req, res) => {
+  try {
+    const data = await renameFeeSchedule(req.params.id, req.body?.name);
+    await recordAudit({ req, action: "config.update", entityType: "FeeSchedule", entityId: data.id, entityLabel: data.name, after: { renamed: data.id, name: data.name } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerSetDefaultFeeScheduleController = async (req, res) => {
+  try {
+    const data = await setDefaultFeeSchedule(req.params.id);
+    await recordAudit({ req, action: "config.update", entityType: "FeeSchedule", entityId: req.params.id, entityLabel: req.params.id, after: { defaultScheduleId: req.params.id } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerDeleteFeeScheduleController = async (req, res) => {
+  try {
+    const data = await deleteFeeSchedule(req.params.id);
+    await recordAudit({ req, action: "config.update", entityType: "FeeSchedule", entityId: req.params.id, entityLabel: req.params.id, after: { deleted: req.params.id } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerSetTreatmentPriceController = async (req, res) => {
+  try {
+    const data = await setTreatmentPrice(req.params.id, req.body?.scheduleId, req.body?.fee);
+    await recordAudit({ req, action: "config.update", entityType: "Treatment", entityId: data.id, entityLabel: data.id, after: { scheduleId: data.scheduleId, fee: data.fee } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
+};
+
+export const ownerClearTreatmentPriceController = async (req, res) => {
+  try {
+    const data = await clearTreatmentPrice(req.params.id, req.params.scheduleId);
+    await recordAudit({ req, action: "config.update", entityType: "Treatment", entityId: data.id, entityLabel: data.id, after: { scheduleId: data.scheduleId, cleared: true } });
+    return res.json({ success: true, data });
+  } catch (e) { return feeFail(res, e); }
 };
 
 // ---------- Treatments ----------

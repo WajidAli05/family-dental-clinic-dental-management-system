@@ -107,8 +107,20 @@ export const ownerApi = {
   // ✅ Clinical Master APIs (NEW — additive only)
   // =====================================================
 
-  // get whole clinical master (single doc)
-  getClinicalMaster: () => request("/owner/clinical-master"),
+  // get whole clinical master (single doc). `scheduleId` prices the treatments
+  // from that fee schedule via getTreatmentFee; omitted => default schedule.
+  getClinicalMaster: (params) => request("/owner/clinical-master", { params }),
+
+  // fee schedules (owner-only, same clinical-master surface)
+  listFeeSchedules: () => request("/owner/clinical-master/fee-schedules"),
+  createFeeSchedule: (name) => request("/owner/clinical-master/fee-schedules", { method: "POST", body: { name } }),
+  renameFeeSchedule: (id, name) => request(`/owner/clinical-master/fee-schedules/${id}`, { method: "PATCH", body: { name } }),
+  setDefaultFeeSchedule: (id) => request(`/owner/clinical-master/fee-schedules/${id}/default`, { method: "PATCH" }),
+  deleteFeeSchedule: (id) => request(`/owner/clinical-master/fee-schedules/${id}`, { method: "DELETE" }),
+  setTreatmentPrice: (treatmentId, scheduleId, fee) =>
+    request(`/owner/clinical-master/treatments/${treatmentId}/price`, { method: "PATCH", body: { scheduleId, fee } }),
+  clearTreatmentPrice: (treatmentId, scheduleId) =>
+    request(`/owner/clinical-master/treatments/${treatmentId}/price/${scheduleId}`, { method: "DELETE" }),
 
   // treatments
   createClinicalTreatment: (body) => request("/owner/clinical-master/treatments", { method: "POST", body }),

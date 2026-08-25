@@ -321,5 +321,27 @@
     "confirmReschedule": "Reschedule",
     "rescheduling": "Rescheduling…",
     "rescheduleNote": "The old slot is released and the new one is booked. The appointment becomes Confirmed at the new time."
+  },
+  "feeSchedules": {
+    "title": "Fee schedules",
+    "subtitle": "Price lists. Pick one to view and edit its prices — the default is used everywhere a schedule isn't chosen.",
+    "add": "New schedule",
+    "namePlaceholder": "Schedule name (e.g. Corporate)",
+    "rename": "Rename",
+    "delete": "Delete schedule",
+    "makeDefault": "Make default",
+    "isDefault": "Default schedule",
+    "defaultBadge": "Default",
+    "created": "Fee schedule created",
+    "renamed": "Fee schedule renamed",
+    "defaultChanged": "Default fee schedule changed",
+    "actionFailed": "Action failed",
+    "deleteTitle": "Delete fee schedule",
+    "deleteMessage": "This will permanently delete \"{{name}}\" and its price overrides. Treatments will fall back to the default schedule.",
+    "feeColumn": "Fee (this schedule)",
+    "inherited": "Inherited",
+    "inheritedHint": "No price set on this schedule — inherited from the default.",
+    "resetToInherited": "Inherit",
+    "resetToInheritedHint": "Remove this schedule's price so it inherits the default again."
   }
 }

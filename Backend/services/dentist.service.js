@@ -1,6 +1,7 @@
 //dentist services
 import User from "../models/User.model.js";
 import { dentistFinance } from "./shared/finance.js";
+import { defaultScheduleIdFrom, getTreatmentFee } from "./shared/feeSchedules.js";
 import { searchMedications, createOrGetMedication, listMedications } from "./shared/medications.js";
 import Patient from "../models/Patient.model.js";
 import Appointment from "../models/Appointment.model.js";
@@ -602,8 +603,15 @@ export async function dentistGetClinicalMaster() {
     };
   }
 
+  // Treatments carried a raw `fee` straight out of the config doc, which would
+  // bypass fee schedules entirely. Project them through the shared resolver
+  // (default schedule => legacy `fee`, so the dentist sees the same number).
+  const defaultScheduleId = defaultScheduleIdFrom(doc);
+
   return {
-    treatments: (doc.treatments || []).filter((t) => t.active !== false),
+    treatments: (doc.treatments || [])
+      .filter((t) => t.active !== false)
+      .map((t) => ({ ...t, fee: getTreatmentFee(t, defaultScheduleId, defaultScheduleId) })),
     diagnosisTemplates: (doc.diagnosisTemplates || []).filter((d) => d.active !== false),
     clinicalFindingTemplates: (doc.clinicalFindingTemplates || []).filter((f) => f.active !== false),
   };
