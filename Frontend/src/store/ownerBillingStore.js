@@ -25,6 +25,11 @@ export const useOwnerBillingStore = create((set, get) => ({
   filters: {
     cashbook: { from: "", to: "", q: "", page: 1 },
     commissions: { from: "", to: "" },
+    // The Invoices tab had NO bucket, so OwnerBillingFilters was fed the
+    // commissions bucket while setFilter("invoices", …) wrote to a bucket
+    // nothing read — the date input's value never changed, which is why it
+    // looked like it refused input.
+    invoices: { from: "", to: "", q: "", status: "All", page: 1 },
   },
 
   // --- Cashbook ---
@@ -51,15 +56,29 @@ export const useOwnerBillingStore = create((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   setFilter: (tab, key, value) =>
-    set((s) => ({ filters: { ...s.filters, [tab]: { ...s.filters[tab], [key]: value } } })),
+    set((s) => {
+      const bucket = { ...s.filters[tab], [key]: value };
+      // Changing a filter invalidates the current page — otherwise narrowing
+      // the range while on page 3 shows an empty table.
+      if (key !== "page" && "page" in (s.filters[tab] || {})) bucket.page = 1;
+      return { filters: { ...s.filters, [tab]: bucket } };
+    }),
 
-  setQuickRange: (range) => {
+  // Tab-aware: the quick ranges are offered on more than one tab now, so they
+  // must write into the bucket the user is actually looking at.
+  setQuickRange: (range, tab = "cashbook") => {
     const today = localISODate();
     const from =
       range === "today"  ? today :
       range === "week"   ? startOfWeek() :
       range === "month"  ? startOfMonth() : "";
-    set((s) => ({ filters: { ...s.filters, cashbook: { ...s.filters.cashbook, from, to: today } } }));
+    set((s) => {
+      const bucket = s.filters[tab];
+      if (!bucket) return {};
+      const next = { ...bucket, from, to: today };
+      if ("page" in bucket) next.page = 1;
+      return { filters: { ...s.filters, [tab]: next } };
+    });
   },
 
   // --- Cashbook ---

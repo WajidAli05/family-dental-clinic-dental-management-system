@@ -1281,14 +1281,36 @@ export async function receptionistCreateInvoice(_user, body) {
 }
 
 // ✅ LIST INVOICES
-export async function receptionistListInvoices(_receptionistId, { q, status, page, limit, sortBy, sortDir } = {}) {
+export async function receptionistListInvoices(
+  _receptionistId,
+  { q, status, page, limit, sortBy, sortDir, dateFrom, dateTo, from, to } = {}
+) {
   const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
   const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
 
+  /**
+   * Date range, applied in the DB query so it filters EVERY invoice — not just
+   * the page already in hand. `date` is a "YYYY-MM-DD" string, so lexical
+   * comparison is chronological and $gte/$lte are inclusive on both ends: an
+   * invoice dated exactly ON the start or end date is included. Same
+   * convention as billing.js buildRange and the localISODate the UI sends.
+   *
+   * `from`/`to` are accepted as aliases because the shared billing filter
+   * component emits those key names.
+   */
+  const start = String(dateFrom ?? from ?? "").trim();
+  const end = String(dateTo ?? to ?? "").trim();
+  const query = {};
+  if (start || end) {
+    query.date = {};
+    if (start) query.date.$gte = start;
+    if (end) query.date.$lte = end;
+  }
+
   await refreshScheduleNames();
 
-  const rows = await Invoice.find({})
+  const rows = await Invoice.find(query)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")
     .sort(sort)

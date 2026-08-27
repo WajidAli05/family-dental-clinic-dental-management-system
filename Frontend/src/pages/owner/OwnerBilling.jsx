@@ -145,6 +145,8 @@ const Drawer = ({ open, onClose, title, children }) => {
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+const INVOICES_PAGE_SIZE = 25;
+
 const OwnerBilling = () => {
   const money = useFormatMoney();
   const { t } = useTranslation();
@@ -160,14 +162,32 @@ const OwnerBilling = () => {
   const [voidTarget, setVoidTarget] = useState(null);
   const [restoreTarget, setRestoreTarget] = useState(null);
 
+  const [invTotal, setInvTotal] = useState(0);
+  const [invPages, setInvPages] = useState(1);
+
+  /**
+   * Server-side filtered + paginated. The date range goes to the API, so a
+   * match on page 7 is still found — filtering the already-fetched page would
+   * silently miss it, and `total` would be wrong.
+   */
   const loadInvoices = useCallback(async () => {
+    const f = useOwnerBillingStore.getState().filters.invoices || {};
     setInvLoading(true);
     try {
       const [invRes, schRes] = await Promise.all([
-        ownerApi.listInvoices({ limit: 200 }),
+        ownerApi.listInvoices({
+          dateFrom: f.from || undefined,
+          dateTo: f.to || undefined,
+          q: f.q || undefined,
+          status: f.status && f.status !== "All" ? f.status : undefined,
+          page: f.page || 1,
+          limit: INVOICES_PAGE_SIZE,
+        }),
         ownerApi.getInvoiceFeeSchedules().catch(() => ({ data: [] })),
       ]);
       setInvoices(invRes?.data || []);
+      setInvTotal(Number(invRes?.total) || 0);
+      setInvPages(Number(invRes?.pages) || 1);
       setInvSchedules(schRes?.data || []);
     } catch (e) {
       toast.error(e.message || t("invoices.loadError"));
@@ -214,7 +234,11 @@ const OwnerBilling = () => {
 
   // initial load
   useEffect(() => { fetchCashbook(); }, []);
-  useEffect(() => { if (activeTab === "invoices") loadInvoices(); }, [activeTab, loadInvoices]);
+  const invFilters = useOwnerBillingStore((s) => s.filters.invoices);
+  useEffect(() => {
+    if (activeTab !== "invoices") return;
+    loadInvoices();
+  }, [activeTab, loadInvoices, invFilters.from, invFilters.to, invFilters.q, invFilters.status, invFilters.page]);
   useEffect(() => { if (activeTab === "commissions") fetchCommissions(); }, [activeTab]);
   useEffect(() => { if (activeTab === "labDues") fetchLabDues(); }, [activeTab]);
 
@@ -226,15 +250,14 @@ const OwnerBilling = () => {
 
   const handleTabChange = useCallback((tab) => { setActiveTab(tab); }, [setActiveTab]);
 
+  // Clears every key the ACTIVE tab owns — driven by the store's own bucket so
+  // a new tab can never be forgotten here again.
   const handleFilterReset = useCallback(() => {
-    if (activeTab === "cashbook") {
-      setFilter("cashbook", "from", "");
-      setFilter("cashbook", "to", "");
-      setFilter("cashbook", "q", "");
-    } else if (activeTab === "commissions") {
-      setFilter("commissions", "from", "");
-      setFilter("commissions", "to", "");
-    }
+    const bucket = useOwnerBillingStore.getState().filters[activeTab];
+    if (!bucket) return;
+    Object.keys(bucket).forEach((key) => {
+      setFilter(activeTab, key, key === "page" ? 1 : key === "status" ? "All" : "");
+    });
   }, [activeTab, setFilter]);
 
   // ── Cashbook KPIs ──
@@ -296,10 +319,10 @@ const OwnerBilling = () => {
       {/* Filters */}
       <OwnerBillingFilters
         tab={activeTab}
-        filters={activeTab === "cashbook" ? filters.cashbook : filters.commissions}
+        filters={filters[activeTab] || {}}
         onChange={(key, value) => setFilter(activeTab, key, value)}
         onReset={handleFilterReset}
-        onQuickRange={setQuickRange}
+        onQuickRange={(range) => setQuickRange(range, activeTab)}
       />
 
       {/* KPI cards */}
@@ -351,15 +374,46 @@ const OwnerBilling = () => {
               )}
               {activeTab === "invoices" && (
                 invLoading ? <TableSkeleton rows={8} cols={8} /> : (
-                  <OwnerInvoicesTable
-                    data={invoices}
-                    scheduleNameOf={scheduleNameOf}
-                    onEdit={(inv) => { setEditingInvoice(inv); setInvModalOpen(true); }}
-                    onDelete={(inv) => setDeleteTarget(inv)}
-                    onPay={(inv) => setPayTarget(inv)}
-                    onVoid={(inv) => setVoidTarget(inv)}
-                    onRestore={(inv) => setRestoreTarget(inv)}
-                  />
+                  <>
+                    <OwnerInvoicesTable
+                      data={invoices}
+                      scheduleNameOf={scheduleNameOf}
+                      onEdit={(inv) => { setEditingInvoice(inv); setInvModalOpen(true); }}
+                      onDelete={(inv) => setDeleteTarget(inv)}
+                      onPay={(inv) => setPayTarget(inv)}
+                      onVoid={(inv) => setVoidTarget(inv)}
+                      onRestore={(inv) => setRestoreTarget(inv)}
+                    />
+
+                    {/* `total` comes from the server and reflects the active
+                        filters, so it is the honest match count. */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap mt-4">
+                      <p className="text-sm text-gray-500">
+                        {t("billingFilters.matches", { count: invTotal })}
+                      </p>
+                      {invPages > 1 && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline" size="sm" className="rounded-xl"
+                            disabled={(invFilters.page || 1) <= 1}
+                            onClick={() => setFilter("invoices", "page", (invFilters.page || 1) - 1)}
+                          >
+                            {t("billingFilters.prev")}
+                          </Button>
+                          <span className="text-sm text-gray-600">
+                            {t("billingFilters.pageOf", { page: invFilters.page || 1, pages: invPages })}
+                          </span>
+                          <Button
+                            variant="outline" size="sm" className="rounded-xl"
+                            disabled={(invFilters.page || 1) >= invPages}
+                            onClick={() => setFilter("invoices", "page", (invFilters.page || 1) + 1)}
+                          >
+                            {t("billingFilters.next")}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )
               )}
               {activeTab === "commissions" && (
