@@ -243,7 +243,9 @@
     "xrayNote": "ایکس رے نوٹ / قسم (اختیاری)",
     "legacyClinicalBlock": "پہلے درج شدہ (وزٹ کی سطح پر)",
     "teethWithClinicalRecord": "طبی ریکارڈ والے دانت: {{count}}",
-    "toothClinicalRecord": "اس دانت کا طبی ریکارڈ"
+    "toothClinicalRecord": "اس دانت کا طبی ریکارڈ",
+    "toothPlannedTreatment": "منصوبہ بند علاج",
+    "toothCompletedTreatment": "مکمل شدہ علاج"
   },
   "rx": {
     "previewTitle": "نسخے کا پیش منظر",
@@ -476,6 +478,18 @@
     "appointmentType": "اپائنٹمنٹ کی قسم",
     "bookAndSchedule": "بک اور شیڈول کریں",
     "bookedAndScheduled": "اپائنٹمنٹ بک ہو گئی اور علاج شیڈول ہو گیا",
-    "pastDateBlocked": "گزشتہ تاریخ میں اپائنٹمنٹ بک نہیں ہو سکتی۔"
+    "pastDateBlocked": "گزشتہ تاریخ میں اپائنٹمنٹ بک نہیں ہو سکتی۔",
+    "phase": "مرحلہ {{n}}",
+    "phaseLabel": "مرحلہ",
+    "phaseSubtotal": "مرحلے کا ذیلی میزان",
+    "phaseHint": "صرف ترتیب کے لیے — مریض باقی کے بغیر مرحلہ 1 قبول کر سکتا ہے۔",
+    "fromPlanTitle": "علاج کے منصوبے سے",
+    "fromPlanBadge": "منصوبہ {{id}} سے",
+    "fromPlanHint": "پہلے سے بھرے علاج — آزادانہ ترمیم کریں۔ جب تک آپ نشان نہ لگائیں منصوبہ تبدیل نہیں ہوگا۔",
+    "forThisVisit": "یہ وزٹ",
+    "wholeMouthItem": "پورا منہ (کوئی مخصوص دانت نہیں)",
+    "markCompletedOnSave": "محفوظ کرتے وقت مکمل نشان زد کریں",
+    "itemsCompleted": "{{count}} منصوبہ آئٹم مکمل نشان زد ہوئے",
+    "completionPartialFail": "نسخہ محفوظ ہو گیا، لیکن {{count}} منصوبہ آئٹم اپ ڈیٹ نہ ہو سکے"
   }
 }

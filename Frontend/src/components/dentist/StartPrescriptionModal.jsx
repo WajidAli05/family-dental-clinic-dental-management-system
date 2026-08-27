@@ -17,6 +17,8 @@ import PrescriptionForm from "./PrescriptionForm";
 import PrescriptionPreview from "./PrescriptionPreview";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
+import PlanPrefillPanel from "@/components/dentist/PlanPrefillPanel";
+import { planItemsForVisit, toothPlanOverlay } from "@/lib/treatmentPlanConfig";
 import { useUserStore } from "@/store/userStore";
 import { useDentistClinicalMasterStore } from "@/store/dentistClinicalMasterStore";
 
@@ -40,6 +42,10 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
   const [odontogram, setOdontogram] = useState([]);
   const [isMyPatient, setIsMyPatient] = useState(false);
   const [patientMeta, setPatientMeta] = useState({ age: "", gender: "", dateOfBirth: "" });
+  // Treatment plans drive the prefill panel and the chart overlay. A patient
+  // with no plan yields [] and everything below behaves exactly as before.
+  const [planRows, setPlanRows] = useState([]);
+  const [planOverlay, setPlanOverlay] = useState({});
 
   const patientId = appointment?.patientId || appointment?.patient?.publicId || "";
   const appointmentId = appointment?.id || appointment?.publicId || "";
@@ -83,6 +89,8 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
       setHistory([]);
       setAllergies([]);
       setOdontogram([]);
+      setPlanRows([]);
+      setPlanOverlay({});
       setIsMyPatient(false);
       setPatientMeta({ age: "", gender: "", dateOfBirth: "" });
       return;
@@ -101,6 +109,16 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
     }
 
     if (patientId) {
+      // Accepted / scheduled / in-progress items for this patient.
+      dentistApi
+        .listTreatmentPlans(patientId)
+        .then((res) => {
+          const plans = res?.data || [];
+          setPlanOverlay(toothPlanOverlay(plans));
+          setPlanRows(planItemsForVisit(plans, appointmentId));
+        })
+        .catch(() => { setPlanRows([]); setPlanOverlay({}); });
+
       dentistApi
         .getPatientPrescriptionHistory(patientId)
         .then((res) => setHistory(res?.data || []))
@@ -140,6 +158,21 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
     else store.upsertToothEntry(toothNumber, entry);
   };
 
+  /**
+   * Prefill the blank prescription from the plan.
+   *
+   * Guarded on `!storeId` (never an existing prescription) and on there being
+   * no tooth entries yet, so re-renders cannot re-apply it over the dentist's
+   * own edits. Prefilling changes nothing on the plan side.
+   */
+  useEffect(() => {
+    if (!open || storeId) return;
+    if (!planRows.length) return;
+    if ((store.toothEntries || []).length > 0) return;
+    store.prefillFromPlan(planRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, storeId, planRows]);
+
   // Reset store and start a blank prescription for this patient/date.
   const handleNewPrescription = () => {
     store.reset();
@@ -157,6 +190,33 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
       });
 
       toast.success(isNew ? "Prescription saved" : "Prescription updated");
+
+      /**
+       * CLOSE THE LOOP — mark the ticked plan items completed.
+       *
+       * Runs AFTER the prescription is safely saved and goes through the
+       * existing item-status endpoint, so the transition rules, plan-status
+       * derivation and recordAudit all come from the one path. A failure here
+       * is reported but never rolls back or hides the saved prescription.
+       */
+      const pending = store.pendingPlanCompletions();
+      if (pending.length) {
+        const failed = [];
+        for (const { planId, itemId } of pending) {
+          try {
+            await dentistApi.setPlanItemStatus(planId, itemId, "completed");
+          } catch (err) {
+            failed.push(`${planId}/${itemId}`);
+            console.error("Plan item completion failed", planId, itemId, err);
+          }
+        }
+        if (failed.length) {
+          toast.error(t("treatmentPlans.completionPartialFail", { count: failed.length }));
+        } else {
+          toast.success(t("treatmentPlans.itemsCompleted", { count: pending.length }));
+        }
+      }
+
       onOpenChange(false);
     } catch (e) {
       toast.error(e.message || "Failed to save prescription");
@@ -202,6 +262,9 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
 
         {/* ── Odontogram — same component/endpoint as the patient profile chart ── */}
         {patientId && (
+          <>
+          <PlanPrefillPanel rows={planRows} />
+
           <div className="rounded-xl border border-gray-100 bg-white p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
@@ -215,10 +278,12 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
               onSave={handleSaveTooth}
               clinical
               toothEntries={store.toothEntries || []}
+              planOverlay={planOverlay}
               onClinicalChange={handleClinicalChange}
               clinicalOptions={clinicalOptions}
             />
           </div>
+          </>
         )}
 
         {/* ── Patient history panel ── */}
@@ -246,7 +311,7 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
                   >
                     <span className="font-semibold">{fmtDate(rx.date)}</span>
                     {rx.diagnosis && (
-                      <span className={active ? "ml-2 opacity-80" : "ml-2 text-gray-400"}>
+                      <span className={active ? "ms-2 opacity-80" : "ms-2 text-gray-400"}>
                         {rx.diagnosis.length > 50
                           ? rx.diagnosis.slice(0, 50) + "…"
                           : rx.diagnosis}

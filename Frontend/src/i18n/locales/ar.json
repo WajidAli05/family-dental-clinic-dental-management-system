@@ -243,7 +243,9 @@
     "xrayNote": "ملاحظة / نوع الأشعة (اختياري)",
     "legacyClinicalBlock": "مسجل سابقاً (على مستوى الزيارة)",
     "teethWithClinicalRecord": "الأسنان ذات سجل سريري: {{count}}",
-    "toothClinicalRecord": "السجل السريري لهذا السن"
+    "toothClinicalRecord": "السجل السريري لهذا السن",
+    "toothPlannedTreatment": "علاج مخطط",
+    "toothCompletedTreatment": "علاج مكتمل"
   },
   "rx": {
     "previewTitle": "معاينة الوصفة",
@@ -476,6 +478,18 @@
     "appointmentType": "نوع الموعد",
     "bookAndSchedule": "احجز وجدوِل",
     "bookedAndScheduled": "تم حجز الموعد وجدولة العلاج",
-    "pastDateBlocked": "لا يمكن حجز موعد في الماضي."
+    "pastDateBlocked": "لا يمكن حجز موعد في الماضي.",
+    "phase": "المرحلة {{n}}",
+    "phaseLabel": "المرحلة",
+    "phaseSubtotal": "إجمالي المرحلة",
+    "phaseHint": "للتسلسل فقط — يمكن للمريض قبول المرحلة 1 دون الالتزام بالباقي.",
+    "fromPlanTitle": "من الخطة العلاجية",
+    "fromPlanBadge": "من الخطة {{id}}",
+    "fromPlanHint": "علاجات مُعبّأة مسبقًا — عدّلها بحرية. لا يتغير شيء في الخطة ما لم تُحدِّد بندًا.",
+    "forThisVisit": "هذه الزيارة",
+    "wholeMouthItem": "الفم بالكامل (بدون سن محدد)",
+    "markCompletedOnSave": "وضع علامة مكتمل عند الحفظ",
+    "itemsCompleted": "تم وضع علامة مكتمل على {{count}} بند",
+    "completionPartialFail": "تم حفظ الوصفة، لكن تعذّر تحديث {{count}} بند"
   }
 }

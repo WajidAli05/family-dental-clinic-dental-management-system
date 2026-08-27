@@ -25,6 +25,21 @@ const CONDITION_COLORS = {
   bridge:              "bg-[#2ec4b6] border-[#26a699] text-white",
 };
 
+/**
+ * Treatment overlay — a SECOND channel drawn on top of the charted condition,
+ * never replacing it. Conditions colour the tooth body; planned/completed work
+ * shows as a corner marker, so a carious tooth with planned work still reads
+ * as carious. Derived from treatment-plan items; nothing is stored.
+ */
+const OVERLAY_DOT = {
+  planned:   "bg-amber-400 border-amber-500",
+  completed: "bg-emerald-500 border-emerald-600",
+};
+const OVERLAY_LABEL_KEYS = {
+  planned:   "patients.toothPlannedTreatment",
+  completed: "patients.toothCompletedTreatment",
+};
+
 const CONDITION_LABEL_KEYS = {
   healthy:            "patients.toothHealthy",
   caries:              "patients.toothCaries",
@@ -87,6 +102,8 @@ const Odontogram = ({
   selectable = false,
   selectedTeeth = [],
   onToggleSelect,
+  /** { "11": "planned" | "completed" } — derived, see toothPlanOverlay(). */
+  planOverlay = {},
 }) => {
   const { t } = useTranslation();
   const [activeTooth, setActiveTooth] = useState(null);
@@ -152,6 +169,7 @@ const Odontogram = ({
                 ? (hasClinicalContent(entry) ? entry : null)
                 : clinicalByTooth.get(tooth);
               const titleParts = [t(CONDITION_LABEL_KEYS[cond])];
+              if (planOverlay[tooth]) titleParts.push(t(OVERLAY_LABEL_KEYS[planOverlay[tooth]]));
               if (entry?.note) titleParts.push(entry.note);
               if (clinEntry?.diagnosis) titleParts.push(clinEntry.diagnosis);
               return (
@@ -172,6 +190,12 @@ const Odontogram = ({
                   >
                     {tooth}
                   </button>
+                  {planOverlay[tooth] && (
+                    <span
+                      title={t(OVERLAY_LABEL_KEYS[planOverlay[tooth]])}
+                      className={`absolute -bottom-1 -start-1 h-2.5 w-2.5 rounded-full border ${OVERLAY_DOT[planOverlay[tooth]]}`}
+                    />
+                  )}
                   {clinEntry?.xrayRequested && (
                     <span
                       title={t("patients.xrayRequested")}
@@ -220,6 +244,15 @@ const Odontogram = ({
             {t(CONDITION_LABEL_KEYS[c])}
           </span>
         ))}
+        {/* Only shown when an overlay is actually in play, so a patient with
+            no treatment plan sees exactly the legend they saw before. */}
+        {Object.keys(planOverlay).length > 0 &&
+          ["planned", "completed"].map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5 text-xs text-gray-600">
+              <span className={`h-2.5 w-2.5 rounded-full border ${OVERLAY_DOT[k]}`} />
+              {t(OVERLAY_LABEL_KEYS[k])}
+            </span>
+          ))}
         {(clinical || chartClinical) && (
           <span className="inline-flex items-center gap-1.5 text-xs text-gray-600">
             <span className="h-3 w-3 rounded border-2 border-[#2ec4b6] ring-1 ring-[#2ec4b6]" />

@@ -25,6 +25,11 @@ const itemSchema = new Schema(
     unitFee: { type: Number, min: 0, default: 0 },
     quantity: { type: Number, min: 1, default: 1 },
 
+    // Sequencing only — "Phase 1", "Phase 2". Presentation/ordering, not a
+    // workflow state: acceptance stays per ITEM. Legacy items have no field
+    // and are read as phase 1.
+    phase: { type: Number, min: 1, default: 1 },
+
     status: { type: String, enum: ITEM_STATUSES, default: "proposed" },
 
     // Set when the item is scheduled — the Appointment's publicId ("APT-####").

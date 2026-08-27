@@ -100,6 +100,7 @@ export function mapPlan(doc, { scheduleNames = new Map() } = {}) {
     unitFee: money(i.unitFee),
     quantity: Math.max(1, Number(i.quantity) || 1),
     lineTotal: lineTotal(i),
+    phase: Math.max(1, Number(i.phase) || 1), // legacy items read as phase 1
     status: i.status || "proposed",
     allowedNext: allowedNextItemStatuses(i.status),
     linkedAppointmentId: i.linkedAppointmentId || "",
@@ -285,7 +286,7 @@ export async function setPlanFeeSchedule(planPublicId, feeScheduleId) {
   return respond(plan);
 }
 
-export async function addPlanItem(planPublicId, { treatmentId, name, toothNumbers, quantity, notes } = {}) {
+export async function addPlanItem(planPublicId, { treatmentId, name, toothNumbers, quantity, notes, phase } = {}) {
   const plan = await loadPlan(planPublicId);
 
   const doc = await ensureFeeSchedules();
@@ -310,6 +311,7 @@ export async function addPlanItem(planPublicId, { treatmentId, name, toothNumber
     toothNumbers: normaliseTeeth(toothNumbers),
     unitFee,
     quantity: Math.max(1, Number(quantity) || 1),
+    phase: Math.max(1, Number(phase) || 1),
     status: "proposed",
     notes: encryptField(clean(notes)), // PHI at rest
   });
@@ -320,7 +322,7 @@ export async function addPlanItem(planPublicId, { treatmentId, name, toothNumber
 }
 
 /** Edits an item's non-price fields. The price snapshot is deliberately immutable. */
-export async function updatePlanItem(planPublicId, itemId, { toothNumbers, quantity, notes } = {}) {
+export async function updatePlanItem(planPublicId, itemId, { toothNumbers, quantity, notes, phase } = {}) {
   const plan = await loadPlan(planPublicId);
   const item = (plan.items || []).find((i) => i.id === clean(itemId));
   if (!item) throw Object.assign(new Error("Plan item not found"), { status: 404 });
@@ -328,6 +330,7 @@ export async function updatePlanItem(planPublicId, itemId, { toothNumbers, quant
   if (toothNumbers !== undefined) item.toothNumbers = normaliseTeeth(toothNumbers);
   if (quantity !== undefined) item.quantity = Math.max(1, Number(quantity) || 1);
   if (notes !== undefined) item.notes = encryptField(clean(notes));
+  if (phase !== undefined) item.phase = Math.max(1, Number(phase) || 1);
 
   await plan.save();
   return respond(plan);

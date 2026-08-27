@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 import {
   itemStatusKey, planStatusKey, itemBadgeClass, planBadgeClass,
+  groupItemsByPhase, toothPlanOverlay,
 } from "@/lib/treatmentPlanConfig";
 import { NESTED_POPOVER } from "@/lib/zLayers";
 import AddPlanItemModal from "./AddPlanItemModal";
@@ -25,7 +26,7 @@ import SchedulePlanItemModal from "./SchedulePlanItemModal";
  * No money math happens here: unit prices are snapshotted server-side via the
  * fee resolver and totals arrive derived. The UI only formats via formatMoney.
  */
-const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }) => {
+const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [], onOverlayChange }) => {
   const { t } = useTranslation();
   const money = useFormatMoney();
 
@@ -55,6 +56,11 @@ const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }
   }, [patientId, api, t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Derived per-tooth planned/completed overlay across ALL of this patient's
+  // plans. Nothing is stored; the charted conditions are untouched.
+  const overlay = useMemo(() => toothPlanOverlay(plans), [plans]);
+  useEffect(() => { onOverlayChange?.(overlay); }, [overlay, onOverlayChange]);
 
   const defaultScheduleId = useMemo(
     () => schedules.find((s) => s.isDefault)?.id || schedules[0]?.id || "",
@@ -194,7 +200,23 @@ const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }
                     </tr>
                   )}
 
-                  {plan.items.map((item) => (
+                  {/* Grouped by phase for presentation only — acceptance stays
+                      per item, so a patient can commit to Phase 1 alone.
+                      A single-phase plan shows no phase chrome. */}
+                  {groupItemsByPhase(plan.items).map((group) => (
+                    <Fragment key={group.phase}>
+                      {groupItemsByPhase(plan.items).length > 1 && (
+                        <tr className="bg-gray-50/80">
+                          <td colSpan={canEdit ? 5 : 4} className="py-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            {t("treatmentPlans.phase", { n: group.phase })}
+                          </td>
+                          <td colSpan={canEdit ? 2 : 2} className="py-1.5 px-3 text-end text-[11px] text-gray-600">
+                            {t("treatmentPlans.phaseSubtotal")}:{" "}
+                            <span className="font-semibold text-gray-900">{money(group.subtotal)}</span>
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map((item) => (
                     <tr key={item.id} className="align-top">
                       <td className="py-2 px-3">
                         {/* Treatment names are data — never translated. */}
@@ -245,6 +267,8 @@ const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }
                         </td>
                       )}
                     </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

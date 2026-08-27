@@ -40,7 +40,9 @@ export const ITEM_STATUSES = Object.freeze([
  */
 export const ITEM_TRANSITIONS = Object.freeze({
   proposed:    ["accepted", "declined"],
-  accepted:    ["scheduled", "in_progress", "declined"],
+  // "completed" is reachable directly: a dentist often carries out an accepted
+  // treatment in the chair without it ever being booked as its own slot.
+  accepted:    ["scheduled", "in_progress", "completed", "declined"],
   declined:    ["proposed"],
   scheduled:   ["in_progress", "completed", "accepted"], // back to accepted = unschedule
   in_progress: ["completed", "scheduled"],

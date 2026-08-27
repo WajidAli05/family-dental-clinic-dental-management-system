@@ -23,6 +23,15 @@ const initialState = () => ({
   toothEntries: [],
   appointmentId: "",
 
+  // ── Treatment-plan link (UI-only) ──
+  // Which tooth entries came from a plan item, and which the dentist ticked
+  // to complete on save. Deliberately NOT part of toPayload(): the
+  // Prescription document is unchanged by this feature.
+  //   planLinks: { [toothNumber]: { planId, itemId, itemName, forThisVisit } }
+  //   planCompletions: { ["TP-0001|TPI-2"]: true }
+  planLinks: {},
+  planCompletions: {},
+
   // Legacy single-block clinical fields — still loaded/saved so old
   // prescriptions round-trip unchanged.
   diagnosis: "",
@@ -90,6 +99,56 @@ export const usePrescriptionStore = create((set, get) => ({
       return { toothEntries: next, selectedTeeth: next.map((e) => e.toothNumber) };
     }),
 
+  /**
+   * Prefills tooth entries from accepted plan items. Only ever called on a
+   * blank prescription, and it never overwrites a tooth the dentist has
+   * already written into — existing content wins.
+   */
+  prefillFromPlan: (rows = []) =>
+    set((s) => {
+      const current = Array.isArray(s.toothEntries) ? s.toothEntries : [];
+      const byTooth = new Map(current.map((e) => [e.toothNumber, e]));
+      const links = { ...s.planLinks };
+
+      for (const row of rows) {
+        for (const tooth of row.toothNumbers || []) {
+          const existing = byTooth.get(tooth);
+          if (existing && existing.treatment) continue; // dentist's text wins
+          byTooth.set(tooth, {
+            toothNumber: tooth,
+            diagnosis: "", clinicalFinding: "", note: "",
+            xrayRequested: false, xrayNote: "",
+            ...(existing || {}),
+            // Only the TREATMENT is prefilled — diagnosis/finding/notes stay
+            // empty for the dentist to fill in.
+            treatment: row.name,
+          });
+          links[tooth] = {
+            planId: row.planId, itemId: row.itemId,
+            itemName: row.name, forThisVisit: !!row.forThisVisit,
+          };
+        }
+      }
+      const next = [...byTooth.values()];
+      return { toothEntries: next, selectedTeeth: next.map((e) => e.toothNumber), planLinks: links };
+    }),
+
+  togglePlanCompletion: (planId, itemId) =>
+    set((s) => {
+      const key = `${planId}|${itemId}`;
+      const next = { ...s.planCompletions };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return { planCompletions: next };
+    }),
+
+  /** [{planId,itemId}] the dentist ticked to mark completed on save. */
+  pendingPlanCompletions: () =>
+    Object.keys(get().planCompletions || {}).map((k) => {
+      const [planId, itemId] = k.split("|");
+      return { planId, itemId };
+    }),
+
   setPatientType: (patientType) => set({ patientType }),
   setDiagnosis: (diagnosis) => set({ diagnosis }),
   setTreatment: (treatment) => set({ treatment }),
@@ -141,7 +200,10 @@ export const usePrescriptionStore = create((set, get) => ({
     return {
       patientType: s.patientType,
       selectedTeeth: s.selectedTeeth,
-      toothEntries: s.toothEntries,
+      // Plan link state is UI-only — never written to the Prescription.
+      toothEntries: (s.toothEntries || []).map(
+        ({ planId, itemId, fromPlan, ...entry }) => entry
+      ),
       diagnosis: s.diagnosis,
       treatment: s.treatment,
       clinicalFinding: s.clinicalFinding,

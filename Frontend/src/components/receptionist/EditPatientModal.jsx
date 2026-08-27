@@ -44,6 +44,8 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
   const { updatePatient, fetchPatients, fetchPatientStats } = usePatientStore();
 
   const [formData, setFormData] = useState(EMPTY_FORM);
+  // Derived planned/completed overlay lifted from the treatment-plan panel.
+  const [planOverlay, setPlanOverlay] = useState({});
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null); // { type, message }
   const [isLoading, setIsLoading] = useState(false);
@@ -248,13 +250,13 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-4">
               {t("patients.sectionOdontogram")}
             </p>
-            <Odontogram odontogram={patient?.odontogram || []} editable={false} chartClinical />
+            <Odontogram odontogram={patient?.odontogram || []} editable={false} chartClinical planOverlay={planOverlay} />
           </div>
 
           {/* Read-only: the front desk sees the quote but never edits clinical
               data — the receptionist router mounts zero plan write routes. */}
           <div className="space-y-2 pt-2 border-t border-gray-100">
-            <TreatmentPlanPanel patientId={patient?.id} api={receptionistApi} canEdit={false} />
+            <TreatmentPlanPanel patientId={patient?.id} api={receptionistApi} onOverlayChange={setPlanOverlay} canEdit={false} />
           </div>
 
           {/* Notification */}

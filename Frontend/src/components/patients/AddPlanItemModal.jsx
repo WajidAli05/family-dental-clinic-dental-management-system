@@ -33,10 +33,11 @@ const AddPlanItemModal = ({ open, onOpenChange, plan, api, odontogram = [], onAd
   const [teeth, setTeeth] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
+  const [phase, setPhase] = useState(1);
 
   useEffect(() => {
     if (!open || !plan) return;
-    setTreatmentId(""); setTeeth([]); setQuantity(1); setNotes("");
+    setTreatmentId(""); setTeeth([]); setQuantity(1); setNotes(""); setPhase(1);
 
     let alive = true;
     setLoading(true);
@@ -61,6 +62,7 @@ const AddPlanItemModal = ({ open, onOpenChange, plan, api, odontogram = [], onAd
         treatmentId,
         toothNumbers: teeth,
         quantity: Math.max(1, Number(quantity) || 1),
+        phase: Math.max(1, Number(phase) || 1),
         notes: notes.trim() || undefined,
       });
       toast.success(t("treatmentPlans.itemAdded"));
@@ -113,6 +115,18 @@ const AddPlanItemModal = ({ open, onOpenChange, plan, api, odontogram = [], onAd
                 disabled={saving}
               />
             </div>
+          </div>
+
+          {/* Sequencing only — which visit-group this treatment belongs to. */}
+          <div className="space-y-1">
+            <Label>{t("treatmentPlans.phaseLabel")}</Label>
+            <Input
+              type="number" min="1"
+              value={phase}
+              onChange={(e) => setPhase(e.target.value)}
+              disabled={saving}
+            />
+            <p className="text-xs text-gray-500">{t("treatmentPlans.phaseHint")}</p>
           </div>
 
           {/* Resolved price — read-only, straight from the server's resolver. */}

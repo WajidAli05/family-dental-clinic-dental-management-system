@@ -46,6 +46,8 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const [eraseOpen, setEraseOpen] = useState(false);
   const [eraseConfirmText, setEraseConfirmText] = useState("");
   const [odontogram, setOdontogram] = useState([]);
+  // Derived planned/completed overlay lifted from the treatment-plan panel.
+  const [planOverlay, setPlanOverlay] = useState({});
 
   useEffect(() => {
     let alive = true;
@@ -216,14 +218,14 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
 
           <div className="lg:col-span-3">
             <Panel title={t("patients.sectionOdontogram")}>
-              <Odontogram odontogram={odontogram} editable chartClinical onSave={handleSaveTooth} />
+              <Odontogram odontogram={odontogram} editable chartClinical onSave={handleSaveTooth} planOverlay={planOverlay} />
             </Panel>
           </div>
 
           {/* Owner may edit any plan — the server gate agrees (role === "owner"). */}
           <div className="lg:col-span-3">
             <Panel title={t("treatmentPlans.title")}>
-              <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} canEdit />
+              <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} onOverlayChange={setPlanOverlay} canEdit />
             </Panel>
           </div>
 

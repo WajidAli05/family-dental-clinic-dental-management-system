@@ -243,7 +243,9 @@
     "xrayNote": "X-ray note / type (optional)",
     "legacyClinicalBlock": "Previously recorded (visit-level)",
     "teethWithClinicalRecord": "Teeth with a clinical record: {{count}}",
-    "toothClinicalRecord": "Clinical record for this tooth"
+    "toothClinicalRecord": "Clinical record for this tooth",
+    "toothPlannedTreatment": "Planned treatment",
+    "toothCompletedTreatment": "Completed treatment"
   },
   "rx": {
     "previewTitle": "Prescription Preview",
@@ -476,6 +478,18 @@
     "appointmentType": "Appointment type",
     "bookAndSchedule": "Book & schedule",
     "bookedAndScheduled": "Appointment booked and treatment scheduled",
-    "pastDateBlocked": "Appointments cannot be booked in the past."
+    "pastDateBlocked": "Appointments cannot be booked in the past.",
+    "phase": "Phase {{n}}",
+    "phaseLabel": "Phase",
+    "phaseSubtotal": "Phase subtotal",
+    "phaseHint": "Sequencing only — the patient can accept Phase 1 without committing to the rest.",
+    "fromPlanTitle": "From treatment plan",
+    "fromPlanBadge": "From plan {{id}}",
+    "fromPlanHint": "Prefilled treatments — edit freely. Nothing changes on the plan unless you tick an item.",
+    "forThisVisit": "This visit",
+    "wholeMouthItem": "Whole mouth (no specific tooth)",
+    "markCompletedOnSave": "Mark completed on save",
+    "itemsCompleted": "{{count}} plan item(s) marked completed",
+    "completionPartialFail": "Prescription saved, but {{count}} plan item(s) could not be updated"
   }
 }
