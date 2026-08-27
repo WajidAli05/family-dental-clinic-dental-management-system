@@ -64,6 +64,22 @@ export const ownerApi = {
   erasePatient: (patientId, confirm) =>
     request(`/owner/patients/${patientId}/erase`, { method: "POST", body: { confirm } }),
 
+  // ── Treatment plans ──
+  getPlanFeeSchedules: () => request("/owner/treatment-plans/fee-schedules"),
+  getPlanCatalog: (params) => request("/owner/treatment-plans/catalog", { params }),
+  listTreatmentPlans: (patientId) => request(`/owner/patients/${patientId}/treatment-plans`),
+  listPlanAppointments: (patientId) => request(`/owner/patients/${patientId}/plan-appointments`),
+  getTreatmentPlan: (id) => request(`/owner/treatment-plans/${id}`),
+  createTreatmentPlan: (body) => request("/owner/treatment-plans", { method: "POST", body }),
+  updateTreatmentPlan: (id, body) => request(`/owner/treatment-plans/${id}`, { method: "PATCH", body }),
+  setPlanFeeSchedule: (id, feeScheduleId) => request(`/owner/treatment-plans/${id}/fee-schedule`, { method: "PATCH", body: { feeScheduleId } }),
+  decideTreatmentPlan: (id, decision) => request(`/owner/treatment-plans/${id}/decision`, { method: "PATCH", body: { decision } }),
+  deleteTreatmentPlan: (id) => request(`/owner/treatment-plans/${id}`, { method: "DELETE" }),
+  addPlanItem: (id, body) => request(`/owner/treatment-plans/${id}/items`, { method: "POST", body }),
+  updatePlanItem: (id, itemId, body) => request(`/owner/treatment-plans/${id}/items/${itemId}`, { method: "PATCH", body }),
+  removePlanItem: (id, itemId) => request(`/owner/treatment-plans/${id}/items/${itemId}`, { method: "DELETE" }),
+  setPlanItemStatus: (id, itemId, status, extra = {}) => request(`/owner/treatment-plans/${id}/items/${itemId}/status`, { method: "PATCH", body: { status, ...extra } }),
+
   // dentists + labs
   getDentists: () => request("/owner/dentists"),
   getLabs: () => request("/owner/labs"),

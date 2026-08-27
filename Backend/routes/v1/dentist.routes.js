@@ -29,6 +29,22 @@ import {
   dentistListMedicationsCtrl,
 } from "../../controllers/dentist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
+import {
+  listPatientTreatmentPlans,
+  getTreatmentPlan,
+  getPlanFeeSchedules,
+  getPlanCatalogTreatments,
+  getLinkableAppointments,
+  createTreatmentPlan,
+  updateTreatmentPlan,
+  setTreatmentPlanFeeSchedule,
+  deleteTreatmentPlan,
+  addTreatmentPlanItem,
+  updateTreatmentPlanItem,
+  removeTreatmentPlanItem,
+  setTreatmentPlanItemStatus,
+  decideTreatmentPlan,
+} from "../../controllers/treatmentPlan.controller.js";
 
 const router = express.Router();
 
@@ -80,5 +96,22 @@ router.get("/finance", requirePermission("tab_dentist_finance"), getDentistFinan
 router.get("/medications/search", requirePermission("tab_dentist_appointments"), dentistSearchMedicationsCtrl);
 router.post("/medications",        requirePermission("tab_dentist_appointments"), dentistCreateMedicationCtrl);
 router.get("/medications",         requirePermission("tab_dentist_appointments"), dentistListMedicationsCtrl);
+
+
+// ── Treatment plans ─────────────────────────────────────────────────────────
+router.get("/treatment-plans/fee-schedules", requirePermission("tab_dentist_patients"), getPlanFeeSchedules);
+router.get("/treatment-plans/catalog", requirePermission("tab_dentist_patients"), getPlanCatalogTreatments);
+router.get("/patients/:patientId/treatment-plans", requirePermission("tab_dentist_patients"), listPatientTreatmentPlans);
+router.get("/patients/:patientId/plan-appointments", requirePermission("tab_dentist_patients"), getLinkableAppointments);
+router.get("/treatment-plans/:id", requirePermission("tab_dentist_patients"), getTreatmentPlan);
+router.post("/treatment-plans", requirePermission("tab_dentist_patients"), createTreatmentPlan);
+router.patch("/treatment-plans/:id", requirePermission("tab_dentist_patients"), updateTreatmentPlan);
+router.patch("/treatment-plans/:id/fee-schedule", requirePermission("tab_dentist_patients"), setTreatmentPlanFeeSchedule);
+router.patch("/treatment-plans/:id/decision", requirePermission("tab_dentist_patients"), decideTreatmentPlan);
+router.delete("/treatment-plans/:id", requirePermission("tab_dentist_patients"), deleteTreatmentPlan);
+router.post("/treatment-plans/:id/items", requirePermission("tab_dentist_patients"), addTreatmentPlanItem);
+router.patch("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentist_patients"), updateTreatmentPlanItem);
+router.delete("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentist_patients"), removeTreatmentPlanItem);
+router.patch("/treatment-plans/:id/items/:itemId/status", requirePermission("tab_dentist_patients"), setTreatmentPlanItemStatus);
 
 export default router;

@@ -10,6 +10,8 @@ const ACTIONS = [
   "invoice.create",      "invoice.payment",       "invoice.update",   "invoice.delete",   "invoice.void",   "invoice.restore",
   "labcase.create",      "labcase.status_change", "labcase.update",  "labcase.delete",
   "prescription.create", "prescription.update",
+  "treatmentplan.create", "treatmentplan.update",        "treatmentplan.delete",
+  "treatmentplan.item_decision",                          "treatmentplan.item_status",
   "permission.change",
   "config.update",       "settings.update",
   "user.login",          "user.logout",

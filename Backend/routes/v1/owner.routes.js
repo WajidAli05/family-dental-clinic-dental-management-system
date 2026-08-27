@@ -117,6 +117,22 @@ import { getLockedAccounts, manualUnlock, getStaffLoginHistory } from "../../con
 import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 import { listExportableCollections, exportJson, exportCsv } from "../../controllers/dataExport.controller.js";
 import { erasePatient } from "../../controllers/erasure.controller.js";
+import {
+  listPatientTreatmentPlans,
+  getTreatmentPlan,
+  getPlanFeeSchedules,
+  getPlanCatalogTreatments,
+  getLinkableAppointments,
+  createTreatmentPlan,
+  updateTreatmentPlan,
+  setTreatmentPlanFeeSchedule,
+  deleteTreatmentPlan,
+  addTreatmentPlanItem,
+  updateTreatmentPlanItem,
+  removeTreatmentPlanItem,
+  setTreatmentPlanItemStatus,
+  decideTreatmentPlan,
+} from "../../controllers/treatmentPlan.controller.js";
 
 const router = express.Router();
 
@@ -292,5 +308,22 @@ router.get("/data-export/csv/:collection", exportCsv);
 router.get("/notifications",               getNotifications);
 router.patch("/notifications/read-all",    markAllRead);
 router.patch("/notifications/:id/read",    markRead);
+
+
+// ── Treatment plans ─────────────────────────────────────────────────────────
+router.get("/treatment-plans/fee-schedules", getPlanFeeSchedules);
+router.get("/treatment-plans/catalog", getPlanCatalogTreatments);
+router.get("/patients/:patientId/treatment-plans", listPatientTreatmentPlans);
+router.get("/patients/:patientId/plan-appointments", getLinkableAppointments);
+router.get("/treatment-plans/:id", getTreatmentPlan);
+router.post("/treatment-plans", createTreatmentPlan);
+router.patch("/treatment-plans/:id", updateTreatmentPlan);
+router.patch("/treatment-plans/:id/fee-schedule", setTreatmentPlanFeeSchedule);
+router.patch("/treatment-plans/:id/decision", decideTreatmentPlan);
+router.delete("/treatment-plans/:id", deleteTreatmentPlan);
+router.post("/treatment-plans/:id/items", addTreatmentPlanItem);
+router.patch("/treatment-plans/:id/items/:itemId", updateTreatmentPlanItem);
+router.delete("/treatment-plans/:id/items/:itemId", removeTreatmentPlanItem);
+router.patch("/treatment-plans/:id/items/:itemId/status", setTreatmentPlanItemStatus);
 
 export default router;

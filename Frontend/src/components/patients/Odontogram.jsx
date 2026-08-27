@@ -81,6 +81,12 @@ const Odontogram = ({
   toothEntries = [],
   onClinicalChange,
   clinicalOptions = { diagnosis: [], treatment: [], clinicalFinding: [] },
+  // PICKER MODE (additive, default off): clicking a tooth toggles selection
+  // instead of opening the detail editor. Lets callers reuse this one chart
+  // for tooth selection rather than growing a second tooth UI.
+  selectable = false,
+  selectedTeeth = [],
+  onToggleSelect,
 }) => {
   const { t } = useTranslation();
   const [activeTooth, setActiveTooth] = useState(null);
@@ -93,6 +99,7 @@ const Odontogram = ({
 
   // Readable by everyone who can see the chart; only saving is gated.
   const openTooth = (tooth) => {
+    if (selectable) { onToggleSelect?.(tooth); return; }
     const existing = byTooth.get(tooth);
     setForm({ condition: existing?.condition || "healthy", note: existing?.note || "" });
     // chartClinical: clinical fields live on the chart entry itself.
@@ -157,7 +164,11 @@ const Odontogram = ({
                       "h-9 w-9 rounded-lg border-2 text-[11px] font-semibold flex items-center justify-center transition cursor-pointer hover:opacity-80",
                       CONDITION_COLORS[cond],
                       clinEntry ? "ring-2 ring-offset-1 ring-[#2ec4b6]" : "",
+                      selectable && selectedTeeth.includes(tooth)
+                        ? "ring-2 ring-offset-1 ring-[#2ec4b6] scale-105 shadow"
+                        : "",
                     ].join(" ")}
+                    aria-pressed={selectable ? selectedTeeth.includes(tooth) : undefined}
                   >
                     {tooth}
                   </button>

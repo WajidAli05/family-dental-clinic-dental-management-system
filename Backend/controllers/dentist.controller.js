@@ -242,9 +242,11 @@ export const getDentistClinicalMaster = async (req, res) => {
 // ── Catalog (read-only price catalog for dentist) ──
 export const getCatalogTreatments = async (req, res) => {
   try {
-    const { page, limit } = req.query;
-    const result = await getActiveTreatments({ page, limit });
-    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
+    // scheduleId lets a treatment plan price the catalogue from ITS fee
+    // schedule; omitted => default schedule (identical to before).
+    const { page, limit, scheduleId } = req.query;
+    const result = await getActiveTreatments({ page, limit, scheduleId });
+    res.json({ success: true, data: result.rows, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

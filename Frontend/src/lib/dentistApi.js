@@ -193,6 +193,22 @@ export const dentistApi = {
   getPatientPrescriptionHistory: (patientId) =>
     req(`/prescriptions/patient-history/${encodeURIComponent(patientId)}`),
 
+  // ── Treatment plans ──
+  getPlanFeeSchedules: () => req("/treatment-plans/fee-schedules"),
+  getPlanCatalog: (params = {}) => req(`/treatment-plans/catalog?${new URLSearchParams(params)}`),
+  listTreatmentPlans: (patientId) => req(`/patients/${patientId}/treatment-plans`),
+  listPlanAppointments: (patientId) => req(`/patients/${patientId}/plan-appointments`),
+  getTreatmentPlan: (id) => req(`/treatment-plans/${id}`),
+  createTreatmentPlan: (body) => req("/treatment-plans", { method: "POST", body: JSON.stringify(body) }),
+  updateTreatmentPlan: (id, body) => req(`/treatment-plans/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  setPlanFeeSchedule: (id, feeScheduleId) => req(`/treatment-plans/${id}/fee-schedule`, { method: "PATCH", body: JSON.stringify({ feeScheduleId }) }),
+  decideTreatmentPlan: (id, decision) => req(`/treatment-plans/${id}/decision`, { method: "PATCH", body: JSON.stringify({ decision }) }),
+  deleteTreatmentPlan: (id) => req(`/treatment-plans/${id}`, { method: "DELETE" }),
+  addPlanItem: (id, body) => req(`/treatment-plans/${id}/items`, { method: "POST", body: JSON.stringify(body) }),
+  updatePlanItem: (id, itemId, body) => req(`/treatment-plans/${id}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  removePlanItem: (id, itemId) => req(`/treatment-plans/${id}/items/${itemId}`, { method: "DELETE" }),
+  setPlanItemStatus: (id, itemId, status, extra = {}) => req(`/treatment-plans/${id}/items/${itemId}/status`, { method: "PATCH", body: JSON.stringify({ status, ...extra }) }),
+
   getClinicalMaster: () =>
     req("/clinical-master"),
 

@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AllergyAlert from "@/components/patients/AllergyAlert";
+import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
+import { dentistApi } from "@/lib/dentistApi";
 
 const REFERRAL_LABEL_KEYS = {
   "walk-in": "patients.referralWalkIn",
@@ -107,6 +109,18 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
                 </div>
               </div>
             )}
+          </Panel>
+
+          {/* isMyPatient mirrors the server's appointment-based gate
+              (assertDentistCanEditChart) — no appointment means read-only here
+              and 403 on the server either way. */}
+          <Panel title={t("treatmentPlans.title")}>
+            <TreatmentPlanPanel
+              patientId={patient.id || patient.publicId}
+              api={dentistApi}
+              odontogram={patient.odontogram || []}
+              canEdit={!!patient.isMyPatient}
+            />
           </Panel>
         </div>
 

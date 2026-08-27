@@ -84,4 +84,9 @@ getMe: () => request("/receptionist/me"),
 updateMe: (body) => request("/receptionist/me", { method: "PATCH", body }),
 changePassword: (body) =>
   request("/receptionist/me/password", { method: "PATCH", body }),
+  // ── Treatment plans (READ-ONLY — no write routes exist for this role) ──
+  getPlanFeeSchedules: () => request("/receptionist/treatment-plans/fee-schedules"),
+  listTreatmentPlans: (patientId) => request(`/receptionist/patients/${patientId}/treatment-plans`),
+  listPlanAppointments: (patientId) => request(`/receptionist/patients/${patientId}/plan-appointments`),
+  getTreatmentPlan: (id) => request(`/receptionist/treatment-plans/${id}`),
 };

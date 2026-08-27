@@ -45,6 +45,12 @@ import {
   phoneCheckReceptionistPatients,
 } from "../../controllers/receptionist.controller.js";
 import { requirePermission } from "../../middlewares/permissions.middleware.js";
+import {
+  listPatientTreatmentPlans,
+  getTreatmentPlan,
+  getPlanFeeSchedules,
+  getLinkableAppointments,
+} from "../../controllers/treatmentPlan.controller.js";
 
 const router = express.Router();
 
@@ -107,5 +113,14 @@ router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"),
 router.get("/catalog/treatments", requirePermission("tab_receptionist_billing"), getCatalogTreatments);
 router.get("/fee-schedules", requirePermission("tab_receptionist_billing"), getInvoiceFeeSchedules);
 router.get("/catalog/sample-types", requirePermission("tab_receptionist_billing"), getCatalogSampleTypes);
+
+
+// ── Treatment plans — READ-ONLY. The front desk may see the quote but never
+// touch clinical data, so ZERO write routes are mounted here. The controller
+// gate would refuse them anyway; not mounting them removes the surface.
+router.get("/treatment-plans/fee-schedules", requirePermission("tab_receptionist_patients"), getPlanFeeSchedules);
+router.get("/patients/:patientId/treatment-plans", requirePermission("tab_receptionist_patients"), listPatientTreatmentPlans);
+router.get("/patients/:patientId/plan-appointments", requirePermission("tab_receptionist_patients"), getLinkableAppointments);
+router.get("/treatment-plans/:id", requirePermission("tab_receptionist_patients"), getTreatmentPlan);
 
 export default router;

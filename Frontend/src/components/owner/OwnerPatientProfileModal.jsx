@@ -9,6 +9,7 @@ import { useFormatMoney } from "@/store/clinicConfigStore";
 import { ownerApi } from "@/lib/ownerApi";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
+import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
 
 const PREGNANCY_LABEL_KEYS = {
   "not applicable": "patients.pregnancyNotApplicable",
@@ -216,6 +217,13 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           <div className="lg:col-span-3">
             <Panel title={t("patients.sectionOdontogram")}>
               <Odontogram odontogram={odontogram} editable chartClinical onSave={handleSaveTooth} />
+            </Panel>
+          </div>
+
+          {/* Owner may edit any plan — the server gate agrees (role === "owner"). */}
+          <div className="lg:col-span-3">
+            <Panel title={t("treatmentPlans.title")}>
+              <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} canEdit />
             </Panel>
           </div>
 
