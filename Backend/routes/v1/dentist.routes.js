@@ -43,6 +43,7 @@ import {
   updateTreatmentPlanItem,
   removeTreatmentPlanItem,
   setTreatmentPlanItemStatus,
+  scheduleItemWithNewAppointmentCtrl,
   decideTreatmentPlan,
 } from "../../controllers/treatmentPlan.controller.js";
 
@@ -113,5 +114,6 @@ router.post("/treatment-plans/:id/items", requirePermission("tab_dentist_patient
 router.patch("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentist_patients"), updateTreatmentPlanItem);
 router.delete("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentist_patients"), removeTreatmentPlanItem);
 router.patch("/treatment-plans/:id/items/:itemId/status", requirePermission("tab_dentist_patients"), setTreatmentPlanItemStatus);
+router.post("/treatment-plans/:id/items/:itemId/book-appointment", requirePermission("tab_dentist_patients"), scheduleItemWithNewAppointmentCtrl);
 
 export default router;

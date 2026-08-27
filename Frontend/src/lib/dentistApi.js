@@ -208,6 +208,7 @@ export const dentistApi = {
   updatePlanItem: (id, itemId, body) => req(`/treatment-plans/${id}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(body) }),
   removePlanItem: (id, itemId) => req(`/treatment-plans/${id}/items/${itemId}`, { method: "DELETE" }),
   setPlanItemStatus: (id, itemId, status, extra = {}) => req(`/treatment-plans/${id}/items/${itemId}/status`, { method: "PATCH", body: JSON.stringify({ status, ...extra }) }),
+  bookAppointmentForPlanItem: (id, itemId, body) => req(`/treatment-plans/${id}/items/${itemId}/book-appointment`, { method: "POST", body: JSON.stringify(body) }),
 
   getClinicalMaster: () =>
     req("/clinical-master"),

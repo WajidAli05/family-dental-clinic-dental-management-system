@@ -10,7 +10,12 @@ import { APPOINTMENT_TYPES, typeKey } from "@/lib/appointmentConfig";
  * list exists in exactly one place per tier. Optional by design — leaving it
  * unset is valid and matches how existing appointments behave.
  */
-const AppointmentTypeSelect = ({ value, onChange, disabled = false, showLabel = true }) => {
+/**
+ * `contentClassName` exists for nested use: the portaled SelectContent is z-50
+ * by default, which renders behind a dialog opened inside a patient modal.
+ * Default undefined => every existing usage is unchanged. See lib/zLayers.js.
+ */
+const AppointmentTypeSelect = ({ value, onChange, disabled = false, showLabel = true, contentClassName }) => {
   const { t } = useTranslation();
 
   return (
@@ -20,7 +25,7 @@ const AppointmentTypeSelect = ({ value, onChange, disabled = false, showLabel = 
         <SelectTrigger>
           <SelectValue placeholder={t("appointments.typeSelect")} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className={contentClassName}>
           {APPOINTMENT_TYPES.map((tp) => (
             <SelectItem key={tp} value={tp}>{t(typeKey(tp))}</SelectItem>
           ))}

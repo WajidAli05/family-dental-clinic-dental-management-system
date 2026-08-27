@@ -131,6 +131,7 @@ import {
   updateTreatmentPlanItem,
   removeTreatmentPlanItem,
   setTreatmentPlanItemStatus,
+  scheduleItemWithNewAppointmentCtrl,
   decideTreatmentPlan,
 } from "../../controllers/treatmentPlan.controller.js";
 
@@ -325,5 +326,6 @@ router.post("/treatment-plans/:id/items", addTreatmentPlanItem);
 router.patch("/treatment-plans/:id/items/:itemId", updateTreatmentPlanItem);
 router.delete("/treatment-plans/:id/items/:itemId", removeTreatmentPlanItem);
 router.patch("/treatment-plans/:id/items/:itemId/status", setTreatmentPlanItemStatus);
+router.post("/treatment-plans/:id/items/:itemId/book-appointment", scheduleItemWithNewAppointmentCtrl);
 
 export default router;

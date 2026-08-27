@@ -11,6 +11,8 @@ import {
 } from "./feeSchedules.js";
 import { FDI_TEETH } from "./patients.js";
 import { SLOT_OCCUPYING_STATUSES, canonicalStatus } from "./appointmentConfig.js";
+import { clinicToday, isPastDate } from "./clinicDate.js";
+import { createAppointmentCore } from "./appointments.js";
 import {
   canTransitionItem,
   allowedNextItemStatuses,
@@ -197,9 +199,15 @@ export async function listLinkableAppointments(patientPublicId) {
   const patient = await Patient.findOne({ publicId: clean(patientPublicId) }).select("_id").lean();
   if (!patient) throw Object.assign(new Error("Patient not found"), { status: 404 });
 
+  // UPCOMING only. Status alone was not enough: an appointment that was simply
+  // never marked completed stays slot-occupying forever, so a visit three weeks
+  // past was still being offered. Compared in the CLINIC's timezone, not UTC.
+  const today = await clinicToday();
+
   const rows = await Appointment.find({
     patient: patient._id,
     status: { $in: SLOT_OCCUPYING_STATUSES },
+    date: { $gte: today },
   })
     .select("publicId date time appointmentType status")
     .sort({ date: 1, time: 1 })
@@ -361,7 +369,7 @@ export async function setPlanItemStatus(planPublicId, itemId, status, { appointm
     if (!apptId) {
       throw Object.assign(new Error("An appointment is required to schedule this item"), { status: 400 });
     }
-    const appt = await Appointment.findOne({ publicId: apptId }).select("patient publicId status").lean();
+    const appt = await Appointment.findOne({ publicId: apptId }).select("patient publicId status date").lean();
     if (!appt) throw Object.assign(new Error("Appointment not found"), { status: 404 });
 
     const planPatientId = String(plan.patient?._id || plan.patient);
@@ -372,6 +380,14 @@ export async function setPlanItemStatus(planPublicId, itemId, status, { appointm
       throw Object.assign(
         new Error("That appointment is no longer active and cannot be scheduled into"),
         { status: 409 }
+      );
+    }
+    // A stale client could still hold a past appointment id from before the
+    // picker was fixed — the server refuses it regardless.
+    if (await isPastDate(appt.date)) {
+      throw Object.assign(
+        new Error(`That appointment (${appt.date}) is in the past`),
+        { status: 409, code: "APPOINTMENT_IN_PAST" }
       );
     }
     item.linkedAppointmentId = apptId;
@@ -411,4 +427,58 @@ export async function softDeletePlan(planPublicId) {
   const plan = await loadPlan(planPublicId);
   await plan.softDelete();
   return { message: "Deleted", id: plan.publicId };
+}
+
+/**
+ * PATH B — book a NEW appointment for this patient and link the item to it in
+ * one action.
+ *
+ * Booking goes through createAppointmentCore, the same function every other
+ * booking flow uses, with `blockPastDates` switched on. Nothing about slots,
+ * dentist resolution or status is re-implemented here — a second booking path
+ * is exactly how this codebase has drifted before.
+ *
+ * `forceDentistId` lets a dentist book onto their own diary without a dentist
+ * picker, mirroring dentistCreateAppointment.
+ */
+export async function scheduleItemWithNewAppointment(
+  planPublicId,
+  itemId,
+  { dentistId, date, time, appointmentType, reason, notes } = {},
+  { forceDentistId } = {}
+) {
+  const plan = await loadPlan(planPublicId);
+  const item = (plan.items || []).find((i) => i.id === clean(itemId));
+  if (!item) throw Object.assign(new Error("Plan item not found"), { status: 404 });
+
+  // Fail BEFORE creating an appointment we would then have to unwind.
+  if (!canTransitionItem(item.status, "scheduled")) {
+    throw Object.assign(
+      new Error(`Cannot move item from ${item.status} to scheduled`),
+      { status: 400, code: "ILLEGAL_ITEM_TRANSITION" }
+    );
+  }
+
+  const patientPublicId = plan.patient?.publicId;
+  if (!patientPublicId) throw Object.assign(new Error("Patient not found"), { status: 404 });
+
+  const appt = await createAppointmentCore(
+    {
+      patientId: patientPublicId,
+      dentistId,
+      date,
+      time,
+      appointmentType,
+      reason: clean(reason) || `Treatment plan ${plan.publicId}`,
+      notes,
+    },
+    { forceDentistId, blockPastDates: true }
+  );
+
+  const apptPublicId = appt?.id || appt?.publicId;
+  const updated = await setPlanItemStatus(planPublicId, itemId, "scheduled", {
+    appointmentId: apptPublicId,
+  });
+
+  return { plan: updated, appointment: appt };
 }

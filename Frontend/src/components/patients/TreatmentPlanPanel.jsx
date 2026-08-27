@@ -283,11 +283,23 @@ const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }
         open={!!scheduleFor}
         patientId={patientId}
         api={api}
+        /* A dentist books onto their own diary (server forces their id), so no
+           dentist picker is shown for them. */
+        canPickDentist={!!api.getDentists}
         onOpenChange={(v) => { if (!v) setScheduleFor(null); }}
         onPick={(appointmentId) => {
           const { planId, itemId } = scheduleFor;
           setScheduleFor(null);
           run(planId, () => api.setPlanItemStatus(planId, itemId, "scheduled", { appointmentId }));
+        }}
+        onBooked={async (booking) => {
+          // Books AND links in one server action — errors propagate so the
+          // modal can surface a slot conflict without closing.
+          const { planId, itemId } = scheduleFor;
+          await api.bookAppointmentForPlanItem(planId, itemId, booking);
+          setScheduleFor(null);
+          toast.success(t("treatmentPlans.bookedAndScheduled"));
+          await load();
         }}
       />
 

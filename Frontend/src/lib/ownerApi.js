@@ -79,6 +79,7 @@ export const ownerApi = {
   updatePlanItem: (id, itemId, body) => request(`/owner/treatment-plans/${id}/items/${itemId}`, { method: "PATCH", body }),
   removePlanItem: (id, itemId) => request(`/owner/treatment-plans/${id}/items/${itemId}`, { method: "DELETE" }),
   setPlanItemStatus: (id, itemId, status, extra = {}) => request(`/owner/treatment-plans/${id}/items/${itemId}/status`, { method: "PATCH", body: { status, ...extra } }),
+  bookAppointmentForPlanItem: (id, itemId, body) => request(`/owner/treatment-plans/${id}/items/${itemId}/book-appointment`, { method: "POST", body }),
 
   // dentists + labs
   getDentists: () => request("/owner/dentists"),

@@ -466,6 +466,16 @@
       "scheduled": "جدولة",
       "in_progress": "بدء",
       "completed": "إكمال"
-    }
+    },
+    "useExisting": "استخدام موعد قائم",
+    "bookNew": "حجز موعد جديد",
+    "upcomingOnlyHint": "تُعرض المواعيد القادمة النشطة فقط. يمكن ربط عدة علاجات بموعد واحد.",
+    "dentist": "الطبيب",
+    "date": "التاريخ",
+    "time": "الوقت",
+    "appointmentType": "نوع الموعد",
+    "bookAndSchedule": "احجز وجدوِل",
+    "bookedAndScheduled": "تم حجز الموعد وجدولة العلاج",
+    "pastDateBlocked": "لا يمكن حجز موعد في الماضي."
   }
 }

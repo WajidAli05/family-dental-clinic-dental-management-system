@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { isPastDate } from "./clinicDate.js";
 import Appointment from "../../models/Appointment.model.js";
 import Patient from "../../models/Patient.model.js";
 import User from "../../models/User.model.js";
@@ -154,9 +155,14 @@ export async function assertNoSlotConflict({ dentist, date, time, excludeAppoint
 
 /**
  * @param {object} body  { patientId, dentistId, date, time, reason, notes }
- * @param {{ forceDentistId? }} opts  forceDentistId bypasses dentist lookup (self-book)
+ * @param {{ forceDentistId?, blockPastDates? }} opts
+ *   forceDentistId  bypasses dentist lookup (self-book)
+ *   blockPastDates  refuse a date before the clinic's today. OPT-IN so existing
+ *                   booking flows keep their current behaviour (back-dating a
+ *                   visit for record-keeping still works); the treatment-plan
+ *                   scheduler switches it on. One implementation, no fork.
  */
-export async function createAppointmentCore(body, { forceDentistId } = {}) {
+export async function createAppointmentCore(body, { forceDentistId, blockPastDates = false } = {}) {
   const date   = String(body?.date   || "").trim();
   const time   = String(body?.time   || "").trim();
   const reason = String(body?.reason || "").trim();
@@ -178,6 +184,13 @@ export async function createAppointmentCore(body, { forceDentistId } = {}) {
     const dk = body?.dentistId || body?.dentist || body?.dentistName;
     if (!dk) throw new Error("dentistId is required");
     dentist = await resolveDentist(dk);
+  }
+
+  if (blockPastDates && (await isPastDate(date))) {
+    throw Object.assign(
+      new Error(`Cannot book an appointment in the past (${date})`),
+      { status: 400, code: "APPOINTMENT_IN_PAST" }
+    );
   }
 
   await assertNoSlotConflict({ dentist: dentist._id, date, time });

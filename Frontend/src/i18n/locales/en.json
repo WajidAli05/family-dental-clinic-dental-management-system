@@ -466,6 +466,16 @@
       "scheduled": "Schedule",
       "in_progress": "Start",
       "completed": "Complete"
-    }
+    },
+    "useExisting": "Use existing",
+    "bookNew": "Book new",
+    "upcomingOnlyHint": "Only upcoming, active appointments are shown. Several treatments can share one appointment.",
+    "dentist": "Dentist",
+    "date": "Date",
+    "time": "Time",
+    "appointmentType": "Appointment type",
+    "bookAndSchedule": "Book & schedule",
+    "bookedAndScheduled": "Appointment booked and treatment scheduled",
+    "pastDateBlocked": "Appointments cannot be booked in the past."
   }
 }

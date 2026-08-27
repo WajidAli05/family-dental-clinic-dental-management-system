@@ -12,6 +12,7 @@ import {
   softDeletePlan,
   getPlanPatientPublicId,
   listLinkableAppointments,
+  scheduleItemWithNewAppointment,
 } from "../services/shared/treatmentPlans.js";
 import { listFeeSchedules } from "../services/shared/feeSchedules.js";
 import { getActiveTreatments } from "../services/shared/catalog.js";
@@ -192,6 +193,39 @@ export const setTreatmentPlanItemStatus = async (req, res) => {
       },
     });
     return res.json({ success: true, data });
+  } catch (e) { return fail(res, e); }
+};
+
+
+/**
+ * PATH B — book a new appointment AND schedule the item onto it.
+ *
+ * A dentist books onto their own diary (forceDentistId), matching how
+ * dentistCreateAppointment works; the owner picks any dentist. Slot conflicts
+ * and past dates are enforced inside the shared booking core, so a stale
+ * client cannot bypass either.
+ */
+export const scheduleItemWithNewAppointmentCtrl = async (req, res) => {
+  try {
+    await assertCanEditPlan(req, req.params.id);
+
+    const isDentist = req.user?.role === "dentist";
+    const { plan, appointment } = await scheduleItemWithNewAppointment(
+      req.params.id,
+      req.params.itemId,
+      req.body || {},
+      { forceDentistId: isDentist ? req.user._id : undefined }
+    );
+
+    const item = plan.items.find((i) => i.id === req.params.itemId);
+    // Two things happened — audit both, with no PHI (no reason/notes text).
+    await recordAudit({ req, action: "appointment.create", entityType: "Appointment", entityId: appointment.id, entityLabel: appointment.id, after: { date: appointment.date, time: appointment.time, status: appointment.status, viaTreatmentPlan: plan.id } });
+    await recordAudit({
+      req, action: "treatmentplan.item_status", entityType: "TreatmentPlan", entityId: plan.id, entityLabel: plan.id,
+      after: { itemId: req.params.itemId, status: "scheduled", lineTotal: item?.lineTotal, linkedAppointmentId: appointment.id, bookedNewAppointment: true, planStatus: plan.status },
+    });
+
+    return res.json({ success: true, data: { plan, appointment } });
   } catch (e) { return fail(res, e); }
 };
 
