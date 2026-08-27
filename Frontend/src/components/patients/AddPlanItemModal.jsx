@@ -13,6 +13,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 import Odontogram from "@/components/patients/Odontogram";
+import { NESTED_DIALOG, NESTED_POPOVER } from "@/lib/zLayers";
 
 /**
  * Adds one priced, optionally tooth-linked item to a plan.
@@ -73,7 +74,12 @@ const AddPlanItemModal = ({ open, onOpenChange, plan, api, odontogram = [], onAd
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+      {/* Opened from INSIDE the patient profile modal (a z-[60] shell), so both
+          the content and the backdrop must clear it — see lib/zLayers.js. */}
+      <DialogContent
+        className={`max-w-3xl max-h-[92vh] overflow-y-auto ${NESTED_DIALOG}`}
+        overlayClassName={NESTED_DIALOG}
+      >
         <DialogHeader>
           <DialogTitle>{t("treatmentPlans.addItemTitle")}</DialogTitle>
           <DialogDescription>{t("treatmentPlans.addItemSubtitle")}</DialogDescription>
@@ -87,7 +93,7 @@ const AddPlanItemModal = ({ open, onOpenChange, plan, api, odontogram = [], onAd
                 <SelectTrigger>
                   <SelectValue placeholder={loading ? t("treatmentPlans.loading") : t("treatmentPlans.pickTreatment")} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={NESTED_POPOVER}>
                   {treatments.map((tr) => (
                     <SelectItem key={tr.id} value={tr.id}>
                       {/* Treatment names are data — never translated. */}

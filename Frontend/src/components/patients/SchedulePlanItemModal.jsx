@@ -11,6 +11,7 @@ import {
 import { Loader2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { typeKey } from "@/lib/appointmentConfig";
+import { NESTED_DIALOG, NESTED_POPOVER } from "@/lib/zLayers";
 
 /**
  * Appointment PICKER for scheduling an accepted item — never a raw ID prompt.
@@ -43,7 +44,8 @@ const SchedulePlanItemModal = ({ open, onOpenChange, patientId, api, onPick }) =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      {/* Nested inside the patient profile modal — see lib/zLayers.js. */}
+      <DialogContent className={`max-w-md ${NESTED_DIALOG}`} overlayClassName={NESTED_DIALOG}>
         <DialogHeader>
           <DialogTitle>{t("treatmentPlans.scheduleTitle")}</DialogTitle>
           <DialogDescription>{t("treatmentPlans.scheduleSubtitle")}</DialogDescription>
@@ -65,7 +67,7 @@ const SchedulePlanItemModal = ({ open, onOpenChange, patientId, api, onPick }) =
                 <SelectTrigger>
                   <SelectValue placeholder={t("treatmentPlans.pickAppointment")} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={NESTED_POPOVER}>
                   {rows.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {/* Appointment data is never translated — only the type label. */}

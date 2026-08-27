@@ -10,6 +10,7 @@ import { useFormatMoney } from "@/store/clinicConfigStore";
 import {
   itemStatusKey, planStatusKey, itemBadgeClass, planBadgeClass,
 } from "@/lib/treatmentPlanConfig";
+import { NESTED_POPOVER } from "@/lib/zLayers";
 import AddPlanItemModal from "./AddPlanItemModal";
 import SchedulePlanItemModal from "./SchedulePlanItemModal";
 
@@ -140,7 +141,10 @@ const TreatmentPlanPanel = ({ patientId, api, canEdit = false, odontogram = [] }
                     <SelectTrigger className="h-7 w-[160px] text-xs">
                       <SelectValue placeholder={t("treatmentPlans.feeSchedule")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    {/* Portaled at z-50 by default, which is BEHIND the
+                        z-[60] patient modal — the options rendered but every
+                        click landed on the modal instead of the option. */}
+                    <SelectContent className={NESTED_POPOVER}>
                       {schedules.map((s) => (
                         <SelectItem key={s.id} value={s.id} className="text-xs">
                           {s.name}{s.isDefault ? ` (${t("treatmentPlans.default")})` : ""}

@@ -23,9 +23,15 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+/**
+ * `overlayClassName` exists for NESTED dialogs. The content and the backdrop
+ * are two separate portaled layers; passing only `className` raises the
+ * content and leaves the backdrop behind, which looks broken. Callers opening
+ * a dialog from inside another modal must raise BOTH — see lib/zLayers.js.
+ */
+const DialogContent = React.forwardRef(({ className, overlayClassName, children, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
