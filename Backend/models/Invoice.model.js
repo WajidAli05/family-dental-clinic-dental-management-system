@@ -50,6 +50,14 @@ const invoiceSchema = new Schema(
     feeScheduleId: { type: String, default: "" },
 
     payments: { type: [paymentSchema], default: [] },
+
+    // VOID — the correct way to retire an invoice that already has payments.
+    // The document and its payments are preserved forever; voiding only
+    // removes it from ACTIVE revenue/outstanding (see billing.js). Distinct
+    // from deletedAt (softDelete), which is only allowed when unpaid.
+    voidedAt: { type: Date, default: null, index: true },
+    voidReason: { type: String, default: "" },
+    voidedBy: { type: String, default: "" },
   },
   { timestamps: true }
 );
@@ -62,6 +70,8 @@ invoiceSchema.virtual("paidAmount").get(function () {
 });
 
 invoiceSchema.virtual("status").get(function () {
+  // Void outranks every payment state — a voided invoice is not "Paid".
+  if (this.voidedAt) return "Void";
   const paid = this.paidAmount;
   if (paid >= this.totalAmount) return "Paid";
   if (paid > 0) return "Partial";
@@ -69,6 +79,7 @@ invoiceSchema.virtual("status").get(function () {
 });
 
 invoiceSchema.virtual("outstanding").get(function () {
+  if (this.voidedAt) return 0; // a voided invoice is owed by nobody
   return Math.max(0, Number(this.totalAmount || 0) - this.paidAmount);
 });
 

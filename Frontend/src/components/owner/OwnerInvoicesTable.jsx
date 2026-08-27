@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Ban, Wallet } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 import PrintInvoiceButton from "@/components/receptionist/PrintInvoiceButton";
 
 const STATUS_CLASS = {
+  Void: "bg-gray-200 text-gray-700 border-gray-300",
   Paid: "bg-green-100 text-green-700 border-green-200",
   Partial: "bg-amber-100 text-amber-700 border-amber-200",
   Pending: "bg-red-100 text-red-700 border-red-200",
@@ -17,7 +18,7 @@ const STATUS_CLASS = {
  * that money out of the billing aggregates), so the button is disabled here
  * too rather than offering an action that will 409.
  */
-const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, scheduleNameOf }) => {
+const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, onVoid, onPay, scheduleNameOf }) => {
   const { t } = useTranslation();
   const money = useFormatMoney();
 
@@ -46,9 +47,22 @@ const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, scheduleNameOf }) => 
           ) : (
             data.map((inv) => {
               const hasPayments = Number(inv.paidAmount) > 0;
+              const isVoid = !!inv.isVoid;
+              const settled = Number(inv.paidAmount) >= Number(inv.totalAmount);
               return (
                 <tr key={inv.id} className="hover:bg-gray-50/60 transition">
-                  <td className="py-3 pe-4 font-semibold text-gray-900">{inv.id}</td>
+                  <td className="py-3 pe-4 font-semibold text-gray-900">
+                    {inv.id}
+                    {isVoid && (
+                      <span className="ms-2 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+                        <Ban className="h-2.5 w-2.5 me-0.5" />
+                        {t("invoices.void")}
+                      </span>
+                    )}
+                    {isVoid && inv.voidReason && (
+                      <div className="text-[11px] font-normal text-gray-500 mt-0.5">{inv.voidReason}</div>
+                    )}
+                  </td>
                   <td className="py-3 pe-4">
                     {/* Patient data is never translated. */}
                     <div className="text-gray-900">{inv.patientName || "—"}</div>
@@ -76,16 +90,52 @@ const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, scheduleNameOf }) => 
                   <td className="py-3 text-end">
                     <div className="inline-flex gap-2">
                       <PrintInvoiceButton invoice={inv} />
-                      <Button size="sm" variant="outline" onClick={() => onEdit(inv)}>
+
+                      {/* Payments: owner parity with the receptionist. */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isVoid || settled}
+                        title={
+                          isVoid ? t("invoices.voidNoPayments")
+                            : settled ? t("invoices.alreadySettled")
+                            : undefined
+                        }
+                        onClick={() => onPay(inv)}
+                      >
+                        <Wallet className="h-4 w-4 me-2" />
+                        {t("invoices.pay")}
+                      </Button>
+
+                      <Button size="sm" variant="outline" disabled={isVoid} onClick={() => onEdit(inv)}>
                         <Pencil className="h-4 w-4 me-2" />
                         {t("invoices.edit")}
                       </Button>
+
+                      {/* VOID is the correct retirement for a PAID invoice —
+                          it keeps the record and the payments. */}
+                      {!isVoid && hasPayments && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                          onClick={() => onVoid(inv)}
+                        >
+                          <Ban className="h-4 w-4 me-2" />
+                          {t("invoices.voidAction")}
+                        </Button>
+                      )}
+
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-40"
-                        disabled={hasPayments}
-                        title={hasPayments ? t("invoices.deleteBlockedHint") : undefined}
+                        disabled={hasPayments || isVoid}
+                        title={
+                          hasPayments ? t("invoices.deleteBlockedHint")
+                            : isVoid ? t("invoices.deleteVoidHint")
+                            : undefined
+                        }
                         onClick={() => onDelete(inv)}
                       >
                         <Trash2 className="h-4 w-4" />

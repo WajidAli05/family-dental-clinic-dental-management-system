@@ -78,6 +78,10 @@ import {
   ownerCreateInvoiceController,
   ownerUpdateInvoiceController,
   ownerDeleteInvoiceController,
+  ownerVoidInvoiceController,
+  ownerAddInvoicePaymentController,
+  ownerUpdateInvoicePaymentController,
+  ownerDeleteInvoicePaymentController,
   ownerCreateFeeScheduleController,
   ownerRenameFeeScheduleController,
   ownerSetDefaultFeeScheduleController,
@@ -220,6 +224,10 @@ router.get("/invoices", ownerListInvoicesController);
 router.post("/invoices", ownerCreateInvoiceController);
 router.patch("/invoices/:id", ownerUpdateInvoiceController);
 router.delete("/invoices/:id", ownerDeleteInvoiceController);
+router.patch("/invoices/:id/void", ownerVoidInvoiceController);
+router.post("/invoices/:id/payments", ownerAddInvoicePaymentController);
+router.patch("/invoices/:id/payments/:paymentId", ownerUpdateInvoicePaymentController);
+router.delete("/invoices/:id/payments/:paymentId", ownerDeleteInvoicePaymentController);
 router.get("/invoice-fee-schedules", ownerGetInvoiceFeeSchedulesController);
 router.get("/catalog/treatments", ownerGetCatalogTreatmentsController);
 

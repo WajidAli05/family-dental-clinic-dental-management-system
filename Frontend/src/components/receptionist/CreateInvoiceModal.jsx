@@ -78,7 +78,7 @@ const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, on
   const { lookupPatient } = usePatientStore();
   const { createInvoice } = useBillingStore();
 
-  const treatments = useCatalogStore((s) => s.treatments);
+  const storeTreatments = useCatalogStore((s) => s.treatments);
   const sampleTypes = useCatalogStore((s) => s.sampleTypes);
   const catalogLoading = useCatalogStore((s) => s.loading);
   const fetchCatalogAsReceptionist = useCatalogStore((s) => s.fetchAsReceptionist);
@@ -101,6 +101,10 @@ const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, on
   // ── Line items ──
   const [items, setItems] = useState([]);
   const [feeScheduleId, setFeeScheduleId] = useState("");
+  // Catalogue re-priced for the ACTIVE schedule. The dropdown reads this so
+  // the user sees correct prices BEFORE adding anything; the store's copy is
+  // always default-priced and would otherwise show stale Standard prices.
+  const [pricedTreatments, setPricedTreatments] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [pendingTreatment, setPendingTreatment] = useState("");
   const [pendingSampleType, setPendingSampleType] = useState("");
@@ -110,6 +114,10 @@ const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, on
   const [notification, setNotification] = useState(null);
 
   const defaultFee = Number(billing?.defaultConsultationFee) || 0;
+  // Schedule-priced list once it has loaded; the store's default-priced list
+  // until then, so the dropdown is never empty.
+  const treatments = pricedTreatments ?? storeTreatments;
+
   const runningTotal = useMemo(
     () => items.reduce((sum, it) => sum + (Number(it.lineTotal) || 0), 0),
     [items]
@@ -126,6 +134,7 @@ const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, on
     setPendingTreatment("");
     setPendingSampleType("");
     setFeeScheduleId("");
+    setPricedTreatments(null);
     setIsSubmitting(false);
     setNotification(null);
   }, []);
@@ -199,7 +208,9 @@ const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, on
     client
       .then((res) => {
         if (!alive) return;
-        const priced = new Map((res?.data || res?.rows || []).map((t) => [t.id, Number(t.fee) || 0]));
+        const rows = res?.data || res?.rows || [];
+        setPricedTreatments(rows);           // <- re-prices the DROPDOWN options
+        const priced = new Map(rows.map((t) => [t.id, Number(t.fee) || 0]));
         setItems((prev) =>
           prev.map((it) => {
             if (it.kind !== "treatment" || it.priceOverridden) return it;

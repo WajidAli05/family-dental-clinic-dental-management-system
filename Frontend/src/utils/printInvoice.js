@@ -115,11 +115,16 @@ export const printInvoice = (invoice) => {
   doc.setTextColor(...BRAND_BLUE);
   doc.text("INVOICE", margin, y);
 
-  const status = statusOf(totalAmount, totalPaid);
+  // A voided invoice must be unmistakable on paper.
+  const isVoid = !!invoice.isVoid || !!invoice.voidedAt;
+  const status = isVoid ? "VOID" : statusOf(totalAmount, totalPaid);
   const chipW = 26;
   const chipX = pageW - margin - chipW;
   const chipColor =
-    status === "PAID" ? [39, 174, 96] : status === "PARTIAL" ? [214, 154, 26] : [192, 57, 43];
+    status === "VOID" ? [90, 90, 90]
+      : status === "PAID" ? [39, 174, 96]
+      : status === "PARTIAL" ? [214, 154, 26]
+      : [192, 57, 43];
   doc.setFillColor(...chipColor);
   doc.roundedRect(chipX, y - 5, chipW, 7, 1.5, 1.5, "F");
   doc.setFont("helvetica", "bold");
@@ -137,7 +142,9 @@ export const printInvoice = (invoice) => {
   const metaRight = [
     ["Patient", patientId ? `${patientName} (${patientId})` : String(patientName)],
     ...(dentistName ? [["Dentist", dentistName]] : []),
-    ...(invoice.feeScheduleName ? [["Fee Schedule", invoice.feeScheduleName]] : []),
+    // Legacy invoices carry no schedule id — they were quoted at the default.
+    ["Fee Schedule", invoice.feeScheduleName || "Default"],
+    ...(isVoid && invoice.voidReason ? [["Void Reason", String(invoice.voidReason)]] : []),
   ];
 
   const metaRows = Math.max(metaLeft.length, metaRight.length);
@@ -342,6 +349,19 @@ export const printInvoice = (invoice) => {
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
+
+    if (isVoid) {
+      // Drawn last so it sits over the content, at low opacity where the
+      // renderer supports it (older jsPDF builds simply skip the GState).
+      try { doc.saveGraphicsState(); doc.setGState(new doc.GState({ opacity: 0.12 })); } catch { /* no alpha support */ }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(72);
+      doc.setTextColor(200, 0, 0);
+      doc.text("VOID", pageW / 2, 150, { align: "center", angle: 30 });
+      try { doc.restoreGraphicsState(); } catch { /* no-op */ }
+      doc.setTextColor(0);
+    }
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(150);

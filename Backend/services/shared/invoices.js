@@ -145,6 +145,7 @@ export const paidTotal = (inv) =>
  */
 export async function updateInvoiceCore(invoicePublicId, body = {}) {
   const inv = await loadInvoice(invoicePublicId);
+  assertNotVoided(inv);
   const alreadyPaid = paidTotal(inv);
 
   if (body.date !== undefined) {
@@ -210,9 +211,9 @@ export async function softDeleteInvoiceCore(invoicePublicId) {
   if (paid > 0) {
     throw Object.assign(
       new Error(
-        `Cannot delete invoice ${inv.publicId}: ${paid} has been paid against it. Remove the payments first if this invoice is void.`
+        `Cannot delete invoice ${inv.publicId}: ${paid} has been paid against it. Void it instead — voiding preserves the payment records.`
       ),
-      { status: 409 }
+      { status: 409, code: "INVOICE_HAS_PAYMENTS" }
     );
   }
 
@@ -221,3 +222,77 @@ export async function softDeleteInvoiceCore(invoicePublicId) {
 }
 
 export { findPatient, findDentist };
+
+/**
+ * OVERPAYMENT GUARD — the authoritative rule, server-side.
+ *
+ * A payment may never push total payments above the invoice total. Without
+ * this the ledger silently absorbs the excess: the balance clamps to 0 via
+ * Math.max and the surplus is unaccounted for (this is exactly how INV-1017
+ * ended up 8,500 billed / 9,000 paid).
+ *
+ * `excludePaymentId` lets an EDIT of an existing payment re-validate against
+ * the balance without counting its own previous amount twice.
+ */
+export function assertPaymentWithinBalance(inv, amount, excludePaymentId = null) {
+  const total = Number(inv?.totalAmount) || 0;
+  const paid = (inv?.payments || [])
+    .filter((p) => !excludePaymentId || p.publicId !== excludePaymentId)
+    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+  const remaining = Math.max(0, total - paid);
+  const value = Number(amount) || 0;
+
+  if (value > remaining) {
+    throw Object.assign(
+      new Error(
+        remaining === 0
+          ? `This invoice is already settled in full — nothing is outstanding.`
+          : `Payment exceeds the balance due (${remaining} remaining).`
+      ),
+      { status: 409, code: "PAYMENT_EXCEEDS_BALANCE", remaining, attempted: value }
+    );
+  }
+  return remaining;
+}
+
+/** A voided invoice is a closed record — no new money moves against it. */
+export function assertNotVoided(inv) {
+  if (inv?.voidedAt) {
+    throw Object.assign(
+      new Error(`Invoice ${inv.publicId} is void and cannot be modified.`),
+      { status: 409, code: "INVOICE_VOID" }
+    );
+  }
+}
+
+/**
+ * VOIDs an invoice: the correct way to retire one that already has payments.
+ *
+ * The invoice AND its payments are preserved in full — nothing is deleted.
+ * Voiding removes it from active revenue/outstanding (billing.js filters
+ * `voidedAt: null`), which is what makes it safe where deletion is not.
+ */
+export async function voidInvoiceCore(invoicePublicId, { reason, actor } = {}) {
+  const inv = await loadInvoice(invoicePublicId);
+
+  const why = String(reason || "").trim();
+  if (!why) throw new Error("A reason is required to void an invoice");
+  if (inv.voidedAt) {
+    throw Object.assign(new Error(`Invoice ${inv.publicId} is already void.`), { status: 409 });
+  }
+
+  inv.voidedAt = new Date();
+  inv.voidReason = why;
+  inv.voidedBy = String(actor || "");
+  await inv.save();
+
+  return {
+    id: inv.publicId,
+    voidedAt: inv.voidedAt,
+    voidReason: inv.voidReason,
+    // Reported so the caller can show what left the active books.
+    totalAmount: Number(inv.totalAmount) || 0,
+    paidAmount: paidTotal(inv),
+  };
+}

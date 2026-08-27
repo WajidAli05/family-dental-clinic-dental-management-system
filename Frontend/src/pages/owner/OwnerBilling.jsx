@@ -11,6 +11,8 @@ import DailyCashbookTable from "@/components/owner/DailyCashbookTable";
 import OwnerInvoicesTable from "@/components/owner/OwnerInvoicesTable";
 import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 import CreateInvoiceModal from "@/components/receptionist/CreateInvoiceModal";
+import ReceivePaymentModal from "@/components/receptionist/ReceivePaymentModal";
+import VoidInvoiceModal from "@/components/owner/VoidInvoiceModal";
 import { ownerApi } from "@/lib/ownerApi";
 import CommissionsTable from "@/components/owner/CommissionsTable";
 import LabDuesTable from "@/components/owner/LabDuesTable";
@@ -154,6 +156,8 @@ const OwnerBilling = () => {
   const [invModalOpen, setInvModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [payTarget, setPayTarget] = useState(null);
+  const [voidTarget, setVoidTarget] = useState(null);
 
   const loadInvoices = useCallback(async () => {
     setInvLoading(true);
@@ -350,6 +354,8 @@ const OwnerBilling = () => {
                     scheduleNameOf={scheduleNameOf}
                     onEdit={(inv) => { setEditingInvoice(inv); setInvModalOpen(true); }}
                     onDelete={(inv) => setDeleteTarget(inv)}
+                    onPay={(inv) => setPayTarget(inv)}
+                    onVoid={(inv) => setVoidTarget(inv)}
                   />
                 )
               )}
@@ -449,6 +455,44 @@ const OwnerBilling = () => {
         api={ownerApi}
         invoice={editingInvoice}
         onSaved={loadInvoices}
+      />
+
+      {/* The SAME payment modal the receptionist uses. */}
+      <ReceivePaymentModal
+        open={!!payTarget}
+        onOpenChange={(v) => { if (!v) setPayTarget(null); }}
+        invoice={payTarget}
+        onSubmit={async (payment) => {
+          const target = payTarget;
+          setPayTarget(null);
+          try {
+            await ownerApi.addInvoicePayment(target.id, {
+              amount: payment.amount, mode: payment.mode, date: payment.date,
+            });
+            toast.success(t("invoices.paymentRecorded"));
+            await loadInvoices();
+          } catch (e) {
+            // 409 PAYMENT_EXCEEDS_BALANCE surfaces here with the server text.
+            toast.error(e.message || t("invoices.actionFailed"));
+          }
+        }}
+      />
+
+      <VoidInvoiceModal
+        open={!!voidTarget}
+        invoice={voidTarget}
+        onOpenChange={(v) => { if (!v) setVoidTarget(null); }}
+        onConfirm={async (reason) => {
+          const target = voidTarget;
+          setVoidTarget(null);
+          try {
+            await ownerApi.voidInvoice(target.id, reason);
+            toast.success(t("invoices.voided"));
+            await loadInvoices();
+          } catch (e) {
+            toast.error(e.message || t("invoices.actionFailed"));
+          }
+        }}
       />
 
       <OwnerConfirmDialog

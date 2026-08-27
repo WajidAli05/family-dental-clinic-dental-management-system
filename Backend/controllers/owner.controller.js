@@ -96,10 +96,14 @@ import { recordAudit } from "../services/shared/audit.js";
 import {
   receptionistCreateInvoice,
   receptionistListInvoices,
+  receptionistAddInvoicePayment,
+  receptionistUpdateInvoicePayment,
+  receptionistDeleteInvoicePayment,
 } from "../services/receptionist.service.js";
 import {
   updateInvoiceCore,
   softDeleteInvoiceCore,
+  voidInvoiceCore,
   loadInvoice,
   paidTotal,
 } from "../services/shared/invoices.js";
@@ -574,6 +578,50 @@ export const ownerListInvoicesController = async (req, res) => {
   try {
     const result = await receptionistListInvoices(req.user?._id, req.query || {});
     return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) { return invFail(res, e); }
+};
+
+
+/**
+ * VOID — owner-only. The alternative to deleting an invoice that has payments:
+ * the record and its payments are preserved, but it leaves active revenue.
+ */
+export const ownerVoidInvoiceController = async (req, res) => {
+  try {
+    const data = await voidInvoiceCore(req.params.id, {
+      reason: req.body?.reason,
+      actor: req.user?.publicId || String(req.user?._id || ""),
+    });
+    await recordAudit({
+      req, action: "invoice.void", entityType: "Invoice", entityId: data.id, entityLabel: data.id,
+      after: { voidReason: data.voidReason, totalAmount: data.totalAmount, paidAmount: data.paidAmount },
+    });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
+};
+
+// ── Payments (owner parity with receptionist; same service, same guards) ────
+export const ownerAddInvoicePaymentController = async (req, res) => {
+  try {
+    const data = await receptionistAddInvoicePayment(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { amount: Number(req.body?.amount) || 0, mode: req.body?.mode, date: req.body?.date, paidAmount: data?.paidAmount, status: data?.status } });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerUpdateInvoicePaymentController = async (req, res) => {
+  try {
+    const data = await receptionistUpdateInvoicePayment(req.user?._id, req.params.id, req.params.paymentId, req.body || {});
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { paymentId: req.params.paymentId, amount: Number(req.body?.amount) || 0, paidAmount: data?.paidAmount, status: data?.status } });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerDeleteInvoicePaymentController = async (req, res) => {
+  try {
+    const data = await receptionistDeleteInvoicePayment(req.user?._id, req.params.id, req.params.paymentId);
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { removedPaymentId: req.params.paymentId, paidAmount: data?.paidAmount, status: data?.status } });
+    return res.json({ success: true, data });
   } catch (e) { return invFail(res, e); }
 };
 

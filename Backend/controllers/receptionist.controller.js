@@ -43,6 +43,7 @@
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+import { updateInvoiceCore } from "../services/shared/invoices.js";
 import { listFeeSchedules } from "../services/shared/feeSchedules.js";
 import { findPatientsByPhone, medicalFieldsChanged } from "../services/shared/patients.js";
 import { recordAudit } from "../services/shared/audit.js";
@@ -316,13 +317,29 @@ export const listLabBills = async (req, res) => {
   }
 };
 
+/**
+ * Receptionist invoice edit — same shared core the owner uses, so totals are
+ * recomputed server-side and the below-paid rule applies identically.
+ * Receptionists may create/edit/pay but never delete or void (owner-only).
+ */
+export const updateInvoiceCtrl = async (req, res) => {
+  try {
+    const invDoc = await updateInvoiceCore(req.params.id, req.body || {});
+    await recordAudit({ req, action: "invoice.update", entityType: "Invoice", entityId: invDoc.publicId, entityLabel: invDoc.publicId, after: { totalAmount: invDoc.totalAmount, itemCount: (invDoc.items || []).length, feeScheduleId: invDoc.feeScheduleId || "" } });
+    res.json({ success: true, data: { id: invDoc.publicId, totalAmount: invDoc.totalAmount } });
+  } catch (e) {
+    res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
+  }
+};
+
 export const addInvoicePayment = async (req, res) => {
   try {
     const data = await receptionistAddInvoicePayment(req.user._id, req.params.id, req.body);
-    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { amount: req.body?.amount, method: req.body?.method } });
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { amount: req.body?.amount, mode: req.body?.mode, paidAmount: data?.paidAmount, status: data?.status } });
     res.json({ success: true, data });
   } catch (e) {
-    res.status(400).json({ success: false, message: e.message });
+    // 409 from the overpayment guard must survive — the UI keys its toast off it.
+    res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
   }
 };
 
@@ -334,19 +351,21 @@ export const updateInvoicePayment = async (req, res) => {
       req.params.paymentId,
       req.body
     );
-    await recordAudit({ req, action: "invoice.update", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { paymentId: req.params.paymentId, amount: req.body?.amount, method: req.body?.method } });
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { paymentId: req.params.paymentId, amount: req.body?.amount, paidAmount: data?.paidAmount, status: data?.status } });
     res.json({ success: true, data });
   } catch (e) {
-    res.status(400).json({ success: false, message: e.message });
+    res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
   }
 };
 
 export const deleteInvoicePayment = async (req, res) => {
   try {
     const data = await receptionistDeleteInvoicePayment(req.user._id, req.params.id, req.params.paymentId);
+    // Removing a payment moves money — it was the one payment path not audited.
+    await recordAudit({ req, action: "invoice.payment", entityType: "Invoice", entityId: req.params.id, entityLabel: req.params.id, after: { removedPaymentId: req.params.paymentId, paidAmount: data?.paidAmount, status: data?.status } });
     res.json({ success: true, data });
   } catch (e) {
-    res.status(400).json({ success: false, message: e.message });
+    res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
   }
 };
 

@@ -7,7 +7,7 @@ const ACTIONS = [
   "patient.create",      "patient.update",       "patient.delete",
   "appointment.create",  "appointment.update",    "appointment.status_change",
   "appointment.assign",  "appointment.cancel",    "appointment.delete",
-  "invoice.create",      "invoice.payment",       "invoice.update",   "invoice.delete",
+  "invoice.create",      "invoice.payment",       "invoice.update",   "invoice.delete",   "invoice.void",
   "labcase.create",      "labcase.status_change", "labcase.update",  "labcase.delete",
   "prescription.create", "prescription.update",
   "permission.change",

@@ -8,8 +8,13 @@ import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
-import { validateAndPriceItems } from "./shared/invoices.js";
+import {
+  validateAndPriceItems,
+  assertPaymentWithinBalance,
+  assertNotVoided,
+} from "./shared/invoices.js";
 import { getNextSequence } from "./shared/counters.js";
+import { listFeeSchedules } from "./shared/feeSchedules.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
@@ -1090,11 +1095,35 @@ const monthISO = (d = new Date()) => {
   return iso.slice(0, 7); // YYYY-MM
 };
 
+/**
+ * Fee-schedule id -> name, filled by refreshScheduleNames() before mapping.
+ * The config doc is a single document, so one read per request serves every
+ * row rather than a lookup per invoice.
+ */
+let _scheduleNames = new Map();
+let _defaultScheduleName = "";
+
+async function refreshScheduleNames() {
+  try {
+    const list = await listFeeSchedules();
+    _scheduleNames = new Map(list.map((s) => [s.id, s.name]));
+    _defaultScheduleName = list.find((s) => s.isDefault)?.name || "";
+  } catch {
+    // Pricing config unavailable — fall back to blank rather than failing the
+    // whole invoice list over a label.
+    _scheduleNames = new Map();
+    _defaultScheduleName = "";
+  }
+}
+
+const resolveScheduleName = (id) =>
+  (id ? _scheduleNames.get(String(id)) : "") || _defaultScheduleName || "";
+
 const toUiInvoice = (inv) => {
   const totalAmount = Number(inv.totalAmount || 0);
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
   const paidAmount = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const status = invoiceStatus(totalAmount, paidAmount);
+  const status = inv.voidedAt ? "Void" : invoiceStatus(totalAmount, paidAmount);
 
   return {
     id: inv.publicId,
@@ -1105,6 +1134,12 @@ const toUiInvoice = (inv) => {
     dentistId: inv.dentist?.publicId || "",
     dentistName: inv.dentist?.name || "",
     feeScheduleId: inv.feeScheduleId || "",
+    // Resolved name for the detail view and the PDF. Legacy invoices have no
+    // feeScheduleId and fall back to the default schedule's name.
+    feeScheduleName: resolveScheduleName(inv.feeScheduleId),
+    voidedAt: inv.voidedAt || null,
+    voidReason: inv.voidReason || "",
+    isVoid: !!inv.voidedAt,
     date: inv.date,
     totalAmount,
     paidAmount,
@@ -1233,6 +1268,7 @@ export async function receptionistCreateInvoice(_user, body) {
     payments: [],
   });
 
+  await refreshScheduleNames();
   const populated = await Invoice.findById(created._id)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")
@@ -1246,6 +1282,8 @@ export async function receptionistListInvoices(_receptionistId, { q, status, pag
   const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
 
   const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
+
+  await refreshScheduleNames();
 
   const rows = await Invoice.find({})
     .populate("patient", "name publicId mr phone")
@@ -1331,6 +1369,10 @@ export async function receptionistAddInvoicePayment(_receptionistId, invoicePubl
   const inv = await Invoice.findOne({ publicId: invoicePublicId });
   if (!inv) throw new Error("Invoice not found");
 
+  assertNotVoided(inv);
+  // AUTHORITATIVE overpayment guard — the UI cap is only a convenience.
+  assertPaymentWithinBalance(inv, amount);
+
   inv.payments = inv.payments || [];
   inv.payments.push({
     publicId: await generatePaymentPublicId(inv),
@@ -1341,6 +1383,7 @@ export async function receptionistAddInvoicePayment(_receptionistId, invoicePubl
 
   await inv.save();
 
+  await refreshScheduleNames();
   const populated = await Invoice.findById(inv._id)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")
@@ -1360,10 +1403,15 @@ export async function receptionistUpdateInvoicePayment(_receptionistId, invoiceP
   const p = (inv.payments || []).find((x) => x.publicId === paymentPublicId);
   if (!p) throw new Error("Payment not found");
 
+  assertNotVoided(inv);
+  // Re-validate against the balance WITHOUT counting this payment's old value.
+  assertPaymentWithinBalance(inv, amount, paymentPublicId);
+
   p.amount = amount;
 
   await inv.save();
 
+  await refreshScheduleNames();
   const populated = await Invoice.findById(inv._id)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")
@@ -1384,6 +1432,7 @@ export async function receptionistDeleteInvoicePayment(_receptionistId, invoiceP
 
   await inv.save();
 
+  await refreshScheduleNames();
   const populated = await Invoice.findById(inv._id)
     .populate("patient", "name publicId mr phone")
     .populate("dentist", "name publicId specialization")

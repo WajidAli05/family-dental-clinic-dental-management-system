@@ -15,7 +15,9 @@ const buildRange = (dateFrom, dateTo) => {
 export async function revenueCollected(dateFrom, dateTo) {
   const range = buildRange(dateFrom, dateTo);
 
-  const pipeline = [{ $unwind: "$payments" }];
+  // Voided invoices keep their payment records but are excluded from ACTIVE
+  // revenue. `voidedAt: null` also matches legacy docs that predate the field.
+  const pipeline = [{ $match: { voidedAt: null } }, { $unwind: "$payments" }];
   if (range) pipeline.push({ $match: { "payments.date": range } });
   pipeline.push({ $group: { _id: null, total: { $sum: "$payments.amount" } } });
 
@@ -31,6 +33,7 @@ export async function outstanding(dateFrom, dateTo) {
   const range = buildRange(dateFrom, dateTo);
 
   const pipeline = [
+    { $match: { voidedAt: null } }, // voided invoices are owed by nobody
     range ? { $match: { date: range } } : null,
     {
       $project: {

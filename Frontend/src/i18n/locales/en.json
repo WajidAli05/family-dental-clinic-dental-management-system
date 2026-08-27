@@ -368,7 +368,29 @@
     "status": {
       "paid": "Paid",
       "partial": "Partial",
-      "pending": "Unpaid"
-    }
+      "pending": "Unpaid",
+      "void": "Void"
+    },
+    "pay": "Pay",
+    "receivePayment": "Receive Payment",
+    "amount": "Amount",
+    "method": "Method",
+    "confirmPayment": "Confirm Payment",
+    "balanceDue": "Balance Due",
+    "noPayments": "No payments recorded yet.",
+    "paymentRecorded": "Payment recorded",
+    "alreadySettled": "This invoice is already paid in full.",
+    "exceedsBalance": "Payment exceeds the balance due ({{amount}} remaining).",
+    "void": "VOID",
+    "voidAction": "Void",
+    "voided": "Invoice voided",
+    "cancel": "Cancel",
+    "voidTitle": "Void invoice",
+    "voidSubtitle": "Retire this invoice without deleting it.",
+    "voidExplainer": "Voiding keeps the invoice and every payment record, and removes it from active revenue and outstanding figures. This cannot be undone.",
+    "voidReason": "Reason",
+    "voidReasonPlaceholder": "e.g. Billed in error / duplicate invoice",
+    "voidNoPayments": "This invoice is void — no further payments can be recorded.",
+    "deleteVoidHint": "This invoice is void. A void invoice is kept as a record and cannot be deleted."
   }
 }

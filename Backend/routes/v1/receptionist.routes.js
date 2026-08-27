@@ -33,6 +33,7 @@ import {
   updateInvoicePayment,
   deleteInvoicePayment,
   createInvoice,
+  updateInvoiceCtrl,
   listInventory,
   inventoryStats,
   createInventoryItem,
@@ -88,6 +89,7 @@ router.get("/sample-types", requirePermission("tab_receptionist_lab_samples"), g
 // billing tab
 router.get("/invoices", requirePermission("tab_receptionist_billing"), listInvoices);
 router.post("/invoices", requirePermission("tab_receptionist_billing"), createInvoice);
+router.patch("/invoices/:id", requirePermission("tab_receptionist_billing"), updateInvoiceCtrl);
 router.get("/billing/stats", requirePermission("tab_receptionist_billing"), billingStats);
 router.get("/lab-bills", requirePermission("tab_receptionist_billing"), listLabBills);
 router.post("/invoices/:id/payments", requirePermission("tab_receptionist_billing"), addInvoicePayment);
