@@ -72,6 +72,12 @@ import {
 
       ownerClinicalMasterGetAllController,
   ownerListFeeSchedulesController,
+  ownerListInvoicesController,
+  ownerGetInvoiceFeeSchedulesController,
+  ownerGetCatalogTreatmentsController,
+  ownerCreateInvoiceController,
+  ownerUpdateInvoiceController,
+  ownerDeleteInvoiceController,
   ownerCreateFeeScheduleController,
   ownerRenameFeeScheduleController,
   ownerSetDefaultFeeScheduleController,
@@ -209,6 +215,14 @@ router.post("/inventory/purchases", ownerInventoryCreatePurchaseController);
 router.get("/clinical-master", ownerClinicalMasterGetAllController);
 
 // Treatments
+// Invoices — owner create/edit/soft-delete (financial records: never hard-deleted).
+router.get("/invoices", ownerListInvoicesController);
+router.post("/invoices", ownerCreateInvoiceController);
+router.patch("/invoices/:id", ownerUpdateInvoiceController);
+router.delete("/invoices/:id", ownerDeleteInvoiceController);
+router.get("/invoice-fee-schedules", ownerGetInvoiceFeeSchedulesController);
+router.get("/catalog/treatments", ownerGetCatalogTreatmentsController);
+
 // Fee schedules — same clinical-master surface, owner-gated at the mount.
 router.get("/clinical-master/fee-schedules", ownerListFeeSchedulesController);
 router.post("/clinical-master/fee-schedules", ownerCreateFeeScheduleController);

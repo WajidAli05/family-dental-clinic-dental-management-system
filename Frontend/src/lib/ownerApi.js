@@ -68,6 +68,14 @@ export const ownerApi = {
   getDentists: () => request("/owner/dentists"),
   getLabs: () => request("/owner/labs"),
 
+  // billing — invoices (owner create / edit / soft-delete)
+  listInvoices: (params) => request("/owner/invoices", { params }),
+  createInvoice: (body) => request("/owner/invoices", { method: "POST", body }),
+  updateInvoice: (id, body) => request(`/owner/invoices/${id}`, { method: "PATCH", body }),
+  deleteInvoice: (id) => request(`/owner/invoices/${id}`, { method: "DELETE" }),
+  getInvoiceFeeSchedules: () => request("/owner/invoice-fee-schedules"),
+  getCatalogTreatments: (params) => request("/owner/catalog/treatments", { params }),
+
   // billing
   getBillingPayments: (params) => request("/owner/billing/payments", { params }),
   getBillingLabBills: (params) => request("/owner/billing/lab-bills", { params }),

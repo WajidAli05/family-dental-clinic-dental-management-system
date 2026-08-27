@@ -39,6 +39,7 @@ import {
   updateInventoryItem,
   deleteInventoryItem,
   getCatalogTreatments,
+  getInvoiceFeeSchedules,
   getCatalogSampleTypes,
   phoneCheckReceptionistPatients,
 } from "../../controllers/receptionist.controller.js";
@@ -102,6 +103,7 @@ router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"),
 
 // price catalog (read-only — billing tab permission since used in invoice creation)
 router.get("/catalog/treatments", requirePermission("tab_receptionist_billing"), getCatalogTreatments);
+router.get("/fee-schedules", requirePermission("tab_receptionist_billing"), getInvoiceFeeSchedules);
 router.get("/catalog/sample-types", requirePermission("tab_receptionist_billing"), getCatalogSampleTypes);
 
 export default router;

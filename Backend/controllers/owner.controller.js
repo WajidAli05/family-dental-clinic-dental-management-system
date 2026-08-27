@@ -94,6 +94,18 @@ import {
 import { findPatientsByPhone, medicalFieldsChanged } from "../services/shared/patients.js";
 import { recordAudit } from "../services/shared/audit.js";
 import {
+  receptionistCreateInvoice,
+  receptionistListInvoices,
+} from "../services/receptionist.service.js";
+import {
+  updateInvoiceCore,
+  softDeleteInvoiceCore,
+  loadInvoice,
+  paidTotal,
+} from "../services/shared/invoices.js";
+import { listFeeSchedules as listInvoiceFeeSchedules } from "../services/shared/feeSchedules.js";
+import { getActiveTreatments } from "../services/shared/catalog.js";
+import {
   listFeeSchedules,
   createFeeSchedule,
   renameFeeSchedule,
@@ -546,6 +558,70 @@ export const ownerClinicalMasterGetAllController = async (req, res) => {
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
+};
+
+
+// ==============================
+// INVOICES (OWNER) — create / edit / soft-delete
+// Owner-only by mount: router.use("/owner", auth(["owner"]), ownerRoutes).
+// Create + list reuse the receptionist service verbatim so the two roles can
+// never drift; edit/delete live in shared/invoices.js for the same reason.
+// ==============================
+const invFail = (res, e) =>
+  res.status(e.status || 400).json({ success: false, message: e.message });
+
+export const ownerListInvoicesController = async (req, res) => {
+  try {
+    const result = await receptionistListInvoices(req.user?._id, req.query || {});
+    return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) { return invFail(res, e); }
+};
+
+/** Priced treatment catalogue for the invoice modal (owner side). */
+export const ownerGetCatalogTreatmentsController = async (req, res) => {
+  try {
+    const { page, limit, scheduleId } = req.query;
+    const result = await getActiveTreatments({ page, limit, scheduleId });
+    return res.json({ success: true, data: result.rows, rows: result.rows, total: result.total });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerGetInvoiceFeeSchedulesController = async (_req, res) => {
+  try {
+    return res.json({ success: true, data: await listInvoiceFeeSchedules() });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerCreateInvoiceController = async (req, res) => {
+  try {
+    const data = await receptionistCreateInvoice(req.user, req.body || {});
+    // Money figures are business data, not PHI. No patient names in the log.
+    await recordAudit({ req, action: "invoice.create", entityType: "Invoice", entityId: data?.id, entityLabel: data?.id, after: { totalAmount: data?.totalAmount, itemCount: data?.items?.length ?? 0, feeScheduleId: data?.feeScheduleId || "" } });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerUpdateInvoiceController = async (req, res) => {
+  try {
+    const before = await loadInvoice(req.params.id);
+    const beforeTotal = Number(before.totalAmount) || 0;
+
+    const inv = await updateInvoiceCore(req.params.id, req.body || {});
+    await recordAudit({
+      req, action: "invoice.update", entityType: "Invoice", entityId: inv.publicId, entityLabel: inv.publicId,
+      before: { totalAmount: beforeTotal },
+      after: { totalAmount: inv.totalAmount, itemCount: (inv.items || []).length, feeScheduleId: inv.feeScheduleId || "", paidAmount: paidTotal(inv) },
+    });
+    return res.json({ success: true, data: { id: inv.publicId, totalAmount: inv.totalAmount } });
+  } catch (e) { return invFail(res, e); }
+};
+
+export const ownerDeleteInvoiceController = async (req, res) => {
+  try {
+    const data = await softDeleteInvoiceCore(req.params.id);
+    await recordAudit({ req, action: "invoice.delete", entityType: "Invoice", entityId: data.id, entityLabel: data.id, after: { softDeleted: true } });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
 };
 
 // ---------- Fee schedules ----------

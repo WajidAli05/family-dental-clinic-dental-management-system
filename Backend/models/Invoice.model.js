@@ -26,6 +26,9 @@ const itemSchema = new Schema(
     unitPrice: { type: Number, min: 0, required: true },
     qty: { type: Number, min: 1, default: 1 },
     lineTotal: { type: Number, min: 0, required: true },
+    // True when the user typed a price instead of taking the fee schedule's.
+    // Recorded so a discounted line is never mistaken for the schedule price.
+    priceOverridden: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -41,6 +44,10 @@ const invoiceSchema = new Schema(
     totalAmount: { type: Number, min: 0, required: true },
 
     items: { type: [itemSchema], default: [] }, // optional; when present, totalAmount MUST be server-computed
+
+    // Which price list the treatment lines were quoted from. "" = the default
+    // schedule (also what every pre-existing invoice means).
+    feeScheduleId: { type: String, default: "" },
 
     payments: { type: [paymentSchema], default: [] },
   },

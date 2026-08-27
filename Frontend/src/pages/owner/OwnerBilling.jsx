@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
@@ -6,6 +8,10 @@ import OwnerBillingTabs from "@/components/owner/OwnerBillingTabs";
 import OwnerBillingFilters from "@/components/owner/OwnerBillingFilters";
 import OwnerBillingCharts from "@/components/owner/OwnerBillingCharts";
 import DailyCashbookTable from "@/components/owner/DailyCashbookTable";
+import OwnerInvoicesTable from "@/components/owner/OwnerInvoicesTable";
+import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
+import CreateInvoiceModal from "@/components/receptionist/CreateInvoiceModal";
+import { ownerApi } from "@/lib/ownerApi";
 import CommissionsTable from "@/components/owner/CommissionsTable";
 import LabDuesTable from "@/components/owner/LabDuesTable";
 import TableSkeleton from "@/components/ui/TableSkeleton";
@@ -139,6 +145,37 @@ const Drawer = ({ open, onClose, title, children }) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const OwnerBilling = () => {
   const money = useFormatMoney();
+  const { t } = useTranslation();
+
+  // ── Invoices tab (owner create / edit / soft-delete) ──
+  const [invoices, setInvoices] = useState([]);
+  const [invLoading, setInvLoading] = useState(false);
+  const [invSchedules, setInvSchedules] = useState([]);
+  const [invModalOpen, setInvModalOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const loadInvoices = useCallback(async () => {
+    setInvLoading(true);
+    try {
+      const [invRes, schRes] = await Promise.all([
+        ownerApi.listInvoices({ limit: 200 }),
+        ownerApi.getInvoiceFeeSchedules().catch(() => ({ data: [] })),
+      ]);
+      setInvoices(invRes?.data || []);
+      setInvSchedules(schRes?.data || []);
+    } catch (e) {
+      toast.error(e.message || t("invoices.loadError"));
+    } finally {
+      setInvLoading(false);
+    }
+  }, [t]);
+
+  const scheduleNameOf = useMemo(
+    () => (id) => invSchedules.find((x) => x.id === id)?.name || "",
+    [invSchedules]
+  );
+
   const activeTab      = useOwnerBillingStore((s) => s.activeTab);
   const setActiveTab   = useOwnerBillingStore((s) => s.setActiveTab);
   const filters        = useOwnerBillingStore((s) => s.filters);
@@ -172,6 +209,7 @@ const OwnerBilling = () => {
 
   // initial load
   useEffect(() => { fetchCashbook(); }, []);
+  useEffect(() => { if (activeTab === "invoices") loadInvoices(); }, [activeTab, loadInvoices]);
   useEffect(() => { if (activeTab === "commissions") fetchCommissions(); }, [activeTab]);
   useEffect(() => { if (activeTab === "labDues") fetchLabDues(); }, [activeTab]);
 
@@ -240,6 +278,14 @@ const OwnerBilling = () => {
             Export CSV
           </Button>
         )}
+        {activeTab === "invoices" && (
+          <Button
+            className="rounded-xl bg-[#2ec4b6] hover:bg-[#26a699] text-white"
+            onClick={() => { setEditingInvoice(null); setInvModalOpen(true); }}
+          >
+            {t("invoices.create")}
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -296,6 +342,16 @@ const OwnerBilling = () => {
             <>
               {activeTab === "cashbook" && (
                 <DailyCashbookTable data={cbTxns.rows || []} />
+              )}
+              {activeTab === "invoices" && (
+                invLoading ? <TableSkeleton rows={8} cols={8} /> : (
+                  <OwnerInvoicesTable
+                    data={invoices}
+                    scheduleNameOf={scheduleNameOf}
+                    onEdit={(inv) => { setEditingInvoice(inv); setInvModalOpen(true); }}
+                    onDelete={(inv) => setDeleteTarget(inv)}
+                  />
+                )
               )}
               {activeTab === "commissions" && (
                 <CommissionsTable
@@ -384,6 +440,35 @@ const OwnerBilling = () => {
           </div>
         )}
       </Drawer>
+
+      {/* The SAME modal the receptionist uses — `api` swaps the role client and
+          `invoice` puts it in edit mode. No second invoice form exists. */}
+      <CreateInvoiceModal
+        open={invModalOpen}
+        onOpenChange={(v) => { setInvModalOpen(v); if (!v) setEditingInvoice(null); }}
+        api={ownerApi}
+        invoice={editingInvoice}
+        onSaved={loadInvoices}
+      />
+
+      <OwnerConfirmDialog
+        open={!!deleteTarget}
+        title={t("invoices.deleteTitle")}
+        message={t("invoices.deleteMessage", { id: deleteTarget?.id || "" })}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          try {
+            await ownerApi.deleteInvoice(target.id);
+            toast.success(t("invoices.deleted"));
+            await loadInvoices();
+          } catch (e) {
+            // Server blocks deleting an invoice that carries payments (409).
+            toast.error(e.message || t("invoices.actionFailed"));
+          }
+        }}
+      />
     </div>
   );
 };

@@ -343,5 +343,32 @@
     "inheritedHint": "لا يوجد سعر محدد في هذا الجدول — موروث من الافتراضي.",
     "resetToInherited": "توريث",
     "resetToInheritedHint": "أزل سعر هذا الجدول ليعود إلى وراثة الافتراضي."
+  },
+  "invoices": {
+    "print": "طباعة",
+    "edit": "تعديل",
+    "create": "فاتورة جديدة",
+    "empty": "لا توجد فواتير بعد.",
+    "loadError": "تعذّر تحميل الفواتير",
+    "actionFailed": "فشل الإجراء",
+    "deleted": "تم حذف الفاتورة",
+    "feeSchedule": "جدول الأسعار",
+    "defaultSchedule": "افتراضي",
+    "colInvoice": "الفاتورة",
+    "colPatient": "المريض",
+    "colDate": "التاريخ",
+    "colSchedule": "جدول الأسعار",
+    "colTotal": "الإجمالي",
+    "colPaid": "المدفوع",
+    "colStatus": "الحالة",
+    "colActions": "إجراءات",
+    "deleteTitle": "حذف الفاتورة",
+    "deleteMessage": "سيؤدي هذا إلى إزالة الفاتورة {{id}} من القوائم. يُحتفظ بالسجل ولا يُمحى.",
+    "deleteBlockedHint": "توجد مدفوعات مسجلة على هذه الفاتورة. أزل المدفوعات أولاً.",
+    "status": {
+      "paid": "مدفوعة",
+      "partial": "جزئية",
+      "pending": "غير مدفوعة"
+    }
   }
 }

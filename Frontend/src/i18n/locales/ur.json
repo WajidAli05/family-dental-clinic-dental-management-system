@@ -343,5 +343,32 @@
     "inheritedHint": "اس شیڈول پر کوئی قیمت مقرر نہیں — ڈیفالٹ سے لی گئی ہے۔",
     "resetToInherited": "وراثت",
     "resetToInheritedHint": "اس شیڈول کی قیمت ہٹا دیں تاکہ یہ دوبارہ ڈیفالٹ سے لے۔"
+  },
+  "invoices": {
+    "print": "پرنٹ",
+    "edit": "ترمیم",
+    "create": "نیا انوائس",
+    "empty": "ابھی کوئی انوائس نہیں۔",
+    "loadError": "انوائسز لوڈ نہیں ہو سکے",
+    "actionFailed": "کارروائی ناکام",
+    "deleted": "انوائس حذف ہو گیا",
+    "feeSchedule": "فیس شیڈول",
+    "defaultSchedule": "ڈیفالٹ",
+    "colInvoice": "انوائس",
+    "colPatient": "مریض",
+    "colDate": "تاریخ",
+    "colSchedule": "فیس شیڈول",
+    "colTotal": "کل",
+    "colPaid": "ادا شدہ",
+    "colStatus": "حالت",
+    "colActions": "اقدامات",
+    "deleteTitle": "انوائس حذف کریں",
+    "deleteMessage": "یہ انوائس {{id}} کو فہرست سے ہٹا دے گا۔ ریکارڈ محفوظ رہے گا، مٹایا نہیں جائے گا۔",
+    "deleteBlockedHint": "اس انوائس کے خلاف ادائیگیاں درج ہیں۔ پہلے ادائیگیاں ہٹائیں۔",
+    "status": {
+      "paid": "ادا شدہ",
+      "partial": "جزوی",
+      "pending": "غیر ادا شدہ"
+    }
   }
 }

@@ -1,5 +1,5 @@
 // Single source of truth for clinic identity.
-// Consumed by printPrescription (jsPDF) and printInvoice (HTML/window.print).
+// Consumed by printPrescription and printInvoice (both jsPDF).
 
 export const CLINIC = {
   name:    "FAMILY DENTAL CLINIC",

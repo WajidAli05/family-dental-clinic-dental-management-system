@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   Dialog,
@@ -32,6 +33,7 @@ import { useBillingStore } from "@/store/billingStore";
 import { useCatalogStore } from "@/store/catalogStore";
 import { useOwnerSettingsStore } from "@/store/ownerSettingsStore";
 import { receptionistApi } from "@/lib/receptionistApi";
+import { receptionistBillingApi } from "@/lib/receptionistBillingApi";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
 import {
@@ -59,7 +61,19 @@ const KIND_LABEL = {
   lab_sample: "Lab",
 };
 
-const CreateInvoiceModal = ({ open, onOpenChange }) => {
+/**
+ * Shared invoice modal — used by BOTH the receptionist billing tab and the
+ * owner Billing & Financials tab. `api` swaps the role-scoped client and
+ * `invoice` puts it in edit mode; everything else is identical, so there is
+ * exactly one invoice form in the app.
+ *
+ * Prices are never computed here beyond line totals for display: treatment
+ * unit prices come from the server's getTreatmentFee for the selected fee
+ * schedule, and the server re-resolves them on submit.
+ */
+const CreateInvoiceModal = ({ open, onOpenChange, api = null, invoice = null, onSaved }) => {
+  const isEdit = !!invoice;
+  const { t } = useTranslation();
   const PKR = useFormatMoney();
   const { lookupPatient } = usePatientStore();
   const { createInvoice } = useBillingStore();
@@ -86,6 +100,8 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
 
   // ── Line items ──
   const [items, setItems] = useState([]);
+  const [feeScheduleId, setFeeScheduleId] = useState("");
+  const [schedules, setSchedules] = useState([]);
   const [pendingTreatment, setPendingTreatment] = useState("");
   const [pendingSampleType, setPendingSampleType] = useState("");
 
@@ -109,6 +125,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
     setItems([]);
     setPendingTreatment("");
     setPendingSampleType("");
+    setFeeScheduleId("");
     setIsSubmitting(false);
     setNotification(null);
   }, []);
@@ -128,11 +145,78 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
       .then((res) => setDentists(res?.data || []))
       .catch(() => {})
       .finally(() => setDentistLoading(false));
+
+    // Price lists available to quote from; the default is preselected.
+    const loadSchedules = api?.getInvoiceFeeSchedules
+      ? api.getInvoiceFeeSchedules()
+      : receptionistBillingApi.getFeeSchedules();
+    loadSchedules
+      .then((res) => {
+        const list = res?.data || [];
+        setSchedules(list);
+        setFeeScheduleId((cur) => cur || invoice?.feeScheduleId || list.find((x) => x.isDefault)?.id || "");
+      })
+      .catch(() => setSchedules([]));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add consultation line when patient is found
+  // EDIT MODE — hydrate the form from the invoice being edited.
   useEffect(() => {
-    if (!patient) return;
+    if (!open || !invoice) return;
+    setPatient({
+      id: invoice.patientId || "",
+      name: invoice.patientName || "",
+      mr: invoice.mr,
+      phone: invoice.patientPhone || "",
+    });
+    setDate(invoice.date || todayISO());
+    setDentistId(invoice.dentistId || "");
+    setFeeScheduleId(invoice.feeScheduleId || "");
+    setItems(
+      (invoice.items || []).map((it) => ({
+        kind: it.kind,
+        refId: it.refId || "",
+        name: it.name,
+        unitPrice: Number(it.unitPrice) || 0,
+        qty: Number(it.qty) || 1,
+        lineTotal: Number(it.lineTotal) || 0,
+        priceOverridden: !!it.priceOverridden,
+      }))
+    );
+  }, [open, invoice]);
+
+  /**
+   * Re-price treatment lines when the fee schedule changes.
+   * Lines the user typed a price into (priceOverridden) are left alone — the
+   * manual override wins. Consultation and lab lines are not schedule-priced.
+   */
+  useEffect(() => {
+    if (!open || !feeScheduleId) return;
+    let alive = true;
+    const client = api?.getCatalogTreatments
+      ? api.getCatalogTreatments({ limit: 500, scheduleId: feeScheduleId })
+      : receptionistBillingApi.getCatalogTreatments({ limit: 500, scheduleId: feeScheduleId });
+
+    client
+      .then((res) => {
+        if (!alive) return;
+        const priced = new Map((res?.data || res?.rows || []).map((t) => [t.id, Number(t.fee) || 0]));
+        setItems((prev) =>
+          prev.map((it) => {
+            if (it.kind !== "treatment" || it.priceOverridden) return it;
+            if (!priced.has(it.refId)) return it;
+            const unitPrice = priced.get(it.refId);
+            return { ...it, unitPrice, lineTotal: unitPrice * (Number(it.qty) || 1) };
+          })
+        );
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [open, feeScheduleId, api]);
+
+  // Add consultation line when patient is found (create mode only — an edit
+  // hydrates its own lines and must not have them replaced).
+  useEffect(() => {
+    if (!patient || isEdit) return;
     setItems([
       {
         kind: "consultation",
@@ -167,6 +251,8 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
       if (field === "unitPrice") {
         it.unitPrice = Math.max(0, Number(rawVal) || 0);
         it.lineTotal = it.unitPrice * (Number(it.qty) || 1);
+        // A hand-typed price wins for this line and survives schedule switches.
+        it.priceOverridden = true;
       } else if (field === "qty") {
         it.qty = Math.max(1, Number(rawVal) || 1);
         it.lineTotal = (Number(it.unitPrice) || 0) * it.qty;
@@ -189,9 +275,12 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
         kind: "treatment",
         refId: t.id,
         name: t.name,
+        // Resolved by the server for the active schedule; re-prices on switch
+        // until the user edits it (which sets priceOverridden).
         unitPrice: Number(t.fee) || 0,
         qty: 1,
         lineTotal: Number(t.fee) || 0,
+        priceOverridden: false,
       },
     ]);
     setPendingTreatment("");
@@ -236,10 +325,11 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
 
     setIsSubmitting(true);
     try {
-      await createInvoice({
+      const payload = {
         patientId: patient.id || patient.publicId,
         dentistId: dentistId || undefined,
         date,
+        feeScheduleId: feeScheduleId || undefined,
         items: items.map((it) => ({
           kind: it.kind,
           refId: it.refId || "",
@@ -247,10 +337,21 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
           unitPrice: Number(it.unitPrice) || 0,
           qty: Number(it.qty) || 1,
           lineTotal: Number(it.lineTotal) || 0,
+          priceOverridden: !!it.priceOverridden,
         })),
-      });
+      };
 
-      setNotification({ type: "success", message: `Invoice created for ${patient.name}.` });
+      // Totals are recomputed server-side either way — the running total here
+      // is only a preview.
+      if (isEdit) await api.updateInvoice(invoice.id, payload);
+      else if (api) await api.createInvoice(payload);
+      else await createInvoice(payload);
+
+      onSaved?.();
+      setNotification({
+        type: "success",
+        message: isEdit ? `Invoice ${invoice.id} updated.` : `Invoice created for ${patient.name}.`,
+      });
       setTimeout(() => {
         setIsSubmitting(false);
         onOpenChange(false);
@@ -267,7 +368,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ReceiptText className="w-5 h-5 text-[#2ec4b6]" />
-            Create Invoice
+            {isEdit ? `Edit Invoice ${invoice.id}` : "Create Invoice"}
           </DialogTitle>
         </DialogHeader>
 
@@ -316,8 +417,8 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
               </div>
             </Card>
 
-            {/* Date + Dentist */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Date + Dentist + Fee schedule */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
                 <Label>Date</Label>
                 <Input
@@ -344,6 +445,29 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
                       <SelectItem key={d.id} value={d.id}>
                         {d.name}
                         {d.specialization ? ` — ${d.specialization}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fee schedule — treatment lines re-price from this. */}
+              <div className="space-y-1">
+                <Label>{t("invoices.feeSchedule")}</Label>
+                <Select
+                  value={feeScheduleId || undefined}
+                  onValueChange={setFeeScheduleId}
+                  disabled={isSubmitting || schedules.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("invoices.feeSchedule")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schedules.map((sch) => (
+                      <SelectItem key={sch.id} value={sch.id}>
+                        {/* Schedule names are user data — never translated. */}
+                        {sch.name}
+                        {sch.isDefault ? ` (${t("invoices.defaultSchedule")})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -436,7 +560,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
                         <TableHead>Name</TableHead>
                         <TableHead className="w-28">Unit Price</TableHead>
                         <TableHead className="w-16">Qty</TableHead>
-                        <TableHead className="w-28 text-right">Total</TableHead>
+                        <TableHead className="w-28 text-end">Total</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -473,7 +597,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
                               className="h-7 w-14 text-sm"
                             />
                           </TableCell>
-                          <TableCell className="text-right text-sm font-medium">
+                          <TableCell className="text-end text-sm font-medium">
                             {PKR(it.lineTotal)}
                           </TableCell>
                           <TableCell>
@@ -497,7 +621,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
 
               {/* Running total */}
               <div className="flex justify-end pt-1">
-                <div className="text-right">
+                <div className="text-end">
                   <p className="text-xs text-gray-500">Invoice Total</p>
                   <p className="text-2xl font-bold text-gray-900">{PKR(runningTotal)}</p>
                 </div>
@@ -518,7 +642,7 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
                 ) : (
                   <XCircle className="h-4 w-4 text-red-600" />
                 )}
-                <AlertDescription className="ml-2">
+                <AlertDescription className="ms-2">
                   {notification.message}
                 </AlertDescription>
               </Alert>
@@ -540,13 +664,13 @@ const CreateInvoiceModal = ({ open, onOpenChange }) => {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 me-2 animate-spin" />
                     Creating...
                   </>
                 ) : (
                   <>
-                    <ReceiptText className="w-4 h-4 mr-2" />
-                    Create Invoice
+                    <ReceiptText className="w-4 h-4 me-2" />
+                    {isEdit ? `Edit Invoice ${invoice.id}` : "Create Invoice"}
                   </>
                 )}
               </Button>

@@ -43,6 +43,7 @@
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
+import { listFeeSchedules } from "../services/shared/feeSchedules.js";
 import { findPatientsByPhone, medicalFieldsChanged } from "../services/shared/patients.js";
 import { recordAudit } from "../services/shared/audit.js";
 
@@ -413,9 +414,20 @@ export const deleteInventoryItem = async (req, res) => {
 // ── Catalog (read-only price catalog for receptionist) ──
 export const getCatalogTreatments = async (req, res) => {
   try {
-    const { page, limit } = req.query;
-    const result = await getActiveTreatments({ page, limit });
-    res.json({ success: true, rows: result.rows, total: result.total, page: result.page, pages: result.pages });
+    // scheduleId lets the invoice modal price the catalogue from the chosen
+    // fee schedule; omitted => default schedule (identical to before).
+    const { page, limit, scheduleId } = req.query;
+    const result = await getActiveTreatments({ page, limit, scheduleId });
+    res.json({ success: true, rows: result.rows, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/** Price lists the invoice modal can quote from (read-only). */
+export const getInvoiceFeeSchedules = async (_req, res) => {
+  try {
+    res.json({ success: true, data: await listFeeSchedules() });
   } catch (e) {
     res.status(500).json({ success: false, message: e.message });
   }

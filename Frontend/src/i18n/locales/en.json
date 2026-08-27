@@ -343,5 +343,32 @@
     "inheritedHint": "No price set on this schedule — inherited from the default.",
     "resetToInherited": "Inherit",
     "resetToInheritedHint": "Remove this schedule's price so it inherits the default again."
+  },
+  "invoices": {
+    "print": "Print",
+    "edit": "Edit",
+    "create": "New Invoice",
+    "empty": "No invoices yet.",
+    "loadError": "Could not load invoices",
+    "actionFailed": "Action failed",
+    "deleted": "Invoice deleted",
+    "feeSchedule": "Fee schedule",
+    "defaultSchedule": "Default",
+    "colInvoice": "Invoice",
+    "colPatient": "Patient",
+    "colDate": "Date",
+    "colSchedule": "Fee schedule",
+    "colTotal": "Total",
+    "colPaid": "Paid",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "deleteTitle": "Delete invoice",
+    "deleteMessage": "This will remove invoice {{id}} from listings. The record is retained, not erased.",
+    "deleteBlockedHint": "This invoice has payments recorded against it. Remove the payments first.",
+    "status": {
+      "paid": "Paid",
+      "partial": "Partial",
+      "pending": "Unpaid"
+    }
   }
 }

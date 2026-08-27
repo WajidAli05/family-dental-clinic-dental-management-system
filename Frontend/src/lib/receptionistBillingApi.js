@@ -48,6 +48,8 @@ async function request(path, { method = "GET", body, params } = {}) {
 export const receptionistBillingApi = {
   // ---------- INVOICES ----------
   listInvoices: (params) => request("/receptionist/invoices", { params }),
+  // Price lists the invoice modal can quote treatment lines from.
+  getFeeSchedules: () => request("/receptionist/fee-schedules"),
 
   // ✅ NEW: create invoice (backend should have POST /receptionist/invoices)
   createInvoice: (body) =>

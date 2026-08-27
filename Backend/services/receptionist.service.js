@@ -8,6 +8,8 @@ import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
+import { validateAndPriceItems } from "./shared/invoices.js";
+import { getNextSequence } from "./shared/counters.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
@@ -562,6 +564,7 @@ export async function receptionistCreateAppointment(_user, body) {
   const time = String(body?.time || "").trim();
   const reason = String(body?.reason || "").trim();
 
+  const feeScheduleId = String(body?.feeScheduleId || "").trim();
   const patientKey = body?.patientId || body?.mr || body?.phone;
   const dentistKey = body?.dentistId || body?.dentist || body?.dentistName;
 
@@ -1097,6 +1100,11 @@ const toUiInvoice = (inv) => {
     id: inv.publicId,
     mr: inv.patient?.mr ?? null,
     patientName: inv.patient?.name || "",
+    // The itemised PDF prints patient ID, dentist and the quoting schedule.
+    patientId: inv.patient?.publicId || "",
+    dentistId: inv.dentist?.publicId || "",
+    dentistName: inv.dentist?.name || "",
+    feeScheduleId: inv.feeScheduleId || "",
     date: inv.date,
     totalAmount,
     paidAmount,
@@ -1109,6 +1117,7 @@ const toUiInvoice = (inv) => {
           unitPrice: Number(it.unitPrice) || 0,
           qty: Number(it.qty) || 1,
           lineTotal: Number(it.lineTotal) || 0,
+          priceOverridden: !!it.priceOverridden,
         }))
       : [],
     payments: payments.map((p) => ({
@@ -1121,14 +1130,31 @@ const toUiInvoice = (inv) => {
   };
 };
 
+/**
+ * Atomic invoice number via the shared Counter.
+ *
+ * The previous countDocuments()+exists() loop read THROUGH the softDelete
+ * filter, so a soft-deleted invoice made the count fall back and made its
+ * publicId look free — while the unique index (which does not ignore
+ * soft-deleted rows) still held it. The next create then died on a duplicate
+ * key. Two invoices created concurrently could also collide.
+ *
+ * The seed scans with includeDeleted so retired numbers are never reissued.
+ */
 async function generateInvoicePublicId() {
-  let n = (await Invoice.countDocuments({})) + 1001;
-  while (true) {
-    const publicId = `INV-${n}`;
-    const exists = await Invoice.exists({ publicId });
-    if (!exists) return publicId;
-    n += 1;
-  }
+  const seq = await getNextSequence("invoice", async () => {
+    const rows = await Invoice.find({})
+      .setOptions({ includeDeleted: true })
+      .select("publicId")
+      .lean();
+    let max = 1000;
+    for (const r of rows) {
+      const m = /^INV-(\d+)$/.exec(String(r.publicId || ""));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return max;
+  });
+  return `INV-${seq}`;
 }
 
 async function generatePaymentPublicId(invoice) {
@@ -1141,6 +1167,7 @@ export async function receptionistCreateInvoice(_user, body) {
   const date = String(body?.date || "").trim();
   const rawItems = Array.isArray(body?.items) ? body.items : [];
 
+  const feeScheduleId = String(body?.feeScheduleId || "").trim();
   const patientKey = body?.patientId || body?.mr || body?.phone;
   const dentistKey = body?.dentistId || body?.dentist || body?.dentistName; // optional
 
@@ -1152,22 +1179,12 @@ export async function receptionistCreateInvoice(_user, body) {
   let validatedItems = [];
 
   if (rawItems.length > 0) {
-    const validKinds = ["consultation", "treatment", "lab_sample"];
-    for (const it of rawItems) {
-      if (!validKinds.includes(it.kind)) throw new Error(`Invalid item kind: ${it.kind}`);
-      if (!String(it.name || "").trim()) throw new Error("Item name is required");
-      if (Number(it.unitPrice) < 0) throw new Error("Item unitPrice cannot be negative");
-      if (Number(it.qty) < 1) throw new Error("Item qty must be at least 1");
-      validatedItems.push({
-        kind: it.kind,
-        refId: String(it.refId || ""),
-        name: String(it.name).trim(),
-        unitPrice: Number(it.unitPrice) || 0,
-        qty: Math.max(1, Number(it.qty) || 1),
-        lineTotal: Number(it.unitPrice || 0) * Math.max(1, Number(it.qty) || 1),
-      });
-    }
-    totalAmount = validatedItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    // Shared core: validates kinds, RESOLVES treatment prices from the chosen
+    // fee schedule (client prices honoured only on flagged overrides) and
+    // computes every line total server-side.
+    const priced = await validateAndPriceItems(rawItems, feeScheduleId);
+    validatedItems = priced.items;
+    totalAmount = priced.totalAmount;
     if (totalAmount <= 0) throw new Error("Invoice total must be > 0");
   } else {
     totalAmount = Number(body?.totalAmount);
@@ -1212,6 +1229,7 @@ export async function receptionistCreateInvoice(_user, body) {
     date,
     totalAmount,
     items: validatedItems,
+    feeScheduleId,
     payments: [],
   });
 
