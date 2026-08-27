@@ -391,6 +391,11 @@
     "voidReason": "Reason",
     "voidReasonPlaceholder": "e.g. Billed in error / duplicate invoice",
     "voidNoPayments": "This invoice is void — no further payments can be recorded.",
-    "deleteVoidHint": "This invoice is void. A void invoice is kept as a record and cannot be deleted."
+    "deleteVoidHint": "This invoice is void. A void invoice is kept as a record and cannot be deleted.",
+    "restoreAction": "Restore",
+    "restoreTitle": "Restore invoice",
+    "restoreMessage": "{{id}} will return to active revenue and outstanding figures. Its status will be recalculated from its payments. It was voided for: {{reason}}",
+    "restored": "Invoice restored — status is now {{status}}",
+    "editVoidHint": "This invoice is void. Restore it before editing."
   }
 }

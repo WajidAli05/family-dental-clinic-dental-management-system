@@ -79,6 +79,7 @@ import {
   ownerUpdateInvoiceController,
   ownerDeleteInvoiceController,
   ownerVoidInvoiceController,
+  ownerRestoreInvoiceController,
   ownerAddInvoicePaymentController,
   ownerUpdateInvoicePaymentController,
   ownerDeleteInvoicePaymentController,
@@ -225,6 +226,7 @@ router.post("/invoices", ownerCreateInvoiceController);
 router.patch("/invoices/:id", ownerUpdateInvoiceController);
 router.delete("/invoices/:id", ownerDeleteInvoiceController);
 router.patch("/invoices/:id/void", ownerVoidInvoiceController);
+router.patch("/invoices/:id/restore", ownerRestoreInvoiceController);
 router.post("/invoices/:id/payments", ownerAddInvoicePaymentController);
 router.patch("/invoices/:id/payments/:paymentId", ownerUpdateInvoicePaymentController);
 router.delete("/invoices/:id/payments/:paymentId", ownerDeleteInvoicePaymentController);

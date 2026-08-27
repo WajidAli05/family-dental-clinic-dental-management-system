@@ -285,6 +285,8 @@ export async function voidInvoiceCore(invoicePublicId, { reason, actor } = {}) {
   inv.voidedAt = new Date();
   inv.voidReason = why;
   inv.voidedBy = String(actor || "");
+  inv.voidHistory = Array.isArray(inv.voidHistory) ? inv.voidHistory : [];
+  inv.voidHistory.push({ action: "void", reason: why, by: String(actor || ""), at: inv.voidedAt });
   await inv.save();
 
   return {
@@ -294,5 +296,51 @@ export async function voidInvoiceCore(invoicePublicId, { reason, actor } = {}) {
     // Reported so the caller can show what left the active books.
     totalAmount: Number(inv.totalAmount) || 0,
     paidAmount: paidTotal(inv),
+  };
+}
+
+/**
+ * RESTORE (un-void) — the inverse of voidInvoiceCore.
+ *
+ * Clearing `voidedAt` is all it takes to put the invoice back into active
+ * revenue/outstanding, because that is the only field billing.js and
+ * finance.js filter on. The payments were never touched by the void, so the
+ * balances come back exactly as they were.
+ *
+ * `voidReason` and `voidHistory` are deliberately KEPT: the audit trail must
+ * still show why it was voided in the first place.
+ */
+export async function restoreInvoiceCore(invoicePublicId, { reason, actor } = {}) {
+  const inv = await loadInvoice(invoicePublicId);
+
+  if (!inv.voidedAt) {
+    throw Object.assign(
+      new Error(`Invoice ${inv.publicId} is not void.`),
+      { status: 409, code: "INVOICE_NOT_VOID" }
+    );
+  }
+
+  const previousReason = inv.voidReason || "";
+  inv.voidedAt = null; // <- re-enters active revenue/outstanding
+  inv.voidHistory = Array.isArray(inv.voidHistory) ? inv.voidHistory : [];
+  inv.voidHistory.push({
+    action: "restore",
+    reason: String(reason || "").trim(),
+    by: String(actor || ""),
+    at: new Date(),
+  });
+  await inv.save();
+
+  const total = Number(inv.totalAmount) || 0;
+  const paid = paidTotal(inv);
+
+  return {
+    id: inv.publicId,
+    // Status is DERIVED from the payments, never hardcoded.
+    status: invoiceStatus(total, paid),
+    totalAmount: total,
+    paidAmount: paid,
+    outstanding: Math.max(0, total - paid),
+    previousVoidReason: previousReason,
   };
 }

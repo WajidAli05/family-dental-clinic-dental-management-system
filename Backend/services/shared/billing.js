@@ -1,5 +1,19 @@
 import Invoice from "../../models/Invoice.model.js";
 
+/**
+ * The single definition of an invoice that counts toward ACTIVE money.
+ *
+ * Voided invoices keep their records but must not appear in revenue or
+ * outstanding. Soft-deleted ones are already removed by the softDelete
+ * plugin's own `aggregate` hook, so this only has to carry the void rule.
+ * `voidedAt: null` also matches legacy documents written before the field
+ * existed, so nothing pre-existing drops out.
+ *
+ * finance.js imports this so the dashboard/cashbook figures and the Billing
+ * list can never disagree about what counts.
+ */
+export const ACTIVE_INVOICE_MATCH = Object.freeze({ voidedAt: null });
+
 const buildRange = (dateFrom, dateTo) => {
   const range = {};
   if (dateFrom) range.$gte = dateFrom;
@@ -15,9 +29,7 @@ const buildRange = (dateFrom, dateTo) => {
 export async function revenueCollected(dateFrom, dateTo) {
   const range = buildRange(dateFrom, dateTo);
 
-  // Voided invoices keep their payment records but are excluded from ACTIVE
-  // revenue. `voidedAt: null` also matches legacy docs that predate the field.
-  const pipeline = [{ $match: { voidedAt: null } }, { $unwind: "$payments" }];
+  const pipeline = [{ $match: { ...ACTIVE_INVOICE_MATCH } }, { $unwind: "$payments" }];
   if (range) pipeline.push({ $match: { "payments.date": range } });
   pipeline.push({ $group: { _id: null, total: { $sum: "$payments.amount" } } });
 
@@ -33,7 +45,7 @@ export async function outstanding(dateFrom, dateTo) {
   const range = buildRange(dateFrom, dateTo);
 
   const pipeline = [
-    { $match: { voidedAt: null } }, // voided invoices are owed by nobody
+    { $match: { ...ACTIVE_INVOICE_MATCH } }, // voided invoices are owed by nobody
     range ? { $match: { date: range } } : null,
     {
       $project: {

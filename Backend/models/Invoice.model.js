@@ -58,6 +58,23 @@ const invoiceSchema = new Schema(
     voidedAt: { type: Date, default: null, index: true },
     voidReason: { type: String, default: "" },
     voidedBy: { type: String, default: "" },
+    // Append-only trail so a void that was later restored still shows WHY it
+    // was voided. Restoring clears voidedAt (which is what gates revenue) but
+    // never erases this history.
+    voidHistory: {
+      type: [
+        new Schema(
+          {
+            action: { type: String, enum: ["void", "restore"], required: true },
+            reason: { type: String, default: "" },
+            by: { type: String, default: "" },
+            at: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

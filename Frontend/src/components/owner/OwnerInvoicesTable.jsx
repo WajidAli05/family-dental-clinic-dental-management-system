@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Ban, Wallet } from "lucide-react";
+import { Pencil, Trash2, Ban, Wallet, RotateCcw } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 import PrintInvoiceButton from "@/components/receptionist/PrintInvoiceButton";
 
@@ -18,7 +21,32 @@ const STATUS_CLASS = {
  * that money out of the billing aggregates), so the button is disabled here
  * too rather than offering an action that will 409.
  */
-const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, onVoid, onPay, scheduleNameOf }) => {
+/**
+ * A disabled <button> fires no pointer events, so a tooltip attached to it
+ * never opens. The trigger is therefore a focusable <span> WRAPPING the button
+ * — the span stays enabled and receives the hover/focus that opens the tip.
+ */
+const HintWrap = ({ hint, children }) => {
+  if (!hint) return children;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {/* inline-flex keeps the button's own layout; tabIndex makes the
+              hint reachable by keyboard too. */}
+          <span tabIndex={0} className="inline-flex cursor-not-allowed">
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[240px] text-center">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, onVoid, onRestore, onPay, scheduleNameOf }) => {
   const { t } = useTranslation();
   const money = useFormatMoney();
 
@@ -92,25 +120,50 @@ const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, onVoid, onPay, schedu
                       <PrintInvoiceButton invoice={inv} />
 
                       {/* Payments: owner parity with the receptionist. */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isVoid || settled}
-                        title={
+                      <HintWrap
+                        hint={
                           isVoid ? t("invoices.voidNoPayments")
                             : settled ? t("invoices.alreadySettled")
-                            : undefined
+                            : ""
                         }
-                        onClick={() => onPay(inv)}
                       >
-                        <Wallet className="h-4 w-4 me-2" />
-                        {t("invoices.pay")}
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="disabled:pointer-events-none"
+                          disabled={isVoid || settled}
+                          onClick={() => onPay(inv)}
+                        >
+                          <Wallet className="h-4 w-4 me-2" />
+                          {t("invoices.pay")}
+                        </Button>
+                      </HintWrap>
 
-                      <Button size="sm" variant="outline" disabled={isVoid} onClick={() => onEdit(inv)}>
-                        <Pencil className="h-4 w-4 me-2" />
-                        {t("invoices.edit")}
-                      </Button>
+                      <HintWrap hint={isVoid ? t("invoices.editVoidHint") : ""}>
+                        <Button
+                          size="sm" variant="outline"
+                          className="disabled:pointer-events-none"
+                          disabled={isVoid}
+                          onClick={() => onEdit(inv)}
+                        >
+                          <Pencil className="h-4 w-4 me-2" />
+                          {t("invoices.edit")}
+                        </Button>
+                      </HintWrap>
+
+                      {/* Un-void: puts the invoice back into active revenue
+                          with its status re-derived from its payments. */}
+                      {isVoid && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                          onClick={() => onRestore(inv)}
+                        >
+                          <RotateCcw className="h-4 w-4 me-2" />
+                          {t("invoices.restoreAction")}
+                        </Button>
+                      )}
 
                       {/* VOID is the correct retirement for a PAID invoice —
                           it keeps the record and the payments. */}
@@ -126,20 +179,23 @@ const OwnerInvoicesTable = ({ data = [], onEdit, onDelete, onVoid, onPay, schedu
                         </Button>
                       )}
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-40"
-                        disabled={hasPayments || isVoid}
-                        title={
+                      <HintWrap
+                        hint={
                           hasPayments ? t("invoices.deleteBlockedHint")
                             : isVoid ? t("invoices.deleteVoidHint")
-                            : undefined
+                            : ""
                         }
-                        onClick={() => onDelete(inv)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none"
+                          disabled={hasPayments || isVoid}
+                          onClick={() => onDelete(inv)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </HintWrap>
                     </div>
                   </td>
                 </tr>

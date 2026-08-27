@@ -104,6 +104,7 @@ import {
   updateInvoiceCore,
   softDeleteInvoiceCore,
   voidInvoiceCore,
+  restoreInvoiceCore,
   loadInvoice,
   paidTotal,
 } from "../services/shared/invoices.js";
@@ -595,6 +596,31 @@ export const ownerVoidInvoiceController = async (req, res) => {
     await recordAudit({
       req, action: "invoice.void", entityType: "Invoice", entityId: data.id, entityLabel: data.id,
       after: { voidReason: data.voidReason, totalAmount: data.totalAmount, paidAmount: data.paidAmount },
+    });
+    return res.json({ success: true, data });
+  } catch (e) { return invFail(res, e); }
+};
+
+/**
+ * RESTORE (un-void) — owner-only, the inverse of void. The invoice returns to
+ * active revenue with its status re-derived from the payments it kept.
+ */
+export const ownerRestoreInvoiceController = async (req, res) => {
+  try {
+    const data = await restoreInvoiceCore(req.params.id, {
+      reason: req.body?.reason,
+      actor: req.user?.publicId || String(req.user?._id || ""),
+    });
+    await recordAudit({
+      req, action: "invoice.restore", entityType: "Invoice", entityId: data.id, entityLabel: data.id,
+      after: {
+        restored: true,
+        // Carried so the trail reads void -> restore without another lookup.
+        previousVoidReason: data.previousVoidReason,
+        status: data.status,
+        totalAmount: data.totalAmount,
+        paidAmount: data.paidAmount,
+      },
     });
     return res.json({ success: true, data });
   } catch (e) { return invFail(res, e); }

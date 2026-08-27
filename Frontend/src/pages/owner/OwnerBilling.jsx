@@ -158,6 +158,7 @@ const OwnerBilling = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [payTarget, setPayTarget] = useState(null);
   const [voidTarget, setVoidTarget] = useState(null);
+  const [restoreTarget, setRestoreTarget] = useState(null);
 
   const loadInvoices = useCallback(async () => {
     setInvLoading(true);
@@ -335,6 +336,7 @@ const OwnerBilling = () => {
         trendData={cashbook.trend}
         commissionRows={commRows}
         labDuesRows={labRows}
+        invoiceRows={invoices}
       />
 
       {/* Table */}
@@ -356,6 +358,7 @@ const OwnerBilling = () => {
                     onDelete={(inv) => setDeleteTarget(inv)}
                     onPay={(inv) => setPayTarget(inv)}
                     onVoid={(inv) => setVoidTarget(inv)}
+                    onRestore={(inv) => setRestoreTarget(inv)}
                   />
                 )
               )}
@@ -488,6 +491,29 @@ const OwnerBilling = () => {
           try {
             await ownerApi.voidInvoice(target.id, reason);
             toast.success(t("invoices.voided"));
+            await loadInvoices();
+          } catch (e) {
+            toast.error(e.message || t("invoices.actionFailed"));
+          }
+        }}
+      />
+
+      {/* Un-void — status is re-derived server-side from the payments the
+          void preserved, so no status is assumed here. */}
+      <OwnerConfirmDialog
+        open={!!restoreTarget}
+        title={t("invoices.restoreTitle")}
+        message={t("invoices.restoreMessage", {
+          id: restoreTarget?.id || "",
+          reason: restoreTarget?.voidReason || "—",
+        })}
+        onCancel={() => setRestoreTarget(null)}
+        onConfirm={async () => {
+          const target = restoreTarget;
+          setRestoreTarget(null);
+          try {
+            const res = await ownerApi.restoreInvoice(target.id);
+            toast.success(t("invoices.restored", { status: res?.data?.status || "" }));
             await loadInvoices();
           } catch (e) {
             toast.error(e.message || t("invoices.actionFailed"));

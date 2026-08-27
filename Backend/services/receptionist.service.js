@@ -1140,6 +1140,9 @@ const toUiInvoice = (inv) => {
     voidedAt: inv.voidedAt || null,
     voidReason: inv.voidReason || "",
     isVoid: !!inv.voidedAt,
+    voidHistory: Array.isArray(inv.voidHistory)
+      ? inv.voidHistory.map((h) => ({ action: h.action, reason: h.reason || "", at: h.at }))
+      : [],
     date: inv.date,
     totalAmount,
     paidAmount,

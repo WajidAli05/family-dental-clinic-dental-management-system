@@ -13,7 +13,7 @@ import {
 import { useClinicConfigStore } from "@/store/clinicConfigStore";
 import { formatMoney } from "@/utils/formatMoney";
 
-const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesRows = [] }) => {
+const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesRows = [], invoiceRows = [] }) => {
   const currency     = useClinicConfigStore((s) => s.currency);
   const country      = useClinicConfigStore((s) => s.country);
   const exchangeRate = useClinicConfigStore((s) => s.exchangeRate);
@@ -28,6 +28,26 @@ const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesR
     earned: r.earned * rate,
     paid:   r.paid   * rate,
   }));
+  /**
+   * Invoices tab: billed vs collected per invoice DATE.
+   *
+   * The rows come from the invoice list, which is already void/soft-delete
+   * filtered server-side, so a voided invoice never reaches this chart.
+   */
+  const invoiceData = (() => {
+    const byDate = new Map();
+    for (const inv of invoiceRows) {
+      if (inv?.isVoid) continue; // belt-and-braces; the API already excludes them
+      const d = String(inv.date || "").slice(0, 10);
+      if (!d) continue;
+      const cur = byDate.get(d) || { date: d, billed: 0, collected: 0 };
+      cur.billed += (Number(inv.totalAmount) || 0) * rate;
+      cur.collected += (Number(inv.paidAmount) || 0) * rate;
+      byDate.set(d, cur);
+    }
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  })();
+
   const labData      = labDuesRows.map((r) => ({
     ...r,
     totalBilled: r.totalBilled * rate,
@@ -52,6 +72,7 @@ const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesR
       <div className="text-sm font-semibold text-gray-900">Financial Chart</div>
       <div className="text-xs text-gray-500 mt-1">
         {tab === "cashbook"    && "30-day daily collections trend"}
+        {tab === "invoices"    && "Billed vs collected per invoice date (excludes voided)"}
         {tab === "commissions" && "Earned vs Paid per dentist"}
         {tab === "labDues"     && "Remaining dues per lab"}
       </div>
@@ -73,6 +94,28 @@ const OwnerBillingCharts = ({ tab, trendData = [], commissionRows = [], labDuesR
               <Area type="monotone" dataKey="total" stroke="#2ec4b6" fill="url(#colorTotal)" strokeWidth={2} name="Collected" />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+
+        {/* Invoices tab had NO chart branch, so the chart box rendered empty
+            when the tab was added. */}
+        {tab === "invoices" && (
+          invoiceData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-gray-400">
+              No invoice data for this period.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={invoiceData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => String(d).slice(5)} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={tickFmt} />
+                <Tooltip formatter={(v) => ttFmt(v)} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="billed"    fill="#cbd5e1" name="Billed"    radius={[3, 3, 0, 0]} />
+                <Bar dataKey="collected" fill="#2ec4b6" name="Collected" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )
         )}
 
         {tab === "commissions" && (

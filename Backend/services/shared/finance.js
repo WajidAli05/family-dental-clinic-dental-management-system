@@ -12,6 +12,7 @@ import OwnerPayment from "../../models/OwnerPayment.model.js";
 import LabBill from "../../models/LabBill.model.js";
 import LabBillPayment from "../../models/LabBillPayment.model.js";
 import CommissionRules from "../../models/CommissionRules.model.js";
+import { ACTIVE_INVOICE_MATCH } from "./billing.js";
 import { revenueCollected } from "./billing.js";
 
 // ─── date helpers (UTC, matches todayISO() convention in other services) ────
@@ -78,6 +79,7 @@ function getRate(rulesMap, defaultPercent, publicId) {
 export async function collectionsByMethod(from, to) {
   const range = buildRange(from, to);
   const pipeline = [
+    { $match: { ...ACTIVE_INVOICE_MATCH } }, // exclude voided from collections
     { $unwind: "$payments" },
     ...(range ? [{ $match: { "payments.date": range } }] : []),
     { $group: { _id: MODE_SWITCH, total: { $sum: "$payments.amount" } } },
@@ -102,6 +104,7 @@ export async function cashbookTransactions(from, to, { page = 1, limit = 50, q =
   const range = buildRange(from, to);
 
   const basePipeline = [
+    { $match: { ...ACTIVE_INVOICE_MATCH } }, // a voided invoice is not a transaction
     { $unwind: "$payments" },
     ...(range ? [{ $match: { "payments.date": range } }] : []),
     {
@@ -166,6 +169,7 @@ export async function cashbookTrend(days = 30) {
   const toStr   = today.toISOString().slice(0, 10);
 
   const agg = await Invoice.aggregate([
+    { $match: { ...ACTIVE_INVOICE_MATCH } }, // chart shows ACTIVE revenue only
     { $unwind: "$payments" },
     { $match: { "payments.date": { $gte: fromStr, $lte: toStr } } },
     { $group: { _id: "$payments.date", total: { $sum: "$payments.amount" } } },
@@ -192,6 +196,7 @@ export async function cashbookStats(from, to) {
   const [methods, ar] = await Promise.all([
     collectionsByMethod(from, to),
     Invoice.aggregate([
+      { $match: { ...ACTIVE_INVOICE_MATCH } },
       ...(buildRange(from, to) ? [{ $match: { date: buildRange(from, to) } }] : []),
       {
         $project: {
@@ -235,6 +240,7 @@ export async function commissionSummary(from, to) {
   const range = buildRange(from, to);
 
   const dentistPipeline = (extraMatch) => [
+    { $match: { ...ACTIVE_INVOICE_MATCH } }, // commissions never accrue on a voided invoice
     { $unwind: "$payments" },
     ...(extraMatch ? [{ $match: extraMatch }] : []),
     { $group: { _id: { $ifNull: ["$dentist", null] }, total: { $sum: "$payments.amount" } } },
@@ -325,7 +331,7 @@ export async function dentistFinance(dentistPublicId) {
   async function sum(from, to) {
     const range = buildRange(from, to);
     const agg = await Invoice.aggregate([
-      { $match: { dentist: dentistId } },
+      { $match: { dentist: dentistId, ...ACTIVE_INVOICE_MATCH } },
       { $unwind: "$payments" },
       ...(range ? [{ $match: { "payments.date": range } }] : []),
       { $group: { _id: null, total: { $sum: "$payments.amount" } } },

@@ -74,6 +74,7 @@ export const ownerApi = {
   updateInvoice: (id, body) => request(`/owner/invoices/${id}`, { method: "PATCH", body }),
   deleteInvoice: (id) => request(`/owner/invoices/${id}`, { method: "DELETE" }),
   voidInvoice: (id, reason) => request(`/owner/invoices/${id}/void`, { method: "PATCH", body: { reason } }),
+  restoreInvoice: (id, reason) => request(`/owner/invoices/${id}/restore`, { method: "PATCH", body: { reason } }),
   addInvoicePayment: (id, body) => request(`/owner/invoices/${id}/payments`, { method: "POST", body }),
   updateInvoicePayment: (id, paymentId, body) => request(`/owner/invoices/${id}/payments/${paymentId}`, { method: "PATCH", body }),
   deleteInvoicePayment: (id, paymentId) => request(`/owner/invoices/${id}/payments/${paymentId}`, { method: "DELETE" }),
