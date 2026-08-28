@@ -398,27 +398,53 @@ const Odontogram = ({
 
 /** Dropdown when the clinic has templates configured, free text otherwise —
  * so prescribing still works before the clinical library is populated. */
-const ClinicalField = ({ label, value, options = [], onChange, disabled }) => (
-  <div className="space-y-1">
-    <label className="text-xs font-medium text-gray-500">{label}</label>
-    {options.length > 0 ? (
-      <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger><SelectValue placeholder={label} /></SelectTrigger>
-        <SelectContent className="z-[90]">
-          {options.map((o) => (
-            <SelectItem key={o} value={o}>{o}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    ) : (
-      <Input
-        placeholder={label}
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-      />
-    )}
-  </div>
-);
+/**
+ * Diagnosis / Treatment / Clinical Finding — a catalogue dropdown, matching the
+ * prescribing flow exactly (select-only; the catalogue is the standard).
+ *
+ * A value already saved that is NOT in the current catalogue — legacy free
+ * text, or an item since deactivated or renamed — is appended as its own
+ * option so it still DISPLAYS and survives a re-save. Without that, Radix
+ * shows the placeholder for an unmatched value and the field looks blank.
+ *
+ * The plain-Input fallback only remains for a surface with no catalogue at all
+ * (e.g. read-only views for roles with no clinical-master endpoint), where it
+ * renders the stored value rather than nothing.
+ */
+const ClinicalField = ({ label, value, options = [], onChange, disabled }) => {
+  const { t } = useTranslation();
+  const current = String(value || "").trim();
+  const known = options.includes(current);
+  // Legacy/unlisted value first, so it is visible as the selected entry.
+  const opts = current && !known ? [current, ...options] : options;
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-500">{label}</label>
+      {options.length > 0 ? (
+        <>
+          <Select value={current || undefined} onValueChange={onChange} disabled={disabled}>
+            <SelectTrigger><SelectValue placeholder={label} /></SelectTrigger>
+            <SelectContent className="z-[90]">
+              {opts.map((o) => (
+                <SelectItem key={o} value={o}>{o}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {current && !known && (
+            <p className="text-[11px] text-amber-700">{t("patients.toothValueNotInCatalog")}</p>
+          )}
+        </>
+      ) : (
+        <Input
+          placeholder={label}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+};
 
 export default Odontogram;

@@ -10,6 +10,8 @@ import { ownerApi } from "@/lib/ownerApi";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
+import { useOwnerClinicalMasterStore } from "@/store/ownerClinicalMasterStore";
+import { deriveClinicalOptions } from "@/lib/clinicalOptions";
 
 const PREGNANCY_LABEL_KEYS = {
   "not applicable": "patients.pregnancyNotApplicable",
@@ -49,11 +51,36 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   // Derived planned/completed overlay lifted from the treatment-plan panel.
   const [planOverlay, setPlanOverlay] = useState({});
 
+  /**
+   * Clinical-master options for the tooth dialog. Reuses the SAME store the
+   * Clinical Library page already fills (one fetch path, one derivation) —
+   * without these the tooth dialog silently degrades to free-text inputs.
+   * Selectors take raw arrays, never a new object literal: a literal makes
+   * zustand v5 + React 19 loop on useSyncExternalStore.
+   */
+  const cmTreatments = useOwnerClinicalMasterStore((s) => s.treatments);
+  const cmDiagnosis = useOwnerClinicalMasterStore((s) => s.diagnosisTemplates);
+  const cmFindings = useOwnerClinicalMasterStore((s) => s.clinicalFindingTemplates);
+  const initClinicalMaster = useOwnerClinicalMasterStore((s) => s.init);
+
+  const clinicalOptions = useMemo(
+    () => deriveClinicalOptions({
+      diagnosisTemplates: cmDiagnosis,
+      treatments: cmTreatments,
+      clinicalFindingTemplates: cmFindings,
+    }),
+    [cmDiagnosis, cmTreatments, cmFindings]
+  );
+
   useEffect(() => {
     let alive = true;
 
     async function run() {
       if (!open || !patient?.id) return;
+
+      // Idempotent (guarded by `initialized`), so opening the modal repeatedly
+      // does not refetch the catalogue.
+      initClinicalMaster?.();
 
       // instant UI
       setProfileState(seedDemoProfile(patient.id));
@@ -118,7 +145,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               onClick={() => setConfirmOpen(true)}
               title={alreadyInactive ? "Patient is already inactive" : undefined}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 me-2" />
               {loading ? "Updating..." : "Delete"}
             </Button>
 
@@ -129,7 +156,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
               onClick={() => { setEraseConfirmText(""); setEraseOpen(true); }}
               title={alreadyErased ? "This patient's data has already been erased" : "Permanently erase this patient's personal data (PDPL)"}
             >
-              <ShieldAlert className="h-4 w-4 mr-2" />
+              <ShieldAlert className="h-4 w-4 me-2" />
               {alreadyErased ? "Erased" : "Erase Data"}
             </Button>
 
@@ -218,7 +245,14 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
 
           <div className="lg:col-span-3">
             <Panel title={t("patients.sectionOdontogram")}>
-              <Odontogram odontogram={odontogram} editable chartClinical onSave={handleSaveTooth} planOverlay={planOverlay} />
+              <Odontogram
+                odontogram={odontogram}
+                editable
+                chartClinical
+                onSave={handleSaveTooth}
+                planOverlay={planOverlay}
+                clinicalOptions={clinicalOptions}
+              />
             </Panel>
           </div>
 
@@ -435,7 +469,7 @@ const SimpleList = ({ items = [], empty }) => {
           className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2"
         >
           <p className="text-sm font-semibold text-gray-900">{x.left}</p>
-          <p className="text-xs text-gray-600 text-right">{x.right}</p>
+          <p className="text-xs text-gray-600 text-end">{x.right}</p>
         </div>
       ))}
     </div>

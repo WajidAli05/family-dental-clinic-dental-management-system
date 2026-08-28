@@ -245,7 +245,8 @@
     "teethWithClinicalRecord": "طبی ریکارڈ والے دانت: {{count}}",
     "toothClinicalRecord": "اس دانت کا طبی ریکارڈ",
     "toothPlannedTreatment": "منصوبہ بند علاج",
-    "toothCompletedTreatment": "مکمل شدہ علاج"
+    "toothCompletedTreatment": "مکمل شدہ علاج",
+    "toothValueNotInCatalog": "موجودہ فہرست میں نہیں — جیسا درج تھا محفوظ رکھا گیا۔"
   },
   "rx": {
     "previewTitle": "نسخے کا پیش منظر",

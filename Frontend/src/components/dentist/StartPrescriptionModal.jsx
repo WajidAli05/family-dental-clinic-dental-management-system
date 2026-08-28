@@ -19,6 +19,7 @@ import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import PlanPrefillPanel from "@/components/dentist/PlanPrefillPanel";
 import { planItemsForVisit, toothPlanOverlay } from "@/lib/treatmentPlanConfig";
+import { deriveClinicalOptions } from "@/lib/clinicalOptions";
 import { useUserStore } from "@/store/userStore";
 import { useDentistClinicalMasterStore } from "@/store/dentistClinicalMasterStore";
 
@@ -71,11 +72,12 @@ const StartPrescriptionModal = ({ open, onOpenChange, appointment, prescription 
   const fetchClinicalMaster = useDentistClinicalMasterStore((s) => s.fetchClinicalMaster);
   const cmLoaded = useDentistClinicalMasterStore((s) => s.loaded);
 
-  const clinicalOptions = useMemo(() => ({
-    diagnosis: (diagnosisTemplates || []).filter((d) => d?.active !== false).map((d) => String(d?.title || "").trim()).filter(Boolean),
-    treatment: (treatments || []).filter((x) => x?.active !== false).map((x) => String(x?.name || "").trim()).filter(Boolean),
-    clinicalFinding: (clinicalFindingTemplates || []).filter((c) => c?.active !== false).map((c) => String(c?.title || "").trim()).filter(Boolean),
-  }), [diagnosisTemplates, treatments, clinicalFindingTemplates]);
+  // Shared derivation — the owner patient profile feeds the same helper from
+  // its own store, so both surfaces show identical option lists.
+  const clinicalOptions = useMemo(
+    () => deriveClinicalOptions({ diagnosisTemplates, treatments, clinicalFindingTemplates }),
+    [diagnosisTemplates, treatments, clinicalFindingTemplates]
+  );
 
   // On open: hydrate or reset; fetch history + the patient's own recorded
   // allergies (advisory-only safety check — not a drug-interaction database)

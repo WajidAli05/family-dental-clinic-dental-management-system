@@ -245,7 +245,8 @@
     "teethWithClinicalRecord": "الأسنان ذات سجل سريري: {{count}}",
     "toothClinicalRecord": "السجل السريري لهذا السن",
     "toothPlannedTreatment": "علاج مخطط",
-    "toothCompletedTreatment": "علاج مكتمل"
+    "toothCompletedTreatment": "علاج مكتمل",
+    "toothValueNotInCatalog": "غير موجود في القائمة الحالية — تم الاحتفاظ به كما سُجِّل."
   },
   "rx": {
     "previewTitle": "معاينة الوصفة",

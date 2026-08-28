@@ -245,7 +245,8 @@
     "teethWithClinicalRecord": "Teeth with a clinical record: {{count}}",
     "toothClinicalRecord": "Clinical record for this tooth",
     "toothPlannedTreatment": "Planned treatment",
-    "toothCompletedTreatment": "Completed treatment"
+    "toothCompletedTreatment": "Completed treatment",
+    "toothValueNotInCatalog": "Not in the current catalogue — kept as recorded."
   },
   "rx": {
     "previewTitle": "Prescription Preview",

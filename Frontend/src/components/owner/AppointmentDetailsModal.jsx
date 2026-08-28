@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X, Loader2, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ownerApi } from "@/lib/ownerApi";
 import Odontogram from "@/components/patients/Odontogram";
+import { useOwnerClinicalMasterStore } from "@/store/ownerClinicalMasterStore";
+import { deriveClinicalOptions } from "@/lib/clinicalOptions";
 
 const statusLabel = (s) => {
   switch (s) {
@@ -25,6 +27,22 @@ const FOOD_LABEL = { before: "before food", after: "after food", with: "with foo
 const AppointmentDetailsModal = ({ open, onClose, appointment }) => {
   const { t } = useTranslation();
   const [clinical, setClinical] = useState(null);
+
+  // Read-only view, but it uses the SAME catalogue so a recorded value renders
+  // as its catalogue entry here too rather than as a bare text box.
+  const cmTreatments = useOwnerClinicalMasterStore((s) => s.treatments);
+  const cmDiagnosis = useOwnerClinicalMasterStore((s) => s.diagnosisTemplates);
+  const cmFindings = useOwnerClinicalMasterStore((s) => s.clinicalFindingTemplates);
+  const initClinicalMaster = useOwnerClinicalMasterStore((s) => s.init);
+  const clinicalOptions = useMemo(
+    () => deriveClinicalOptions({
+      diagnosisTemplates: cmDiagnosis,
+      treatments: cmTreatments,
+      clinicalFindingTemplates: cmFindings,
+    }),
+    [cmDiagnosis, cmTreatments, cmFindings]
+  );
+  useEffect(() => { initClinicalMaster?.(); }, [initClinicalMaster]);
   const [loading, setLoading] = useState(false);
 
   const apptId = appointment?.id;
@@ -186,7 +204,7 @@ const AppointmentDetailsModal = ({ open, onClose, appointment }) => {
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 {t("patients.sectionOdontogram")}
               </p>
-              <Odontogram odontogram={clinical.odontogram} editable={false} chartClinical />
+              <Odontogram odontogram={clinical.odontogram} editable={false} chartClinical clinicalOptions={clinicalOptions} />
             </div>
           )}
         </div>
