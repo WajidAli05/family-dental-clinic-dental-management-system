@@ -30,7 +30,12 @@ const PrescriptionSchema = new Schema(
 
     // Per-tooth clinical record (tooth-based charting, the Open Dental model):
     // [{ toothNumber (FDI), diagnosis, treatment, clinicalFinding, note,
-    //    xrayRequested, xrayNote }]
+    //    xrayRequested, xrayNote,
+    //    planId?, planItemId? }]
+    // planId/planItemId are OPTIONAL provenance: present only when the entry
+    // was prefilled from a treatment-plan item, so the record shows which
+    // planned treatment this visit executed. Hand-entered and legacy entries
+    // carry neither. Mixed + JSON-encrypted, so no migration is needed.
     // Encrypted as a single JSON ciphertext string exactly like medications
     // (all the text fields inside are PHI). Mixed so the encrypted string and
     // the decrypted array can both live here. Legacy prescriptions simply have

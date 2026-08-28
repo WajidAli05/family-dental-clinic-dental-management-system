@@ -25,8 +25,9 @@ const initialState = () => ({
 
   // ── Treatment-plan link (UI-only) ──
   // Which tooth entries came from a plan item, and which the dentist ticked
-  // to complete on save. Deliberately NOT part of toPayload(): the
-  // Prescription document is unchanged by this feature.
+  // to complete on save. planLinks IS persisted onto each tooth entry (as
+  // planId/planItemId) so the saved record keeps its provenance;
+  // planCompletions is transient — a save-time intent, not stored.
   //   planLinks: { [toothNumber]: { planId, itemId, itemName, forThisVisit } }
   //   planCompletions: { ["TP-0001|TPI-2"]: true }
   planLinks: {},
@@ -200,10 +201,19 @@ export const usePrescriptionStore = create((set, get) => ({
     return {
       patientType: s.patientType,
       selectedTeeth: s.selectedTeeth,
-      // Plan link state is UI-only — never written to the Prescription.
-      toothEntries: (s.toothEntries || []).map(
-        ({ planId, itemId, fromPlan, ...entry }) => entry
-      ),
+      // Plan PROVENANCE is persisted: the clinical record should show which
+      // planned treatment this visit executed, not just prefill from it.
+      // Additive + optional — an entry the dentist typed by hand carries
+      // neither field, and legacy prescriptions have neither. `toothEntries`
+      // is a Mixed field stored as encrypted JSON, so the extra keys survive
+      // without any schema change.
+      // `fromPlan` stays UI-only: it is derivable from planItemId.
+      toothEntries: (s.toothEntries || []).map(({ fromPlan, itemId, ...entry }) => {
+        const link = (s.planLinks || {})[entry.toothNumber];
+        return link
+          ? { ...entry, planId: link.planId, planItemId: link.itemId }
+          : entry;
+      }),
       diagnosis: s.diagnosis,
       treatment: s.treatment,
       clinicalFinding: s.clinicalFinding,
@@ -279,6 +289,19 @@ export const usePrescriptionStore = create((set, get) => ({
       selectedTeeth: Array.isArray(rx?.selectedTeeth) ? rx.selectedTeeth : [],
       toothEntries: Array.isArray(rx?.toothEntries) ? rx.toothEntries : [],
       appointmentId: rx?.appointmentId || "",
+
+      // Restore plan provenance from what was saved, so reopening a visit
+      // still shows which planned treatment each entry came from. Entries
+      // without the fields (hand-entered, or legacy) simply produce no link.
+      planLinks: Object.fromEntries(
+        (Array.isArray(rx?.toothEntries) ? rx.toothEntries : [])
+          .filter((e) => e?.planId && e?.planItemId)
+          .map((e) => [
+            e.toothNumber,
+            { planId: e.planId, itemId: e.planItemId, itemName: e.treatment || "", forThisVisit: false },
+          ])
+      ),
+      planCompletions: {},
 
       diagnosis: rx?.diagnosis || "",
       treatment: rx?.treatment || "",
