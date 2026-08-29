@@ -51,6 +51,11 @@ import {
   getPlanFeeSchedules,
   getLinkableAppointments,
 } from "../../controllers/treatmentPlan.controller.js";
+import {
+  listPatientFiles,
+  listPatientXrayTeeth,
+  downloadFile,
+} from "../../controllers/file.controller.js";
 
 const router = express.Router();
 
@@ -122,5 +127,14 @@ router.get("/treatment-plans/fee-schedules", requirePermission("tab_receptionist
 router.get("/patients/:patientId/treatment-plans", requirePermission("tab_receptionist_patients"), listPatientTreatmentPlans);
 router.get("/patients/:patientId/plan-appointments", requirePermission("tab_receptionist_patients"), getLinkableAppointments);
 router.get("/treatment-plans/:id", requirePermission("tab_receptionist_patients"), getTreatmentPlan);
+
+
+// ── Patient files / imaging ─────────────────────────────────────────────────
+// Bytes are served ONLY through the authenticated download route below; the
+// upload directory is never exposed statically.
+router.get("/patients/:patientId/files", requirePermission("tab_receptionist_patients"), listPatientFiles);
+router.get("/patients/:patientId/xray-teeth", requirePermission("tab_receptionist_patients"), listPatientXrayTeeth);
+router.get("/files/:id", requirePermission("tab_receptionist_patients"), downloadFile);
+// Receptionist is VIEW-ONLY on clinical imaging: no upload/delete routes exist.
 
 export default router;

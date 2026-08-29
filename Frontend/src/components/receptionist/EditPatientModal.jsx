@@ -23,6 +23,7 @@ import PatientFormFields from "@/components/patients/PatientFormFields";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
+import PatientImagingPanel from "@/components/patients/PatientImagingPanel";
 import { receptionistApi } from "@/lib/receptionistApi";
 import { useTranslation } from "react-i18next";
 import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields, buildMedicalFieldsPayload } from "@/utils/patientForm";
@@ -257,6 +258,13 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
               data — the receptionist router mounts zero plan write routes. */}
           <div className="space-y-2 pt-2 border-t border-gray-100">
             <TreatmentPlanPanel patientId={patient?.id} api={receptionistApi} onOverlayChange={setPlanOverlay} canEdit={false} />
+          </div>
+
+          {/* View-only: the front desk hands images to patients but must not
+              add or withdraw clinical imaging. No write routes exist for this
+              role, so the server refuses regardless. */}
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            <PatientImagingPanel patientId={patient?.id} api={receptionistApi} canEdit={false} />
           </div>
 
           {/* Notification */}

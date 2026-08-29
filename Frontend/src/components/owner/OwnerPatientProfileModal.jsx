@@ -10,6 +10,7 @@ import { ownerApi } from "@/lib/ownerApi";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
+import PatientImagingPanel from "@/components/patients/PatientImagingPanel";
 import { useOwnerClinicalMasterStore } from "@/store/ownerClinicalMasterStore";
 import { deriveClinicalOptions } from "@/lib/clinicalOptions";
 
@@ -50,6 +51,13 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
   const [odontogram, setOdontogram] = useState([]);
   // Derived planned/completed overlay lifted from the treatment-plan panel.
   const [planOverlay, setPlanOverlay] = useState({});
+
+  // Teeth flagged xrayRequested by prescribing (shared/patients.js merges the
+  // chart + prescription flags), so the gallery can show what is outstanding.
+  const xrayRequestedTeeth = useMemo(
+    () => (odontogram || []).filter((e) => e?.xrayRequested).map((e) => e.toothNumber).filter(Boolean),
+    [odontogram]
+  );
 
   /**
    * Clinical-master options for the tooth dialog. Reuses the SAME store the
@@ -260,6 +268,17 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           <div className="lg:col-span-3">
             <Panel title={t("treatmentPlans.title")}>
               <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} onOverlayChange={setPlanOverlay} canEdit />
+            </Panel>
+          </div>
+
+          <div className="lg:col-span-3">
+            <Panel title={t("imaging.title")}>
+              <PatientImagingPanel
+                patientId={patient.id}
+                api={ownerApi}
+                xrayRequestedTeeth={xrayRequestedTeeth}
+                canEdit
+              />
             </Panel>
           </div>
 

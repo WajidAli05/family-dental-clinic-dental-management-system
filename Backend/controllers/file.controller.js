@@ -1,0 +1,204 @@
+import multer from "multer";
+import {
+  storeUpload, listFiles, loadFile, openFileStream, softDeleteFile,
+  teethWithXrays, mapFile, MAX_FILE_BYTES, MAX_FILES_PER_UPLOAD,
+} from "../services/shared/files.js";
+import { assertDentistCanEditChart } from "../services/dentist.service.js";
+import { recordAudit } from "../services/shared/audit.js";
+
+/**
+ * Files are buffered in MEMORY, not written by multer.
+ *
+ * Deliberate: the bytes must pass content sniffing and size checks BEFORE they
+ * touch the upload directory, so a rejected .exe never lands on disk at all.
+ * At a 15 MB cap and 10 files per request this is bounded.
+ */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_BYTES, files: MAX_FILES_PER_UPLOAD * 2 }, // *2: each file may carry a thumb
+});
+
+/** `file` = the originals, `thumb` = optional client-generated previews. */
+export const uploadMiddleware = upload.fields([
+  { name: "file", maxCount: MAX_FILES_PER_UPLOAD },
+  { name: "thumb", maxCount: MAX_FILES_PER_UPLOAD },
+]);
+
+/** Turns multer's own limit errors into the same clear shape as ours. */
+export const uploadErrorHandler = (err, _req, res, next) => {
+  if (!err) return next();
+  if (err instanceof multer.MulterError) {
+    const tooBig = err.code === "LIMIT_FILE_SIZE";
+    return res.status(tooBig ? 413 : 400).json({
+      success: false,
+      code: tooBig ? "FILE_TOO_LARGE" : err.code,
+      message: tooBig
+        ? `File is too large (max ${Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB)`
+        : err.message,
+    });
+  }
+  return next(err);
+};
+
+const fail = (res, e) =>
+  res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
+
+/**
+ * ACCESS GATE for patient files — one helper, every route.
+ *
+ *   owner        → any patient
+ *   dentist      → only patients they have an appointment with. Reuses
+ *                  assertDentistCanEditChart, the same appointment-based
+ *                  relationship rule that governs the chart and prescriptions.
+ *                  Read and write share it: seeing a patient's radiographs is
+ *                  itself PHI access, so there is no weaker "read" tier.
+ *   receptionist → VIEW ONLY, behind tab_receptionist_patients (mounted on the
+ *                  route). The front desk handles records and hands images to
+ *                  patients, but must not add or withdraw clinical imaging.
+ */
+async function assertCanReadPatientFiles(req, patientPublicId) {
+  const role = req.user?.role;
+  if (role === "owner" || role === "receptionist") return;
+  if (role === "dentist") {
+    await assertDentistCanEditChart(req.user._id, patientPublicId);
+    return;
+  }
+  throw Object.assign(new Error("You do not have access to this patient's files"), { status: 403 });
+}
+
+/** Writes exclude the receptionist. */
+async function assertCanWritePatientFiles(req, patientPublicId) {
+  const role = req.user?.role;
+  if (role === "owner") return;
+  if (role === "dentist") {
+    await assertDentistCanEditChart(req.user._id, patientPublicId);
+    return;
+  }
+  throw Object.assign(
+    new Error("You do not have permission to modify patient files"),
+    { status: 403 }
+  );
+}
+
+const actorOf = (req) => ({
+  publicId: req.user?.publicId || String(req.user?._id || ""),
+  name: req.user?.name || "",
+});
+
+// ── Patient imaging ─────────────────────────────────────────────────────────
+export const uploadPatientFiles = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    await assertCanWritePatientFiles(req, patientId);
+
+    const files = req.files?.file || [];
+    const thumbs = req.files?.thumb || [];
+    if (!files.length) throw Object.assign(new Error("No file received"), { status: 400 });
+
+    const saved = [];
+    for (let i = 0; i < files.length; i++) {
+      saved.push(
+        await storeUpload({
+          ownerType: "patient",
+          ownerId: patientId,
+          category: req.body?.category || "xray",
+          file: files[i],
+          thumb: thumbs[i],
+          appointmentId: req.body?.appointmentId,
+          toothNumber: req.body?.toothNumber,
+          note: req.body?.note,
+          actor: actorOf(req),
+        })
+      );
+    }
+
+    // Metadata only — never file contents.
+    for (const f of saved) {
+      await recordAudit({
+        req, action: "file.upload", entityType: "FileAsset", entityId: f.id, entityLabel: f.id,
+        after: { ownerType: f.ownerType, ownerId: f.ownerId, category: f.category, mimeType: f.mimeType, sizeBytes: f.sizeBytes, toothNumber: f.toothNumber, appointmentId: f.appointmentId },
+      });
+    }
+    return res.json({ success: true, data: saved });
+  } catch (e) { return fail(res, e); }
+};
+
+export const listPatientFiles = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    await assertCanReadPatientFiles(req, patientId);
+
+    const { page, limit, sortBy, sortDir, category, toothNumber, appointmentId } = req.query;
+    const r = await listFiles(
+      { ownerType: "patient", ownerId: patientId, category, toothNumber, appointmentId },
+      { page, limit, sortBy, sortDir }
+    );
+    return res.json({ success: true, data: r.rows, total: r.total, page: r.page, pages: r.pages });
+  } catch (e) { return fail(res, e); }
+};
+
+/** Teeth that already have a radiograph — drives "requested" vs "on file". */
+export const listPatientXrayTeeth = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    await assertCanReadPatientFiles(req, patientId);
+    return res.json({ success: true, data: await teethWithXrays(patientId) });
+  } catch (e) { return fail(res, e); }
+};
+
+/**
+ * Streams bytes. This is the ONLY way a file leaves the server — the upload
+ * directory is never served statically, so there is no public URL to leak.
+ */
+export const downloadFile = async (req, res) => {
+  try {
+    const doc = await loadFile(req.params.id);
+    if (doc.ownerType === "patient") await assertCanReadPatientFiles(req, doc.ownerId);
+    else if (req.user?.role !== "owner") {
+      throw Object.assign(new Error("You do not have access to this file"), { status: 403 });
+    }
+
+    const wantThumb = String(req.query.thumb || "") === "1";
+    const { stream, sizeBytes, mimeType } = await openFileStream(doc, { thumb: wantThumb });
+
+    // PHI ACCESS LOGGING (PDPL): full-size views are logged; thumbnail hits in
+    // a gallery are not, or one screen would write a dozen rows.
+    if (!wantThumb) {
+      await recordAudit({
+        req, action: "file.view", entityType: "FileAsset", entityId: doc.publicId, entityLabel: doc.publicId,
+        after: { ownerType: doc.ownerType, ownerId: doc.ownerId, category: doc.category },
+      });
+    }
+
+    res.setHeader("Content-Type", mimeType || "application/octet-stream");
+    res.setHeader("Content-Length", sizeBytes);
+    res.setHeader("Cache-Control", "private, no-store"); // PHI must not be cached by proxies
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    // `inline` for viewing; the filename is quoted and sanitized already.
+    res.setHeader(
+      "Content-Disposition",
+      `${req.query.download === "1" ? "attachment" : "inline"}; filename="${doc.filename}"`
+    );
+    stream.on("error", () => { if (!res.headersSent) res.status(500).end(); });
+    return stream.pipe(res);
+  } catch (e) { return fail(res, e); }
+};
+
+export const deletePatientFile = async (req, res) => {
+  try {
+    const doc = await loadFile(req.params.id);
+    if (doc.ownerType === "patient") await assertCanWritePatientFiles(req, doc.ownerId);
+    else if (req.user?.role !== "owner") {
+      throw Object.assign(new Error("You do not have permission to delete this file"), { status: 403 });
+    }
+
+    const data = await softDeleteFile(req.params.id);
+    await recordAudit({
+      req, action: "file.delete", entityType: "FileAsset", entityId: data.id, entityLabel: data.id,
+      after: { softDeleted: true, blobRetained: true, ownerType: doc.ownerType, ownerId: doc.ownerId },
+    });
+    return res.json({ success: true, data });
+  } catch (e) { return fail(res, e); }
+};
+
+export { mapFile };

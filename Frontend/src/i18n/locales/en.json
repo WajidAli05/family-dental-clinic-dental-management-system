@@ -492,5 +492,18 @@
     "markCompletedOnSave": "Mark completed on save",
     "itemsCompleted": "{{count}} plan item(s) marked completed",
     "completionPartialFail": "Prescription saved, but {{count}} plan item(s) could not be updated"
+  },
+  "imaging": {
+    "title": "Imaging & X-rays",
+    "upload": "Upload",
+    "uploaded": "Uploaded",
+    "deleted": "File removed",
+    "empty": "No images on file yet.",
+    "loading": "Loading images…",
+    "loadError": "Could not load images",
+    "uploadFailed": "Upload failed",
+    "actionFailed": "Action failed",
+    "tagTooth": "Tag a tooth",
+    "outstandingRequests": "X-ray requested, none on file yet"
   }
 }

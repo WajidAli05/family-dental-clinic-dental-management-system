@@ -20,6 +20,7 @@ const ACTIONS = [
   "auth.2fa_verified",   "auth.2fa_failed",
   "audit.view",
   "data.export",
+  "file.upload",         "file.view",             "file.delete",
   "system.backup",
   "patient.erasure",
 ];

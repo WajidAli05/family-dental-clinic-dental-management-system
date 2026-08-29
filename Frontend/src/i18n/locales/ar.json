@@ -492,5 +492,18 @@
     "markCompletedOnSave": "وضع علامة مكتمل عند الحفظ",
     "itemsCompleted": "تم وضع علامة مكتمل على {{count}} بند",
     "completionPartialFail": "تم حفظ الوصفة، لكن تعذّر تحديث {{count}} بند"
+  },
+  "imaging": {
+    "title": "الأشعة والصور",
+    "upload": "رفع",
+    "uploaded": "تم الرفع",
+    "deleted": "تمت إزالة الملف",
+    "empty": "لا توجد صور بعد.",
+    "loading": "جارٍ تحميل الصور…",
+    "loadError": "تعذّر تحميل الصور",
+    "uploadFailed": "فشل الرفع",
+    "actionFailed": "فشل الإجراء",
+    "tagTooth": "تحديد سن",
+    "outstandingRequests": "طُلبت أشعة ولا يوجد ملف بعد"
   }
 }

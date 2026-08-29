@@ -492,5 +492,18 @@
     "markCompletedOnSave": "محفوظ کرتے وقت مکمل نشان زد کریں",
     "itemsCompleted": "{{count}} منصوبہ آئٹم مکمل نشان زد ہوئے",
     "completionPartialFail": "نسخہ محفوظ ہو گیا، لیکن {{count}} منصوبہ آئٹم اپ ڈیٹ نہ ہو سکے"
+  },
+  "imaging": {
+    "title": "امیجنگ اور ایکس رے",
+    "upload": "اپ لوڈ",
+    "uploaded": "اپ لوڈ ہو گیا",
+    "deleted": "فائل ہٹا دی گئی",
+    "empty": "ابھی کوئی تصویر موجود نہیں۔",
+    "loading": "تصاویر لوڈ ہو رہی ہیں…",
+    "loadError": "تصاویر لوڈ نہیں ہو سکیں",
+    "uploadFailed": "اپ لوڈ ناکام",
+    "actionFailed": "کارروائی ناکام",
+    "tagTooth": "دانت منتخب کریں",
+    "outstandingRequests": "ایکس رے کی درخواست ہے، ابھی کوئی فائل نہیں"
   }
 }

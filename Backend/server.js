@@ -1,4 +1,5 @@
 import express from "express";
+import { ensureStorageReady } from "./services/shared/storage.js";
 import { config } from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -76,6 +77,19 @@ startBackupScheduler();
 
 /* Start server */
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+
+/* Uploads live OUTSIDE the repo (a redeploy pulls over the working tree), so
+   verify the configured UPLOAD_DIR is writable BEFORE accepting traffic. A
+   silently unwritable directory means uploads look fine and patient imaging is
+   lost — fail loudly at boot instead. */
+ensureStorageReady()
+  .then((root) => {
+    console.log(`Upload storage ready at ${root}`);
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  })
+  .catch((e) => {
+    console.error(`FATAL: ${e.message}`);
+    process.exit(1);
+  });

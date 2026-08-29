@@ -36,6 +36,41 @@ disaster-recovery backup must be able to reconstruct the database exactly,
 including auth state. This is why the archive itself is encrypted (below) —
 treat it with the same care as the production database itself.
 
+### NOT backed up by `scripts/backup.js`: uploaded files
+
+The database dump covers **collections only**. Patient imaging (x-rays,
+photos, scanned documents) is stored **on disk** under `UPLOAD_DIR`, outside
+the repository, and is **not** in the nightly archive. `FileAsset` documents
+back it — the metadata is in the DB, the bytes are not.
+
+Back the files up separately:
+
+```bash
+# VPS (Linux) — mirror to a backup volume
+cd /var/www/family-dental-clinic-dental-management-system/Backend
+node scripts/backupFiles.js --out /mnt/backup/fdc-files
+
+# VPS — single compressed archive instead
+node scripts/backupFiles.js --tar --out /mnt/backup
+
+# Or straight rsync, incremental and resumable (recommended for large sets)
+rsync -a --delete /var/fdc-uploads/ /mnt/backup/fdc-files/
+
+# Windows (dev)
+cd Backend
+node scripts/backupFiles.js --out D:dc-backupsiles
+```
+
+`backupFiles.js` is deliberately a **separate** tool on its own schedule.
+Folding gigabytes of images into the nightly encrypted DB archive would make
+that archive slow to write and painful to restore.
+
+> **RESTORE ORDER — files first, then the database.**
+> Restoring the DB without the files leaves `FileAsset` rows pointing at bytes
+> that do not exist: the imaging gallery lists entries that fail to open (410).
+> Restoring files first is always safe — an orphan file with no metadata row is
+> simply invisible, and costs only disk.
+
 ## 2. Archive encryption
 
 The JSON dump is gzipped, then encrypted with **AES-256-GCM** using

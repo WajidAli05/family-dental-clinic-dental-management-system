@@ -117,7 +117,43 @@ async function req(path, options = {}) {
   return payload; // { success:true, data: ... }
 }
 
+
+/** Multipart POST — the browser sets Content-Type + boundary itself. */
+async function reqMultipart(path, formData) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: formData,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (res.status === 401) handleUnauthorized(`/dentist${path}`);
+  if (!res.ok || json?.success === false) throw new Error(json?.message || `Upload failed: ${res.status}`);
+  return json;
+}
+
+/** Authenticated binary fetch — the only way file bytes reach the browser. */
+async function reqBlob(path, { thumb = false, download = false } = {}) {
+  const token = localStorage.getItem("token");
+  const qs = new URLSearchParams();
+  if (thumb) qs.set("thumb", "1");
+  if (download) qs.set("download", "1");
+  const res = await fetch(`${BASE}${path}${qs.toString() ? `?${qs}` : ""}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (res.status === 401) handleUnauthorized(`/dentist${path}`);
+  if (!res.ok) throw new Error(`Could not load file (${res.status})`);
+  return res.blob();
+}
+
 export const dentistApi = {
+  // ── Patient files / imaging ──
+  listPatientFiles: (patientId, params = {}) => req(`/patients/${patientId}/files?${new URLSearchParams(params)}`),
+  listPatientXrayTeeth: (patientId) => req(`/patients/${patientId}/xray-teeth`),
+  uploadPatientFiles: (patientId, formData) => reqMultipart(`/patients/${patientId}/files`, formData),
+  fetchFileBlob: (fileId, opts) => reqBlob(`/files/${fileId}`, opts),
+  deletePatientFile: (fileId) => req(`/files/${fileId}`, { method: "DELETE" }),
+
   getMe: () => req("/me"),
 
   updateMe: (payload) =>

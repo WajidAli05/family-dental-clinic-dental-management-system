@@ -46,6 +46,15 @@ import {
   scheduleItemWithNewAppointmentCtrl,
   decideTreatmentPlan,
 } from "../../controllers/treatmentPlan.controller.js";
+import {
+  uploadMiddleware,
+  uploadErrorHandler,
+  uploadPatientFiles,
+  listPatientFiles,
+  listPatientXrayTeeth,
+  downloadFile,
+  deletePatientFile,
+} from "../../controllers/file.controller.js";
 
 const router = express.Router();
 
@@ -115,5 +124,15 @@ router.patch("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentis
 router.delete("/treatment-plans/:id/items/:itemId", requirePermission("tab_dentist_patients"), removeTreatmentPlanItem);
 router.patch("/treatment-plans/:id/items/:itemId/status", requirePermission("tab_dentist_patients"), setTreatmentPlanItemStatus);
 router.post("/treatment-plans/:id/items/:itemId/book-appointment", requirePermission("tab_dentist_patients"), scheduleItemWithNewAppointmentCtrl);
+
+
+// ── Patient files / imaging ─────────────────────────────────────────────────
+// Bytes are served ONLY through the authenticated download route below; the
+// upload directory is never exposed statically.
+router.get("/patients/:patientId/files", requirePermission("tab_dentist_patients"), listPatientFiles);
+router.get("/patients/:patientId/xray-teeth", requirePermission("tab_dentist_patients"), listPatientXrayTeeth);
+router.get("/files/:id", requirePermission("tab_dentist_patients"), downloadFile);
+router.post("/patients/:patientId/files", requirePermission("tab_dentist_patients"), uploadMiddleware, uploadErrorHandler, uploadPatientFiles);
+router.delete("/files/:id", requirePermission("tab_dentist_patients"), deletePatientFile);
 
 export default router;

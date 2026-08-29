@@ -35,7 +35,43 @@ async function request(path, { method = "GET", params, body } = {}) {
   return json; // { success, data }
 }
 
+
+/** Multipart POST — never set Content-Type by hand; the browser adds the boundary. */
+async function requestMultipart(path, formData) {
+  const token = useUserStore.getState().token || localStorage.getItem("token");
+  const res = await fetch(buildUrl(path), {
+    method: "POST",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: formData,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (res.status === 401) handleUnauthorized(path);
+  if (!res.ok || json?.success === false) throw new Error(json?.message || `Upload failed: ${res.status}`);
+  return json;
+}
+
+/** Authenticated binary fetch — the only way file bytes reach the browser. */
+async function fetchBlob(path, { thumb = false, download = false } = {}) {
+  const token = useUserStore.getState().token || localStorage.getItem("token");
+  const qs = new URLSearchParams();
+  if (thumb) qs.set("thumb", "1");
+  if (download) qs.set("download", "1");
+  const res = await fetch(buildUrl(path) + (qs.toString() ? `?${qs}` : ""), {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (res.status === 401) handleUnauthorized(path);
+  if (!res.ok) throw new Error(`Could not load file (${res.status})`);
+  return res.blob();
+}
+
 export const ownerApi = {
+  // ── Patient files / imaging ──
+  listPatientFiles: (patientId, params) => request(`/owner/patients/${patientId}/files`, { params }),
+  listPatientXrayTeeth: (patientId) => request(`/owner/patients/${patientId}/xray-teeth`),
+  uploadPatientFiles: (patientId, formData) => requestMultipart(`/owner/patients/${patientId}/files`, formData),
+  fetchFileBlob: (fileId, opts) => fetchBlob(`/owner/files/${fileId}`, opts),
+  deletePatientFile: (fileId) => request(`/owner/files/${fileId}`, { method: "DELETE" }),
+
   // =====================================================
   // ✅ Existing Owner APIs (UNCHANGED)
   // =====================================================

@@ -405,3 +405,37 @@ Actions relevant to this audit, added additively to the existing enum:
 Audit Log Viewer (`Backend/services/shared/auditQuery.js`) is unchanged and
 reused as-is by the owner data-export's `auditlogs` collection export (see
 BACKUP.md §9).
+
+## Uploaded files (patient imaging)
+
+Radiographs and clinical photos are PHI. They are stored on disk under
+`UPLOAD_DIR` — an absolute path **outside the repository working tree**,
+because production is redeployed by pulling and a clean checkout would
+otherwise destroy them.
+
+**File bytes are NOT encrypted at rest.** This is a deliberate trade-off:
+
+- Encrypting the bytes would break HTTP range requests and streaming, force
+  every image through a full decrypt before it could be shown, and make
+  thumbnails and any future viewer materially harder — for a threat model
+  (someone with filesystem access to the VPS) where an attacker who can read
+  `UPLOAD_DIR` can generally also read `FIELD_ENCRYPTION_KEY` from the same
+  host, which makes the encryption largely theatre.
+- The protections that actually apply are layered instead:
+  - **No public URL.** `UPLOAD_DIR` is never served by nginx and there is no
+    `express.static` over it. Bytes leave only through an authenticated,
+    role-checked Express route that streams them.
+  - **Restrictive permissions.** Directories `0700`, files `0600` — readable
+    only by the application user.
+  - **Access is logged.** Full-size views record a `file.view` audit entry
+    (PDPL access logging); uploads and deletions record `file.upload` /
+    `file.delete`. File contents are never logged.
+  - **Backups are encrypted.** The DB archive is encrypted; file backups must
+    be written to an encrypted volume or archived with encryption — see
+    BACKUP.md.
+
+Free-text PHI (prescription notes, medical history, plan notes) **is** still
+field-encrypted in MongoDB; this decision applies only to binary image bytes.
+
+Revisit this if the deployment moves to object storage, where server-side
+encryption is a provider checkbox with none of the streaming cost.
