@@ -7,12 +7,24 @@ const { Schema } = mongoose;
 /** What a file can hang off. Additive — Prompt 8/10 use labcase/document. */
 export const FILE_OWNER_TYPES = Object.freeze(["patient", "labcase", "document"]);
 
+/**
+ * Document categories. Additive only — "document" stays for rows already
+ * written under the generic bucket. A patient "document" is just a FileAsset
+ * with one of these categories; there is deliberately no parallel document
+ * store.
+ */
 export const FILE_CATEGORIES = Object.freeze([
   "xray",
   "photo",
-  "document",
   "consent",
+  "prescription",
+  "report",
+  "treatment_plan",
+  "invoice",
+  "receipt",
+  "referral",
   "lab_attachment",
+  "document",   // legacy generic bucket — kept so existing rows stay valid
   "other",
 ]);
 

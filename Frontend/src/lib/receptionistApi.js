@@ -67,6 +67,10 @@ async function fetchBlob(path, { thumb = false, download = false } = {}) {
 
 export const receptionistApi = {
   // ── Patient files / imaging (VIEW ONLY — no write routes exist) ──
+  getConsentTemplates: (lang) => request("/receptionist/consent-templates", { params: { lang } }),
+  listPatientConsents: (patientId, params) => request(`/receptionist/patients/${patientId}/consents`, { params }),
+  getConsentCoverage: (patientId) => request(`/receptionist/patients/${patientId}/consent-coverage`),
+  createConsent: (patientId, formData) => requestMultipart(`/receptionist/patients/${patientId}/consents`, formData),
   listPatientFiles: (patientId, params) => request(`/receptionist/patients/${patientId}/files`, { params }),
   listPatientXrayTeeth: (patientId) => request(`/receptionist/patients/${patientId}/xray-teeth`),
   fetchFileBlob: (fileId, opts) => fetchBlob(`/receptionist/files/${fileId}`, opts),

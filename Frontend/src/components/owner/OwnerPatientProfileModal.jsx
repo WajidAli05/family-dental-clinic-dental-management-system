@@ -11,6 +11,7 @@ import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
 import PatientImagingPanel from "@/components/patients/PatientImagingPanel";
+import PatientDocumentsPanel from "@/components/patients/PatientDocumentsPanel";
 import { useOwnerClinicalMasterStore } from "@/store/ownerClinicalMasterStore";
 import { deriveClinicalOptions } from "@/lib/clinicalOptions";
 
@@ -279,6 +280,12 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
                 xrayRequestedTeeth={xrayRequestedTeeth}
                 canEdit
               />
+            </Panel>
+          </div>
+
+          <div className="lg:col-span-3">
+            <Panel title={t("documents.title")}>
+              <PatientDocumentsPanel patient={patient} api={ownerApi} canEdit canCaptureConsent />
             </Panel>
           </div>
 

@@ -21,6 +21,7 @@ const ACTIONS = [
   "audit.view",
   "data.export",
   "file.upload",         "file.view",             "file.delete",
+  "consent.create",      "consent.withdraw",
   "system.backup",
   "patient.erasure",
 ];

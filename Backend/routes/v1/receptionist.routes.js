@@ -56,6 +56,16 @@ import {
   listPatientXrayTeeth,
   downloadFile,
 } from "../../controllers/file.controller.js";
+import {
+  // Receptionist has no document-upload route, but CAN capture a consent —
+  // which posts the generated PDF through the same multipart pipeline.
+  uploadMiddleware,
+  uploadErrorHandler,
+  getConsentTemplatesCtrl,
+  listPatientConsents,
+  getPatientConsentCoverage,
+  createPatientConsent,
+} from "../../controllers/file.controller.js";
 
 const router = express.Router();
 
@@ -136,5 +146,14 @@ router.get("/patients/:patientId/files", requirePermission("tab_receptionist_pat
 router.get("/patients/:patientId/xray-teeth", requirePermission("tab_receptionist_patients"), listPatientXrayTeeth);
 router.get("/files/:id", requirePermission("tab_receptionist_patients"), downloadFile);
 // Receptionist is VIEW-ONLY on clinical imaging: no upload/delete routes exist.
+
+
+// ── Digital consent ─────────────────────────────────────────────────────────
+router.get("/consent-templates", requirePermission("tab_receptionist_patients"), getConsentTemplatesCtrl);
+router.get("/patients/:patientId/consents", requirePermission("tab_receptionist_patients"), listPatientConsents);
+router.get("/patients/:patientId/consent-coverage", requirePermission("tab_receptionist_patients"), getPatientConsentCoverage);
+// The generated PDF arrives on the same multipart pipeline as any other file.
+router.post("/patients/:patientId/consents", requirePermission("tab_receptionist_patients"), uploadMiddleware, uploadErrorHandler, createPatientConsent);
+// Front desk may CAPTURE a consent but never withdraw one.
 
 export default router;

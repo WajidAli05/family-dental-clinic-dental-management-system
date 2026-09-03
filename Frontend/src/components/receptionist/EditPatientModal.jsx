@@ -24,6 +24,7 @@ import AllergyAlert from "@/components/patients/AllergyAlert";
 import Odontogram from "@/components/patients/Odontogram";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
 import PatientImagingPanel from "@/components/patients/PatientImagingPanel";
+import PatientDocumentsPanel from "@/components/patients/PatientDocumentsPanel";
 import { receptionistApi } from "@/lib/receptionistApi";
 import { useTranslation } from "react-i18next";
 import { EMPTY_PATIENT_FIELDS, mapPatientToFormFields, buildMedicalFieldsPayload } from "@/utils/patientForm";
@@ -265,6 +266,18 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
               role, so the server refuses regardless. */}
           <div className="space-y-2 pt-2 border-t border-gray-100">
             <PatientImagingPanel patientId={patient?.id} api={receptionistApi} canEdit={false} />
+          </div>
+
+          {/* Documents are view-only for the front desk, but capturing a
+              consent signature IS front-desk work — the wording is fixed
+              server-side, so this is witnessing, not a clinical decision. */}
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            <PatientDocumentsPanel
+              patient={patient}
+              api={receptionistApi}
+              canEdit={false}
+              canCaptureConsent
+            />
           </div>
 
           {/* Notification */}

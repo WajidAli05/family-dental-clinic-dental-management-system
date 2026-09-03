@@ -143,6 +143,13 @@ import {
   downloadFile,
   deletePatientFile,
 } from "../../controllers/file.controller.js";
+import {
+  getConsentTemplatesCtrl,
+  listPatientConsents,
+  getPatientConsentCoverage,
+  createPatientConsent,
+  deletePatientConsent,
+} from "../../controllers/file.controller.js";
 
 const router = express.Router();
 
@@ -346,5 +353,14 @@ router.get("/patients/:patientId/xray-teeth", listPatientXrayTeeth);
 router.get("/files/:id", downloadFile);
 router.post("/patients/:patientId/files", uploadMiddleware, uploadErrorHandler, uploadPatientFiles);
 router.delete("/files/:id", deletePatientFile);
+
+
+// ── Digital consent ─────────────────────────────────────────────────────────
+router.get("/consent-templates", getConsentTemplatesCtrl);
+router.get("/patients/:patientId/consents", listPatientConsents);
+router.get("/patients/:patientId/consent-coverage", getPatientConsentCoverage);
+// The generated PDF arrives on the same multipart pipeline as any other file.
+router.post("/patients/:patientId/consents", uploadMiddleware, uploadErrorHandler, createPatientConsent);
+router.delete("/consents/:id", deletePatientConsent);
 
 export default router;

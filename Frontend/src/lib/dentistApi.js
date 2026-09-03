@@ -148,6 +148,11 @@ async function reqBlob(path, { thumb = false, download = false } = {}) {
 
 export const dentistApi = {
   // ── Patient files / imaging ──
+  getConsentTemplates: (lang) => req(`/consent-templates?${new URLSearchParams({ lang: lang || "en" })}`),
+  listPatientConsents: (patientId, params = {}) => req(`/patients/${patientId}/consents?${new URLSearchParams(params)}`),
+  getConsentCoverage: (patientId) => req(`/patients/${patientId}/consent-coverage`),
+  createConsent: (patientId, formData) => reqMultipart(`/patients/${patientId}/consents`, formData),
+  withdrawConsent: (id, patientId) => req(`/consents/${id}?${new URLSearchParams({ patientId })}`, { method: "DELETE" }),
   listPatientFiles: (patientId, params = {}) => req(`/patients/${patientId}/files?${new URLSearchParams(params)}`),
   listPatientXrayTeeth: (patientId) => req(`/patients/${patientId}/xray-teeth`),
   uploadPatientFiles: (patientId, formData) => reqMultipart(`/patients/${patientId}/files`, formData),

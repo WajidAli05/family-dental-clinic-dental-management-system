@@ -4,6 +4,8 @@ import {
   teethWithXrays, mapFile, MAX_FILE_BYTES, MAX_FILES_PER_UPLOAD,
 } from "../services/shared/files.js";
 import { assertDentistCanEditChart } from "../services/dentist.service.js";
+import { createConsent, listConsents, consentCoverage, softDeleteConsent } from "../services/shared/consents.js";
+import { listConsentTemplates, getConsentTemplate } from "../services/shared/consentTemplates.js";
 import { recordAudit } from "../services/shared/audit.js";
 
 /**
@@ -196,6 +198,98 @@ export const deletePatientFile = async (req, res) => {
     await recordAudit({
       req, action: "file.delete", entityType: "FileAsset", entityId: data.id, entityLabel: data.id,
       after: { softDeleted: true, blobRetained: true, ownerType: doc.ownerType, ownerId: doc.ownerId },
+    });
+    return res.json({ success: true, data });
+  } catch (e) { return fail(res, e); }
+};
+
+// ── Digital consent ─────────────────────────────────────────────────────────
+/** Templates for the picker. `lang` selects the on-screen wording. */
+export const getConsentTemplatesCtrl = async (req, res) => {
+  try {
+    return res.json({ success: true, data: listConsentTemplates(req.query?.lang) });
+  } catch (e) { return fail(res, e); }
+};
+
+export const listPatientConsents = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    await assertCanReadPatientFiles(req, patientId);
+    const { page, limit, procedureType } = req.query;
+    const r = await listConsents(patientId, { page, limit, procedureType });
+    return res.json({ success: true, data: r.rows, total: r.total, page: r.page, pages: r.pages });
+  } catch (e) { return fail(res, e); }
+};
+
+/** Which procedures have signed consent on file — drives the profile badge. */
+export const getPatientConsentCoverage = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    await assertCanReadPatientFiles(req, patientId);
+    return res.json({ success: true, data: await consentCoverage(patientId) });
+  } catch (e) { return fail(res, e); }
+};
+
+/**
+ * Records a signed consent.
+ *
+ * The RECEPTIONIST may capture one. Witnessing a signature is front-desk work
+ * in a real clinic, and this is not a clinical judgement — the wording is
+ * fixed server-side from the template, so the front desk cannot alter what is
+ * being agreed to. They still cannot upload or delete clinical documents.
+ */
+export const createPatientConsent = async (req, res) => {
+  try {
+    const patientId = String(req.params.patientId || "").trim();
+    const role = req.user?.role;
+    if (role === "dentist") await assertDentistCanEditChart(req.user._id, patientId);
+    else if (role !== "owner" && role !== "receptionist") {
+      throw Object.assign(new Error("You do not have permission to record consent"), { status: 403 });
+    }
+
+    const pdf = (req.files?.file || [])[0];
+    const { consent, file } = await createConsent({
+      patientPublicId: patientId,
+      procedureType: req.body?.procedureType,
+      displayLanguage: req.body?.displayLanguage,
+      signedByName: req.body?.signedByName,
+      signedByRole: req.body?.signedByRole,
+      signatureMethod: req.body?.signatureMethod,
+      witnessedBy: actorOf(req).publicId,
+      witnessedByName: actorOf(req).name,
+      appointmentId: req.body?.appointmentId,
+      treatmentPlanId: req.body?.treatmentPlanId,
+      treatmentPlanItemId: req.body?.treatmentPlanItemId,
+      note: req.body?.note,
+      pdf,
+      actor: actorOf(req),
+    });
+
+    // Metadata only — never the signature image or the signer's name.
+    await recordAudit({
+      req, action: "consent.create", entityType: "Consent", entityId: consent.id, entityLabel: consent.id,
+      after: { patientId, procedureType: consent.procedureType, textVersion: consent.textVersion, displayLanguage: consent.displayLanguage, signatureMethod: consent.signatureMethod, fileId: consent.fileId },
+    });
+    await recordAudit({
+      req, action: "file.upload", entityType: "FileAsset", entityId: file.id, entityLabel: file.id,
+      after: { ownerType: file.ownerType, ownerId: file.ownerId, category: file.category, mimeType: file.mimeType, sizeBytes: file.sizeBytes },
+    });
+    return res.json({ success: true, data: consent });
+  } catch (e) { return fail(res, e); }
+};
+
+/** Withdraw a consent. Soft only — owner/dentist, never the front desk. */
+export const deletePatientConsent = async (req, res) => {
+  try {
+    const patientId = String(req.query.patientId || "").trim();
+    if (patientId) await assertCanWritePatientFiles(req, patientId);
+    else if (req.user?.role !== "owner") {
+      throw Object.assign(new Error("You do not have permission to withdraw consent"), { status: 403 });
+    }
+    const data = await softDeleteConsent(req.params.id);
+    await recordAudit({
+      req, action: "consent.withdraw", entityType: "Consent", entityId: data.id, entityLabel: data.id,
+      after: { softDeleted: true, recordRetained: true },
     });
     return res.json({ success: true, data });
   } catch (e) { return fail(res, e); }

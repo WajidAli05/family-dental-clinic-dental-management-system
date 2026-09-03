@@ -66,6 +66,11 @@ async function fetchBlob(path, { thumb = false, download = false } = {}) {
 
 export const ownerApi = {
   // ── Patient files / imaging ──
+  getConsentTemplates: (lang) => request("/owner/consent-templates", { params: { lang } }),
+  listPatientConsents: (patientId, params) => request(`/owner/patients/${patientId}/consents`, { params }),
+  getConsentCoverage: (patientId) => request(`/owner/patients/${patientId}/consent-coverage`),
+  createConsent: (patientId, formData) => requestMultipart(`/owner/patients/${patientId}/consents`, formData),
+  withdrawConsent: (id, patientId) => request(`/owner/consents/${id}`, { method: "DELETE", params: { patientId } }),
   listPatientFiles: (patientId, params) => request(`/owner/patients/${patientId}/files`, { params }),
   listPatientXrayTeeth: (patientId) => request(`/owner/patients/${patientId}/xray-teeth`),
   uploadPatientFiles: (patientId, formData) => requestMultipart(`/owner/patients/${patientId}/files`, formData),
