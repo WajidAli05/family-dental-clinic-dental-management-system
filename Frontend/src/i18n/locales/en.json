@@ -533,7 +533,11 @@
       "lab_attachment": "Lab attachment",
       "document": "Document",
       "other": "Other"
-    }
+    },
+    "deleteTitle": "Delete document",
+    "deleteMessage": "Remove \"{{name}}\" from this patient's documents? The record is retained, not destroyed.",
+    "withdrawConsentTitle": "Withdraw consent",
+    "withdrawConsentMessage": "Withdraw the signed consent \"{{name}}\"? Signed consents are never destroyed — the record and the signed PDF are retained."
   },
   "consent": {
     "title": "Informed consent",
@@ -569,6 +573,7 @@
       "crown": "Crown / bridge",
       "whitening": "Whitening",
       "other": "Other procedure"
-    }
+    },
+    "witnessedBy": "Witnessed by"
   }
 }

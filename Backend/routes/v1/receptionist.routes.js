@@ -61,6 +61,8 @@ import {
   // which posts the generated PDF through the same multipart pipeline.
   uploadMiddleware,
   uploadErrorHandler,
+  getUploadPolicy,
+  uploadPatientFiles,
   getConsentTemplatesCtrl,
   listPatientConsents,
   getPatientConsentCoverage,
@@ -145,7 +147,9 @@ router.get("/treatment-plans/:id", requirePermission("tab_receptionist_patients"
 router.get("/patients/:patientId/files", requirePermission("tab_receptionist_patients"), listPatientFiles);
 router.get("/patients/:patientId/xray-teeth", requirePermission("tab_receptionist_patients"), listPatientXrayTeeth);
 router.get("/files/:id", requirePermission("tab_receptionist_patients"), downloadFile);
-// Receptionist is VIEW-ONLY on clinical imaging: no upload/delete routes exist.
+// Front desk may upload NON-CLINICAL paperwork only (enforced in the
+// controller gate, not just here) and may never delete.
+router.post("/patients/:patientId/files", requirePermission("tab_receptionist_patients"), uploadMiddleware, uploadErrorHandler, uploadPatientFiles);
 
 
 // ── Digital consent ─────────────────────────────────────────────────────────
@@ -155,5 +159,7 @@ router.get("/patients/:patientId/consent-coverage", requirePermission("tab_recep
 // The generated PDF arrives on the same multipart pipeline as any other file.
 router.post("/patients/:patientId/consents", requirePermission("tab_receptionist_patients"), uploadMiddleware, uploadErrorHandler, createPatientConsent);
 // Front desk may CAPTURE a consent but never withdraw one.
+
+router.get("/file-upload-policy", requirePermission("tab_receptionist_patients"), getUploadPolicy);
 
 export default router;

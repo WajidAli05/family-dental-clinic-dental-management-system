@@ -66,6 +66,7 @@ async function fetchBlob(path, { thumb = false, download = false } = {}) {
 
 export const ownerApi = {
   // ── Patient files / imaging ──
+  getUploadPolicy: () => request("/owner/file-upload-policy"),
   getConsentTemplates: (lang) => request("/owner/consent-templates", { params: { lang } }),
   listPatientConsents: (patientId, params) => request(`/owner/patients/${patientId}/consents`, { params }),
   getConsentCoverage: (patientId) => request(`/owner/patients/${patientId}/consent-coverage`),

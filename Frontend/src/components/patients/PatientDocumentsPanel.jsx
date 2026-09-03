@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import TablePagination from "@/components/ui/TablePagination";
+import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 import {
   Loader2, Upload, Trash2, Download, FileText, ImageIcon, FileSignature, Search, ShieldCheck,
 } from "lucide-react";
@@ -15,84 +17,121 @@ import { NESTED_POPOVER } from "@/lib/zLayers";
 import ConsentModal from "./ConsentModal";
 
 /**
- * The patient DOCUMENT REPOSITORY — every FileAsset for this patient, in one
- * chronological timeline, with a category filter and free-text search.
+ * The patient DOCUMENT REPOSITORY — every FileAsset for this patient.
  *
  * A "document" is not a separate entity: it is a FileAsset with a category, so
- * this reads the same paginated listFiles endpoint the imaging gallery uses.
- * The imaging panel remains separate because it carries genuinely
- * imaging-specific clinical logic (tooth tagging, outstanding x-ray requests);
- * this panel is the general repository and does not duplicate that.
+ * this reads the same paginated endpoint the imaging gallery uses.
+ *
+ * PAGINATION AND FILTERS ARE SERVER-SIDE. Category, free-text search and the
+ * page all go to the API, so `total` reflects the filters and a match on page 4
+ * is still found — filtering the current page would silently miss it.
+ *
+ * WHAT THE UI OFFERS COMES FROM THE SERVER. `file-upload-policy` returns what
+ * this role may actually do, so a button is never shown for an action the
+ * server will refuse.
  */
 
-/** Categories staff may upload directly. Consent is produced by the signing flow. */
-const UPLOADABLE = ["report", "referral", "prescription", "treatment_plan", "invoice", "receipt", "photo", "other"];
-const ALL_CATEGORIES = ["consent", ...UPLOADABLE, "xray", "lab_attachment", "document"];
+const PAGE_SIZE = 10;
+const ALL_CATEGORIES = [
+  "consent", "xray", "photo", "prescription", "report", "treatment_plan",
+  "invoice", "receipt", "referral", "lab_attachment", "document", "other",
+];
+/** Fallback when the policy endpoint is unavailable — owner/dentist set. */
+const DEFAULT_UPLOADABLE = [
+  "report", "referral", "prescription", "treatment_plan", "invoice", "receipt", "photo", "other",
+];
 
-const CATEGORY_ICON = {
-  consent: FileSignature,
-  xray: ImageIcon,
-  photo: ImageIcon,
-};
+const CATEGORY_ICON = { consent: FileSignature, xray: ImageIcon, photo: ImageIcon };
 
-const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsent = false, appointmentId = "" }) => {
+const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
   const { t } = useTranslation();
   const patientId = patient?.id || "";
   const fileInputRef = useRef(null);
 
   const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(1);
+
   const [coverage, setCoverage] = useState([]);
+  const [policy, setPolicy] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+
   const [category, setCategory] = useState("all");
-  const [uploadCategory, setUploadCategory] = useState("report");
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("");
   const [consentOpen, setConsentOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState(null);
+
+  // The server is the authority on what this role may do.
+  useEffect(() => {
+    if (!api?.getUploadPolicy) return;
+    let alive = true;
+    api.getUploadPolicy()
+      .then((res) => {
+        if (!alive) return;
+        const p = res?.data || null;
+        setPolicy(p);
+        const allowed = p?.uploadCategories || DEFAULT_UPLOADABLE;
+        setUploadCategory((cur) => cur || allowed[0] || "");
+      })
+      .catch(() => { if (alive) setPolicy(null); });
+    return () => { alive = false; };
+  }, [api]);
+
+  // Debounce the search so typing does not fire a request per keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  // Any filter change invalidates the current page.
+  useEffect(() => { setPage(1); }, [category, debouncedQ]);
 
   const load = useCallback(async () => {
     if (!patientId || !api?.listPatientFiles) return;
     setLoading(true);
     try {
       const [filesRes, covRes] = await Promise.all([
-        api.listPatientFiles(patientId, { limit: 200 }),
+        api.listPatientFiles(patientId, {
+          page,
+          limit: PAGE_SIZE,
+          category: category === "all" ? undefined : category,
+          q: debouncedQ || undefined,
+        }),
         api.getConsentCoverage?.(patientId).catch(() => ({ data: [] })) ?? Promise.resolve({ data: [] }),
       ]);
       setRows(filesRes?.data || []);
+      setTotal(Number(filesRes?.total) || 0);
+      setPages(Number(filesRes?.pages) || 1);
       setCoverage(covRes?.data || []);
     } catch (e) {
       toast.error(e.message || t("documents.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [patientId, api, t]);
+  }, [patientId, api, page, category, debouncedQ, t]);
 
   useEffect(() => { load(); }, [load]);
 
-  /** Filter + search, newest first — the server already sorts by createdAt. */
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (category !== "all" && r.category !== category) return false;
-      if (!needle) return true;
-      return `${r.originalName} ${r.note || ""}`.toLowerCase().includes(needle);
-    });
-  }, [rows, category, q]);
-
-  /** Timeline buckets by date, so the repository reads chronologically. */
+  /** Timeline buckets within the current page, newest day first. */
   const timeline = useMemo(() => {
     const byDay = new Map();
-    for (const r of filtered) {
+    for (const r of rows) {
       const day = String(r.uploadedAt || "").slice(0, 10) || "—";
       if (!byDay.has(day)) byDay.set(day, []);
       byDay.get(day).push(r);
     }
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [filtered]);
+  }, [rows]);
 
-  const signedProcedures = useMemo(
-    () => (coverage || []).filter((c) => c.consentId),
-    [coverage]
-  );
+  const signedProcedures = useMemo(() => (coverage || []).filter((c) => c.consentId), [coverage]);
+  const uploadable = policy?.uploadCategories || DEFAULT_UPLOADABLE;
+  const canUpload = policy ? !!policy.canUpload : false;
+  const canDelete = policy ? !!policy.canDelete : false;
+  const canCaptureConsent = policy ? !!policy.canCaptureConsent : false;
 
   const onPick = async (e) => {
     const picked = [...(e.target.files || [])];
@@ -101,11 +140,12 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
     setBusy(true);
     try {
       const form = new FormData();
-      form.append("category", uploadCategory);
+      form.append("category", uploadCategory || uploadable[0] || "other");
       if (appointmentId) form.append("appointmentId", appointmentId);
       for (const f of picked) form.append("file", f, f.name);
       await api.uploadPatientFiles(patientId, form);
       toast.success(t("documents.uploaded"));
+      setPage(1);
       await load();
     } catch (err) {
       toast.error(err.message || t("documents.uploadFailed"));
@@ -130,7 +170,10 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
     }
   };
 
-  const remove = async (row) => {
+  const confirmDelete = async () => {
+    const row = confirmTarget;
+    setConfirmTarget(null);
+    if (!row) return;
     setBusy(true);
     try {
       await api.deletePatientFile(row.id);
@@ -143,16 +186,8 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-6 text-sm text-gray-500">
-        <Loader2 className="h-4 w-4 animate-spin" /> {t("documents.loading")}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
           <FileText className="h-3.5 w-3.5 text-[#2ec4b6]" />
@@ -166,14 +201,14 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
               {t("consent.newConsent")}
             </Button>
           )}
-          {canEdit && (
+          {canUpload && (
             <>
-              <Select value={uploadCategory} onValueChange={setUploadCategory} disabled={busy}>
+              <Select value={uploadCategory || undefined} onValueChange={setUploadCategory} disabled={busy}>
                 <SelectTrigger className="h-8 w-[150px] text-xs">
-                  <SelectValue />
+                  <SelectValue placeholder={t("documents.filterCategory")} />
                 </SelectTrigger>
                 <SelectContent className={NESTED_POPOVER}>
-                  {UPLOADABLE.map((c) => (
+                  {uploadable.map((c) => (
                     <SelectItem key={c} value={c} className="text-xs">
                       {t(`documents.category.${c}`)}
                     </SelectItem>
@@ -202,11 +237,10 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
         </div>
       </div>
 
-      {/* Which procedures have signed consent on file — the query a stored PDF
-          alone could not answer. */}
+      {/* Which procedures have signed consent on file. */}
       {signedProcedures.length > 0 && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 flex items-start gap-2 flex-wrap">
-          <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-900 flex items-start gap-2 flex-wrap">
+          <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span>
             {t("consent.onFile")}:{" "}
             {signedProcedures.map((c, i) => (
@@ -220,7 +254,7 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
         </div>
       )}
 
-      {/* Filter + search */}
+      {/* Filters — applied SERVER-side */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">{t("documents.filterCategory")}</Label>
@@ -248,12 +282,16 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("documents.loading")}
+        </div>
+      ) : rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
           {t("documents.empty")}
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {timeline.map(([day, items]) => (
             <div key={day} className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100 pb-1">
@@ -287,12 +325,12 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
                       <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => download(row)}>
                         <Download className="h-3.5 w-3.5" />
                       </Button>
-                      {canEdit && (
+                      {canDelete && (
                         <Button
                           size="sm" variant="ghost"
                           className="h-7 px-1.5 text-red-500 hover:bg-red-50"
                           disabled={busy}
-                          onClick={() => remove(row)}
+                          onClick={() => setConfirmTarget(row)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -303,8 +341,28 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
               })}
             </div>
           ))}
+
+          <TablePagination page={page} pages={pages} total={total} limit={PAGE_SIZE} onPage={setPage} />
         </div>
       )}
+
+      {/* Nothing is deleted without an explicit confirmation. Consents are
+          withdrawn, not destroyed, and the message says so. */}
+      <OwnerConfirmDialog
+        open={!!confirmTarget}
+        title={
+          confirmTarget?.category === "consent"
+            ? t("documents.withdrawConsentTitle")
+            : t("documents.deleteTitle")
+        }
+        message={
+          confirmTarget?.category === "consent"
+            ? t("documents.withdrawConsentMessage", { name: confirmTarget?.originalName || "" })
+            : t("documents.deleteMessage", { name: confirmTarget?.originalName || "" })
+        }
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={confirmDelete}
+      />
 
       <ConsentModal
         open={consentOpen}
@@ -312,7 +370,7 @@ const PatientDocumentsPanel = ({ patient, api, canEdit = false, canCaptureConsen
         patient={patient}
         api={api}
         appointmentId={appointmentId}
-        onSaved={load}
+        onSaved={() => { setPage(1); load(); }}
       />
     </div>
   );

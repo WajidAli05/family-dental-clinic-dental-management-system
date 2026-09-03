@@ -47,6 +47,18 @@ export function sniffType(buffer) {
 export const isImageMime = (mime) => String(mime || "").startsWith("image/");
 
 /**
+ * Escapes regex metacharacters so a user's search string is matched literally.
+ * Built by scanning rather than with a regex literal, so a search for "*" or
+ * "(" cannot turn into an invalid or catastrophically backtracking pattern.
+ */
+const REGEX_SPECIALS = new Set([".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\\"]);
+export function escapeRegex(input) {
+  let out = "";
+  for (const ch of String(input || "")) out += REGEX_SPECIALS.has(ch) ? "\\" + ch : ch;
+  return out;
+}
+
+/**
  * Safe on-disk filename: no traversal, no user-controlled extension, no
  * executable suffix. The extension comes from the SNIFFED type, and a random
  * token prevents collisions and makes keys unguessable.
@@ -190,7 +202,7 @@ export async function storeUpload({
 
 /** Paginated {rows,total,page,pages}. Soft-deleted rows are excluded by the plugin. */
 export async function listFiles(
-  { ownerType, ownerId, category, toothNumber, appointmentId } = {},
+  { ownerType, ownerId, category, toothNumber, appointmentId, q } = {},
   { page, limit, sortBy, sortDir } = {}
 ) {
   const { page: P, limit: L, sortBy: sb, sortDir: sd } = parsePagination({ page, limit, sortBy, sortDir });
@@ -199,6 +211,14 @@ export async function listFiles(
   if (category) query.category = category;
   if (toothNumber) query.toothNumber = String(toothNumber).trim();
   if (appointmentId) query.appointmentId = String(appointmentId).trim();
+
+  // Free-text search runs in the QUERY, not over the current page, so `total`
+  // reflects the filter and a match on page 4 is still found.
+  const needle = String(q || "").trim();
+  if (needle) {
+    const rx = new RegExp(escapeRegex(needle), "i");
+    query.$or = [{ originalName: rx }, { note: rx }, { publicId: rx }];
+  }
 
   const rows = await FileAsset.find(query).sort(buildSort(sb, sd, { createdAt: -1 })).lean();
   return paginateArray(rows.map(mapFile), P, L);

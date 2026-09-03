@@ -69,18 +69,37 @@ async function assertCanReadPatientFiles(req, patientPublicId) {
 }
 
 /** Writes exclude the receptionist. */
-async function assertCanWritePatientFiles(req, patientPublicId) {
+async function assertCanWritePatientFiles(req, patientPublicId, { category } = {}) {
   const role = req.user?.role;
   if (role === "owner") return;
   if (role === "dentist") {
     await assertDentistCanEditChart(req.user._id, patientPublicId);
     return;
   }
+  // Receptionist: UPLOAD of non-clinical paperwork only, never delete.
+  if (role === "receptionist" && category !== undefined) {
+    if (RECEPTIONIST_UPLOAD_CATEGORIES.includes(String(category || ""))) return;
+    throw Object.assign(
+      new Error("The front desk can only upload non-clinical documents (receipt, invoice, referral, document, other)"),
+      { status: 403, code: "CATEGORY_NOT_ALLOWED_FOR_ROLE" }
+    );
+  }
   throw Object.assign(
     new Error("You do not have permission to modify patient files"),
     { status: 403 }
   );
 }
+
+/**
+ * Categories the RECEPTIONIST may upload. Front-desk paperwork only — a
+ * receipt, a referral letter, a scanned ID. Clinical imaging and
+ * clinician-authored records (xray, photo, prescription, treatment_plan,
+ * consent, lab_attachment) are deliberately excluded: the front desk files
+ * paperwork, it does not author the clinical record.
+ */
+export const RECEPTIONIST_UPLOAD_CATEGORIES = Object.freeze([
+  "receipt", "invoice", "referral", "document", "other",
+]);
 
 const actorOf = (req) => ({
   publicId: req.user?.publicId || String(req.user?._id || ""),
@@ -91,7 +110,8 @@ const actorOf = (req) => ({
 export const uploadPatientFiles = async (req, res) => {
   try {
     const patientId = String(req.params.patientId || "").trim();
-    await assertCanWritePatientFiles(req, patientId);
+    const category = req.body?.category || "xray";
+    await assertCanWritePatientFiles(req, patientId, { category });
 
     const files = req.files?.file || [];
     const thumbs = req.files?.thumb || [];
@@ -103,7 +123,7 @@ export const uploadPatientFiles = async (req, res) => {
         await storeUpload({
           ownerType: "patient",
           ownerId: patientId,
-          category: req.body?.category || "xray",
+          category,
           file: files[i],
           thumb: thumbs[i],
           appointmentId: req.body?.appointmentId,
@@ -130,9 +150,9 @@ export const listPatientFiles = async (req, res) => {
     const patientId = String(req.params.patientId || "").trim();
     await assertCanReadPatientFiles(req, patientId);
 
-    const { page, limit, sortBy, sortDir, category, toothNumber, appointmentId } = req.query;
+    const { page, limit, sortBy, sortDir, category, toothNumber, appointmentId, q } = req.query;
     const r = await listFiles(
-      { ownerType: "patient", ownerId: patientId, category, toothNumber, appointmentId },
+      { ownerType: "patient", ownerId: patientId, category, toothNumber, appointmentId, q },
       { page, limit, sortBy, sortDir }
     );
     return res.json({ success: true, data: r.rows, total: r.total, page: r.page, pages: r.pages });
@@ -203,6 +223,26 @@ export const deletePatientFile = async (req, res) => {
   } catch (e) { return fail(res, e); }
 };
 
+/** What THIS caller may upload — the UI offers exactly this, nothing more. */
+export const getUploadPolicy = async (req, res) => {
+  try {
+    const role = req.user?.role;
+    const categories =
+      role === "receptionist" ? [...RECEPTIONIST_UPLOAD_CATEGORIES] : null; // null = all
+    return res.json({
+      success: true,
+      data: {
+        role,
+        canUpload: role === "owner" || role === "dentist" || role === "receptionist",
+        canDelete: role === "owner" || role === "dentist",
+        canCaptureConsent: role === "owner" || role === "dentist" || role === "receptionist",
+        canWithdrawConsent: role === "owner" || role === "dentist",
+        uploadCategories: categories,
+      },
+    });
+  } catch (e) { return fail(res, e); }
+};
+
 // ── Digital consent ─────────────────────────────────────────────────────────
 /** Templates for the picker. `lang` selects the on-screen wording. */
 export const getConsentTemplatesCtrl = async (req, res) => {
@@ -255,8 +295,11 @@ export const createPatientConsent = async (req, res) => {
       signedByName: req.body?.signedByName,
       signedByRole: req.body?.signedByRole,
       signatureMethod: req.body?.signatureMethod,
+      // The AUTHENTICATED actor is always recorded as the responsible staff
+      // member; the name may be overridden when a different colleague actually
+      // witnessed the signing.
       witnessedBy: actorOf(req).publicId,
-      witnessedByName: actorOf(req).name,
+      witnessedByName: String(req.body?.witnessName || "").trim() || actorOf(req).name,
       appointmentId: req.body?.appointmentId,
       treatmentPlanId: req.body?.treatmentPlanId,
       treatmentPlanItemId: req.body?.treatmentPlanItemId,

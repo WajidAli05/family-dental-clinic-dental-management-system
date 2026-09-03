@@ -10,6 +10,7 @@ import { Loader2, Upload, Trash2, Download, ImageIcon, FileText, X, AlertTriangl
 import { toast } from "sonner";
 import { makeThumbnail, formatBytes } from "@/lib/imageThumb";
 import { NESTED_DIALOG } from "@/lib/zLayers";
+import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 
 /**
  * Patient imaging gallery (x-rays and photos).
@@ -32,6 +33,7 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
   const [busy, setBusy] = useState(false);
   const [tooth, setTooth] = useState("");
   const [viewing, setViewing] = useState(null); // { id, url, originalName }
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   // Authenticated blob URLs, keyed by file id. Revoked on unmount so a long
   // session does not leak object URLs holding PHI in memory.
@@ -147,7 +149,10 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
     }
   };
 
-  const remove = async (row) => {
+  const remove = async () => {
+    const row = confirmTarget;
+    setConfirmTarget(null);
+    if (!row) return;
     setBusy(true);
     try {
       await api.deletePatientFile(row.id);
@@ -282,7 +287,7 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
                       size="sm" variant="ghost"
                       className="h-6 px-1.5 text-red-500 hover:bg-red-50"
                       disabled={busy}
-                      onClick={() => remove(row)}
+                      onClick={() => setConfirmTarget(row)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -293,6 +298,15 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
           ))}
         </div>
       )}
+
+      {/* Images are clinical records — never removed on a single click. */}
+      <OwnerConfirmDialog
+        open={!!confirmTarget}
+        title={t("documents.deleteTitle")}
+        message={t("documents.deleteMessage", { name: confirmTarget?.originalName || "" })}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={remove}
+      />
 
       {/* Full-size viewer */}
       {viewing && (

@@ -272,12 +272,9 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
               consent signature IS front-desk work — the wording is fixed
               server-side, so this is witnessing, not a clinical decision. */}
           <div className="space-y-2 pt-2 border-t border-gray-100">
-            <PatientDocumentsPanel
-              patient={patient}
-              api={receptionistApi}
-              canEdit={false}
-              canCaptureConsent
-            />
+            {/* What the front desk may do comes from the SERVER policy, so a
+                button is never shown for an action that would 403. */}
+            <PatientDocumentsPanel patient={patient} api={receptionistApi} />
           </div>
 
           {/* Notification */}

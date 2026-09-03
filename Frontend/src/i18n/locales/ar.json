@@ -533,7 +533,11 @@
       "lab_attachment": "مرفق مختبر",
       "document": "مستند",
       "other": "أخرى"
-    }
+    },
+    "deleteTitle": "حذف المستند",
+    "deleteMessage": "إزالة \"{{name}}\" من مستندات هذا المريض؟ يُحتفظ بالسجل ولا يُتلف.",
+    "withdrawConsentTitle": "سحب الموافقة",
+    "withdrawConsentMessage": "سحب الموافقة الموقعة \"{{name}}\"؟ لا تُتلف الموافقات الموقعة أبداً — يُحتفظ بالسجل وبملف PDF."
   },
   "consent": {
     "title": "موافقة مستنيرة",
@@ -569,6 +573,7 @@
       "crown": "تاج / جسر",
       "whitening": "تبييض",
       "other": "إجراء آخر"
-    }
+    },
+    "witnessedBy": "الشاهد"
   }
 }

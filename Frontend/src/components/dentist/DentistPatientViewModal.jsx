@@ -1,8 +1,11 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AllergyAlert from "@/components/patients/AllergyAlert";
 import TreatmentPlanPanel from "@/components/patients/TreatmentPlanPanel";
+import PatientImagingPanel from "@/components/patients/PatientImagingPanel";
+import PatientDocumentsPanel from "@/components/patients/PatientDocumentsPanel";
 import { dentistApi } from "@/lib/dentistApi";
 
 const REFERRAL_LABEL_KEYS = {
@@ -40,11 +43,16 @@ const Panel = ({ title, children }) => (
 const DentistPatientViewModal = ({ open, patient, onClose }) => {
   const { t } = useTranslation();
 
+  const xrayRequestedTeeth = useMemo(
+    () => (patient?.odontogram || []).filter((e) => e?.xrayRequested).map((e) => e.toothNumber).filter(Boolean),
+    [patient]
+  );
+
   if (!open || !patient) return null;
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden max-h-[85vh] flex flex-col">
+      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden h-[92vh] flex flex-col">
         <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-100">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">{patient.name}</h3>
@@ -69,7 +77,7 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
           </div>
         )}
 
-        <div className="p-5 overflow-y-auto space-y-4">
+        <div className="p-5 overflow-y-auto space-y-4 flex-1 min-h-0">
           <Panel title={t("patients.sectionIdentity")}>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm">
               <DetailField label={t("patients.dob")} value={patient.dateOfBirth || "—"} />
@@ -114,6 +122,29 @@ const DentistPatientViewModal = ({ open, patient, onClose }) => {
           {/* isMyPatient mirrors the server's appointment-based gate
               (assertDentistCanEditChart) — no appointment means read-only here
               and 403 on the server either way. */}
+          {/* Backend already permitted this — the dentist file routes were
+              mounted and gated by assertDentistCanEditChart; the panels were
+              simply never rendered here. isMyPatient mirrors that same rule. */}
+          <Panel title={t("imaging.title")}>
+            <div className="max-h-[42vh] overflow-y-auto pe-1">
+              <PatientImagingPanel
+                patientId={patient.id || patient.publicId}
+                api={dentistApi}
+                xrayRequestedTeeth={xrayRequestedTeeth}
+                canEdit={!!patient.isMyPatient}
+              />
+            </div>
+          </Panel>
+
+          <Panel title={t("documents.title")}>
+            <div className="max-h-[42vh] overflow-y-auto pe-1">
+              <PatientDocumentsPanel
+                patient={{ id: patient.id || patient.publicId, name: patient.name, dateOfBirth: patient.dateOfBirth }}
+                api={dentistApi}
+              />
+            </div>
+          </Panel>
+
           <Panel title={t("treatmentPlans.title")}>
             <TreatmentPlanPanel
               patientId={patient.id || patient.publicId}

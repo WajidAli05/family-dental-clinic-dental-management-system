@@ -126,7 +126,9 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden max-h-[85vh] flex flex-col">
+      {/* Roomy on desktop, still full-width on small screens. 92vh keeps the
+          header + allergy banner pinned while the body scrolls beneath. */}
+      <div className="w-full max-w-6xl rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-100">
           <div className="min-w-0">
@@ -183,7 +185,7 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
         )}
 
         {/* Body (scrollable) */}
-        <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto">
+        <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto flex-1 min-h-0">
           <div className="lg:col-span-3">
             <Panel title={t("patients.sectionIdentity")}>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm">
@@ -268,24 +270,30 @@ const OwnerPatientProfileModal = ({ open, patient, onClose }) => {
           {/* Owner may edit any plan — the server gate agrees (role === "owner"). */}
           <div className="lg:col-span-3">
             <Panel title={t("treatmentPlans.title")}>
-              <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} onOverlayChange={setPlanOverlay} canEdit />
+              <div className="max-h-[42vh] overflow-y-auto pe-1">
+                <TreatmentPlanPanel patientId={patient.id} api={ownerApi} odontogram={odontogram} onOverlayChange={setPlanOverlay} canEdit />
+              </div>
             </Panel>
           </div>
 
           <div className="lg:col-span-3">
             <Panel title={t("imaging.title")}>
-              <PatientImagingPanel
-                patientId={patient.id}
-                api={ownerApi}
-                xrayRequestedTeeth={xrayRequestedTeeth}
-                canEdit
-              />
+              <div className="max-h-[42vh] overflow-y-auto pe-1">
+                <PatientImagingPanel
+                  patientId={patient.id}
+                  api={ownerApi}
+                  xrayRequestedTeeth={xrayRequestedTeeth}
+                  canEdit
+                />
+              </div>
             </Panel>
           </div>
 
           <div className="lg:col-span-3">
             <Panel title={t("documents.title")}>
-              <PatientDocumentsPanel patient={patient} api={ownerApi} canEdit canCaptureConsent />
+              <div className="max-h-[42vh] overflow-y-auto pe-1">
+                <PatientDocumentsPanel patient={patient} api={ownerApi} />
+              </div>
             </Panel>
           </div>
 

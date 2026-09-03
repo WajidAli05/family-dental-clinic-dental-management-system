@@ -56,6 +56,7 @@ import {
   deletePatientFile,
 } from "../../controllers/file.controller.js";
 import {
+  getUploadPolicy,
   getConsentTemplatesCtrl,
   listPatientConsents,
   getPatientConsentCoverage,
@@ -150,5 +151,7 @@ router.get("/patients/:patientId/consent-coverage", requirePermission("tab_denti
 // The generated PDF arrives on the same multipart pipeline as any other file.
 router.post("/patients/:patientId/consents", requirePermission("tab_dentist_patients"), uploadMiddleware, uploadErrorHandler, createPatientConsent);
 router.delete("/consents/:id", requirePermission("tab_dentist_patients"), deletePatientConsent);
+
+router.get("/file-upload-policy", requirePermission("tab_dentist_patients"), getUploadPolicy);
 
 export default router;

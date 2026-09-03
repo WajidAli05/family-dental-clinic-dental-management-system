@@ -24,31 +24,31 @@ const AllergyAlert = ({ allergies = [], subtitle }) => {
 
   if (!Array.isArray(allergies) || allergies.length === 0) return null;
 
+  // Compact by design: safety-critical, so always visible, but a single slim
+  // row with the chips inline rather than the padded block that was eating a
+  // third of the patient modal.
   return (
-    <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3">
-      <div className="flex items-start gap-2">
-        <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-red-800 uppercase tracking-wide">
-            {t("patients.allergyAlertTitle")}
-          </p>
-          {subtitle && <p className="text-xs text-red-700 mb-1">{subtitle}</p>}
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {allergies.map((a, idx) => (
-              <span
-                key={`${a.allergen}-${idx}`}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                  SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.moderate
-                }`}
-              >
-                {a.allergen}
-                <span className="opacity-70">
-                  ({t(SEVERITY_LABEL_KEYS[a.severity] || SEVERITY_LABEL_KEYS.moderate)})
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
+    <div className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1.5">
+      <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+        <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+        <span className="text-xs font-bold text-red-800 uppercase tracking-wide">
+          {t("patients.allergyAlertTitle")}
+        </span>
+        {subtitle && <span className="text-[11px] text-red-700">{subtitle}</span>}
+        {allergies.map((a, idx) => (
+          <span
+            key={`${a.allergen}-${idx}`}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.moderate
+            }`}
+          >
+            {/* Allergen names are patient data — never translated. */}
+            {a.allergen}
+            <span className="opacity-70">
+              ({t(SEVERITY_LABEL_KEYS[a.severity] || SEVERITY_LABEL_KEYS.moderate)})
+            </span>
+          </span>
+        ))}
       </div>
     </div>
   );

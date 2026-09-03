@@ -148,6 +148,7 @@ async function reqBlob(path, { thumb = false, download = false } = {}) {
 
 export const dentistApi = {
   // ── Patient files / imaging ──
+  getUploadPolicy: () => req("/file-upload-policy"),
   getConsentTemplates: (lang) => req(`/consent-templates?${new URLSearchParams({ lang: lang || "en" })}`),
   listPatientConsents: (patientId, params = {}) => req(`/patients/${patientId}/consents?${new URLSearchParams(params)}`),
   getConsentCoverage: (patientId) => req(`/patients/${patientId}/consent-coverage`),

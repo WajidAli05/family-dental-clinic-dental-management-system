@@ -23,7 +23,7 @@ import { buildConsentPdf } from "@/utils/buildConsentPdf";
  * shown. This component only renders it, captures the signature, and builds
  * the PDF artifact.
  */
-const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", onSaved }) => {
+const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", currentUserName = "", onSaved }) => {
   const { t, i18n } = useTranslation();
 
   const [templates, setTemplates] = useState([]);
@@ -35,6 +35,11 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
   const [signedByRole, setSignedByRole] = useState("patient");
   const [method, setMethod] = useState("drawn");
   const [signatureDataUrl, setSignatureDataUrl] = useState(null);
+  // Witness defaults to the signed-in staff member. The server stamps the
+  // authoritative witnessedBy from the authenticated actor; this is the NAME
+  // printed on the artifact, which the PDF previously omitted entirely.
+  const [witnessName, setWitnessName] = useState("");
+  const [staff, setStaff] = useState([]);
 
   const lang = i18n.language?.slice(0, 2) || "en";
 
@@ -43,7 +48,13 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
     let alive = true;
     setProcedureType(""); setSignedByName(patient?.name || "");
     setSignedByRole("patient"); setMethod("drawn"); setSignatureDataUrl(null);
+    setWitnessName(currentUserName || "");
     setLoading(true);
+
+    // Optional: let staff pick a different witness where the role can list staff.
+    api.getDentists?.()
+      .then((r) => { if (alive) setStaff(r?.data || []); })
+      .catch(() => {});
     // Fetch in the UI language AND English — the PDF must print English.
     Promise.all([api.getConsentTemplates(lang), api.getConsentTemplates("en")])
       .then(([shown, english]) => {
@@ -62,7 +73,7 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
   );
 
   const canSubmit =
-    !!selected && !!signedByName.trim() && !saving &&
+    !!selected && !!signedByName.trim() && !!witnessName.trim() && !saving &&
     (method === "typed" || !!signatureDataUrl);
 
   const submit = async () => {
@@ -81,7 +92,7 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
         signedByRole,
         signatureMethod: method,
         signatureDataUrl,
-        witnessName: "", // stamped server-side from the authenticated actor
+        witnessName: witnessName.trim(),
         signedAt: new Date(),
       });
 
@@ -92,6 +103,7 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
       form.append("signedByName", signedByName.trim());
       form.append("signedByRole", signedByRole);
       form.append("signatureMethod", method);
+      if (witnessName.trim()) form.append("witnessName", witnessName.trim());
       if (appointmentId) form.append("appointmentId", appointmentId);
 
       await api.createConsent(patient.id, form);
@@ -216,7 +228,32 @@ const ConsentModal = ({ open, onOpenChange, patient, api, appointmentId = "", on
                 )}
               </div>
 
-              <p className="text-[11px] text-gray-500">{t("consent.witnessNotice")}</p>
+              <div className="space-y-1">
+                <Label>{t("consent.witnessedBy")}</Label>
+                {staff.length > 0 ? (
+                  <Select value={witnessName || undefined} onValueChange={setWitnessName} disabled={saving}>
+                    <SelectTrigger><SelectValue placeholder={t("consent.witnessedBy")} /></SelectTrigger>
+                    <SelectContent className={NESTED_POPOVER}>
+                      {currentUserName && (
+                        <SelectItem value={currentUserName}>{currentUserName}</SelectItem>
+                      )}
+                      {staff
+                        .filter((d) => d.name && d.name !== currentUserName)
+                        .map((d) => (
+                          <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={witnessName}
+                    onChange={(e) => setWitnessName(e.target.value)}
+                    placeholder={t("consent.witnessedBy")}
+                    disabled={saving}
+                  />
+                )}
+                <p className="text-[11px] text-gray-500">{t("consent.witnessNotice")}</p>
+              </div>
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
