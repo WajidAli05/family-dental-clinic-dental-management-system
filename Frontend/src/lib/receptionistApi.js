@@ -39,7 +39,11 @@ async function request(path, { method = "GET", params, body } = {}) {
 
 /** Multipart POST — never set Content-Type by hand; the browser adds the boundary. */
 async function requestMultipart(path, formData) {
-  const token = useUserStore.getState().token || localStorage.getItem("token");
+  // Same token source as request() in this file. These two helpers were
+  // pasted from ownerApi.js, which reads the zustand store — but this module
+  // never imported it, so every receptionist upload/download/consent threw
+  // "useUserStore is not defined" before any request was made.
+  const token = localStorage.getItem("token");
   const res = await fetch(buildUrl(path), {
     method: "POST",
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -53,7 +57,11 @@ async function requestMultipart(path, formData) {
 
 /** Authenticated binary fetch — the only way file bytes reach the browser. */
 async function fetchBlob(path, { thumb = false, download = false } = {}) {
-  const token = useUserStore.getState().token || localStorage.getItem("token");
+  // Same token source as request() in this file. These two helpers were
+  // pasted from ownerApi.js, which reads the zustand store — but this module
+  // never imported it, so every receptionist upload/download/consent threw
+  // "useUserStore is not defined" before any request was made.
+  const token = localStorage.getItem("token");
   const qs = new URLSearchParams();
   if (thumb) qs.set("thumb", "1");
   if (download) qs.set("download", "1");
