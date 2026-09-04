@@ -35,14 +35,12 @@
 
 //   // ✅ appointments (date optional)
 //   getAppointments: (params = {}) => {
-//     const qs = new URLSearchParams(params).toString();
-//     return req(`/appointments${qs ? `?${qs}` : ""}`);
+// //     return req(`/appointments${qs(params)}`);
 //   },
 
 //   // ✅ lab cases (status/q optional)
 //   getCases: (params = {}) => {
-//     const qs = new URLSearchParams(params).toString();
-//     return req(`/cases${qs ? `?${qs}` : ""}`);
+// //     return req(`/cases${qs(params)}`);
 //   },
 
 //   approveCase: (caseId) =>
@@ -56,8 +54,7 @@
 //     }),
 
 //   getPrescriptions: (params = {}) => {
-//     const qs = new URLSearchParams(params).toString();
-//     return req(`/prescriptions${qs ? `?${qs}` : ""}`);
+// //     return req(`/prescriptions${qs(params)}`);
 //   },
 
 //   getPrescriptionById: (id) => req(`/prescriptions/${id}`),
@@ -135,10 +132,10 @@ async function reqMultipart(path, formData) {
 /** Authenticated binary fetch — the only way file bytes reach the browser. */
 async function reqBlob(path, { thumb = false, download = false } = {}) {
   const token = localStorage.getItem("token");
-  const qs = new URLSearchParams();
-  if (thumb) qs.set("thumb", "1");
-  if (download) qs.set("download", "1");
-  const res = await fetch(`${BASE}${path}${qs.toString() ? `?${qs}` : ""}`, {
+  const sp = new URLSearchParams();
+  if (thumb) sp.set("thumb", "1");
+  if (download) sp.set("download", "1");
+  const res = await fetch(`${BASE}${path}${sp.toString() ? `?${sp}` : ""}`, {
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   if (res.status === 401) handleUnauthorized(`/dentist${path}`);
@@ -146,15 +143,35 @@ async function reqBlob(path, { thumb = false, download = false } = {}) {
   return res.blob();
 }
 
+
+/**
+ * Query string builder that DROPS undefined/null/"" values.
+ *
+ * `new URLSearchParams({ category: undefined })` serialises the literal string
+ * "undefined", which the API then treats as a real filter value — that is why
+ * the dentist documents list came back 200 with zero rows while the owner (who
+ * uses a builder that skips blanks) saw 23. Every dentist call goes through
+ * this so the bug cannot come back one call site at a time.
+ */
+const qs = (params = {}) => {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v === undefined || v === null || v === "") continue;
+    sp.set(k, String(v));
+  }
+  const out = sp.toString();
+  return out ? `?${out}` : "";
+};
+
 export const dentistApi = {
   // ── Patient files / imaging ──
   getUploadPolicy: () => req("/file-upload-policy"),
   getConsentTemplates: (lang) => req(`/consent-templates?${new URLSearchParams({ lang: lang || "en" })}`),
-  listPatientConsents: (patientId, params = {}) => req(`/patients/${patientId}/consents?${new URLSearchParams(params)}`),
+  listPatientConsents: (patientId, params = {}) => req(`/patients/${patientId}/consents${qs(params)}`),
   getConsentCoverage: (patientId) => req(`/patients/${patientId}/consent-coverage`),
   createConsent: (patientId, formData) => reqMultipart(`/patients/${patientId}/consents`, formData),
   withdrawConsent: (id, patientId) => req(`/consents/${id}?${new URLSearchParams({ patientId })}`, { method: "DELETE" }),
-  listPatientFiles: (patientId, params = {}) => req(`/patients/${patientId}/files?${new URLSearchParams(params)}`),
+  listPatientFiles: (patientId, params = {}) => req(`/patients/${patientId}/files${qs(params)}`),
   listPatientXrayTeeth: (patientId) => req(`/patients/${patientId}/xray-teeth`),
   uploadPatientFiles: (patientId, formData) => reqMultipart(`/patients/${patientId}/files`, formData),
   fetchFileBlob: (fileId, opts) => reqBlob(`/files/${fileId}`, opts),
@@ -172,13 +189,11 @@ export const dentistApi = {
     }),
 
   getStats: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/stats${qs ? `?${qs}` : ""}`);
+    return req(`/stats${qs(params)}`);
   },
 
   getAppointments: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/appointments${qs ? `?${qs}` : ""}`);
+    return req(`/appointments${qs(params)}`);
   },
 
   createAppointment: (body) =>
@@ -191,16 +206,14 @@ export const dentistApi = {
     req(`/appointments/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
 
   getPatients: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/patients${qs ? `?${qs}` : ""}`);
+    return req(`/patients${qs(params)}`);
   },
 
   updateOdontogram: (patientId, body) =>
     req(`/patients/${patientId}/odontogram`, { method: "PATCH", body: JSON.stringify(body) }),
 
   getCases: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/cases${qs ? `?${qs}` : ""}`);
+    return req(`/cases${qs(params)}`);
   },
 
   updateCaseStatus: (caseId, status) =>
@@ -219,17 +232,14 @@ export const dentistApi = {
     req(`/prescriptions/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
 
   getPrescriptions: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/prescriptions${qs ? `?${qs}` : ""}`);
+    return req(`/prescriptions${qs(params)}`);
   },
 
   getPrescriptionById: (id) => req(`/prescriptions/${id}`),
 
   // Latest prescription per patient (no date filter) — drives button state for all rows
-  getPrescriptionsLatestByPatients: (patientIds = []) => {
-    const qs = new URLSearchParams({ patientIds: patientIds.join(",") }).toString();
-    return req(`/prescriptions/latest-by-patients?${qs}`);
-  },
+  getPrescriptionsLatestByPatients: (patientIds = []) =>
+    req(`/prescriptions/latest-by-patients${qs({ patientIds: patientIds.join(",") })}`),
 
   // Full history for one patient, newest first — used in modal history panel
   getPatientPrescriptionHistory: (patientId) =>
@@ -237,7 +247,7 @@ export const dentistApi = {
 
   // ── Treatment plans ──
   getPlanFeeSchedules: () => req("/treatment-plans/fee-schedules"),
-  getPlanCatalog: (params = {}) => req(`/treatment-plans/catalog?${new URLSearchParams(params)}`),
+  getPlanCatalog: (params = {}) => req(`/treatment-plans/catalog${qs(params)}`),
   listTreatmentPlans: (patientId) => req(`/patients/${patientId}/treatment-plans`),
   listPlanAppointments: (patientId) => req(`/patients/${patientId}/plan-appointments`),
   getTreatmentPlan: (id) => req(`/treatment-plans/${id}`),
@@ -257,27 +267,21 @@ export const dentistApi = {
 
   // ── Price catalog (read-only) ──
   getCatalogTreatments: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/catalog/treatments${qs ? `?${qs}` : ""}`);
+    return req(`/catalog/treatments${qs(params)}`);
   },
 
   getCatalogSampleTypes: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/catalog/sample-types${qs ? `?${qs}` : ""}`);
+    return req(`/catalog/sample-types${qs(params)}`);
   },
 
   // ── My Finance ──
   getFinance: () => req("/finance"),
 
   // ── Medications ──
-  searchMedications: (q) => {
-    const qs = new URLSearchParams({ q: q || "" }).toString();
-    return req(`/medications/search?${qs}`);
-  },
+  searchMedications: (q) => req(`/medications/search${qs({ q: q || "" })}`),
   createMedication: (body) =>
     req("/medications", { method: "POST", body: JSON.stringify(body) }),
   listMedications: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return req(`/medications${qs ? `?${qs}` : ""}`);
+    return req(`/medications${qs(params)}`);
   },
 };

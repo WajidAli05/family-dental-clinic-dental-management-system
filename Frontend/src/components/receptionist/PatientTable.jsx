@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Table,
   TableBody,
@@ -8,9 +9,10 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Eye } from "lucide-react";
 
-export default function PatientTable({ patients, onEdit }) {
+export default function PatientTable({ patients, onEdit, onView }) {
+  const { t } = useTranslation();
   return (
     <Table>
       <TableHeader>
@@ -45,14 +47,27 @@ export default function PatientTable({ patients, onEdit }) {
               </Badge>
             </TableCell>
             <TableCell>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onEdit?.(patient)}
-              >
-                <Pencil className="w-3.5 h-3.5 mr-1" />
-                Edit
-              </Button>
+              <div className="inline-flex gap-2">
+                {/* Opening the record was only reachable behind an "Edit"
+                    pencil, which reads as demographics editing — so the front
+                    desk never found documents or consent. */}
+                <Button
+                  size="sm"
+                  className="bg-[#2ec4b6] hover:bg-[#26a699] text-white"
+                  onClick={() => (onView || onEdit)?.(patient)}
+                >
+                  <Eye className="w-3.5 h-3.5 me-1" />
+                  {t("patients.view")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit?.(patient)}
+                >
+                  <Pencil className="w-3.5 h-3.5 me-1" />
+                  {t("patients.edit")}
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}

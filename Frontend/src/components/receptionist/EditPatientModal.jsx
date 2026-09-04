@@ -265,7 +265,10 @@ const EditPatientModal = ({ open, onOpenChange, patient }) => {
               add or withdraw clinical imaging. No write routes exist for this
               role, so the server refuses regardless. */}
           <div className="space-y-2 pt-2 border-t border-gray-100">
-            <PatientImagingPanel patientId={patient?.id} api={receptionistApi} canEdit={false} />
+            {/* No hardcoded flag: the panel asks the server what this role may do,
+                so imaging stays read-only for the front desk because the server
+                refuses category "xray" from them. */}
+            <PatientImagingPanel patientId={patient?.id} api={receptionistApi} />
           </div>
 
           {/* Documents are view-only for the front desk, but capturing a

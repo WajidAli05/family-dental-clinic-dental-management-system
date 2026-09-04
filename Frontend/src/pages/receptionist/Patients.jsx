@@ -94,6 +94,7 @@ const Patients = () => {
           ) : (
             <PatientTable
               patients={patients || []}
+              onView={(patient) => setEditingPatient(patient)}
               onEdit={(patient) => setEditingPatient(patient)}
             />
           )}

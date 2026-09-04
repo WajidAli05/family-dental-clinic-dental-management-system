@@ -23,7 +23,7 @@ import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
  * Bytes never come from a public URL: every thumbnail and full view is an
  * authenticated fetch that is turned into a short-lived object URL.
  */
-const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTeeth = [], appointmentId = "" }) => {
+const PatientImagingPanel = ({ patientId, api, canEdit = null, xrayRequestedTeeth = [], appointmentId = "" }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
 
@@ -34,6 +34,25 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
   const [tooth, setTooth] = useState("");
   const [viewing, setViewing] = useState(null); // { id, url, originalName }
   const [confirmTarget, setConfirmTarget] = useState(null);
+  // Imaging is CLINICAL: the server refuses a receptionist upload of category
+  // "xray", so the controls must follow the same policy rather than a prop
+  // that can disagree with it. An explicit canEdit prop still wins.
+  const [policy, setPolicy] = useState(null);
+
+  useEffect(() => {
+    if (canEdit !== null || !api?.getUploadPolicy) return;
+    let alive = true;
+    api.getUploadPolicy()
+      .then((r) => { if (alive) setPolicy(r?.data || null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [api, canEdit]);
+
+  const mayEditImaging =
+    canEdit !== null
+      ? !!canEdit
+      : !!(policy?.canUpload && (policy.uploadCategories === null || policy.uploadCategories?.includes("xray")));
+  const mayDeleteImaging = canEdit !== null ? !!canEdit : !!policy?.canDelete;
 
   // Authenticated blob URLs, keyed by file id. Revoked on unmount so a long
   // session does not leak object URLs holding PHI in memory.
@@ -181,7 +200,7 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
           {t("imaging.title")}
         </p>
 
-        {canEdit && (
+        {mayEditImaging && (
           <div className="flex items-center gap-2 flex-wrap">
             {/* Optional tooth tag — turns an upload into the fulfilment of a
                 per-tooth x-ray request from prescribing. */}
@@ -282,7 +301,7 @@ const PatientImagingPanel = ({ patientId, api, canEdit = false, xrayRequestedTee
                   <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => download(row)}>
                     <Download className="h-3 w-3" />
                   </Button>
-                  {canEdit && (
+                  {mayDeleteImaging && (
                     <Button
                       size="sm" variant="ghost"
                       className="h-6 px-1.5 text-red-500 hover:bg-red-50"

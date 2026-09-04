@@ -246,7 +246,9 @@
     "toothClinicalRecord": "اس دانت کا طبی ریکارڈ",
     "toothPlannedTreatment": "منصوبہ بند علاج",
     "toothCompletedTreatment": "مکمل شدہ علاج",
-    "toothValueNotInCatalog": "موجودہ فہرست میں نہیں — جیسا درج تھا محفوظ رکھا گیا۔"
+    "toothValueNotInCatalog": "موجودہ فہرست میں نہیں — جیسا درج تھا محفوظ رکھا گیا۔",
+    "view": "دیکھیں",
+    "edit": "ترمیم"
   },
   "rx": {
     "previewTitle": "نسخے کا پیش منظر",
@@ -574,6 +576,8 @@
       "whitening": "سفیدی",
       "other": "دیگر طریقہ کار"
     },
-    "witnessedBy": "گواہ"
+    "witnessedBy": "گواہ",
+    "withdraw": "رضامندی واپس لیں",
+    "withdrawn": "رضامندی واپس لے لی گئی"
   }
 }

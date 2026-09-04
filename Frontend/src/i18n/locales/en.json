@@ -246,7 +246,9 @@
     "toothClinicalRecord": "Clinical record for this tooth",
     "toothPlannedTreatment": "Planned treatment",
     "toothCompletedTreatment": "Completed treatment",
-    "toothValueNotInCatalog": "Not in the current catalogue — kept as recorded."
+    "toothValueNotInCatalog": "Not in the current catalogue — kept as recorded.",
+    "view": "View",
+    "edit": "Edit"
   },
   "rx": {
     "previewTitle": "Prescription Preview",
@@ -574,6 +576,8 @@
       "whitening": "Whitening",
       "other": "Other procedure"
     },
-    "witnessedBy": "Witnessed by"
+    "witnessedBy": "Witnessed by",
+    "withdraw": "Withdraw consent",
+    "withdrawn": "Consent withdrawn"
   }
 }

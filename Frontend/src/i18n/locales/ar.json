@@ -246,7 +246,9 @@
     "toothClinicalRecord": "السجل السريري لهذا السن",
     "toothPlannedTreatment": "علاج مخطط",
     "toothCompletedTreatment": "علاج مكتمل",
-    "toothValueNotInCatalog": "غير موجود في القائمة الحالية — تم الاحتفاظ به كما سُجِّل."
+    "toothValueNotInCatalog": "غير موجود في القائمة الحالية — تم الاحتفاظ به كما سُجِّل.",
+    "view": "عرض",
+    "edit": "تعديل"
   },
   "rx": {
     "previewTitle": "معاينة الوصفة",
@@ -574,6 +576,8 @@
       "whitening": "تبييض",
       "other": "إجراء آخر"
     },
-    "witnessedBy": "الشاهد"
+    "witnessedBy": "الشاهد",
+    "withdraw": "سحب الموافقة",
+    "withdrawn": "تم سحب الموافقة"
   }
 }

@@ -9,7 +9,7 @@ import {
 import TablePagination from "@/components/ui/TablePagination";
 import OwnerConfirmDialog from "@/components/owner/OwnerConfirmDialog";
 import {
-  Loader2, Upload, Trash2, Download, FileText, ImageIcon, FileSignature, Search, ShieldCheck,
+  Loader2, Upload, Trash2, Download, FileText, ImageIcon, FileSignature, Search, ShieldCheck, Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatBytes } from "@/lib/imageThumb";
@@ -64,6 +64,9 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
   const [uploadCategory, setUploadCategory] = useState("");
   const [consentOpen, setConsentOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState(null);
+  // Consent rows need the CONSENT id (CNS-####), which the file row does not
+  // carry — map fileId -> consent so the row can offer Withdraw.
+  const [consents, setConsents] = useState([]);
 
   // The server is the authority on what this role may do.
   useEffect(() => {
@@ -94,7 +97,7 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
     if (!patientId || !api?.listPatientFiles) return;
     setLoading(true);
     try {
-      const [filesRes, covRes] = await Promise.all([
+      const [filesRes, covRes, consentRes] = await Promise.all([
         api.listPatientFiles(patientId, {
           page,
           limit: PAGE_SIZE,
@@ -102,11 +105,13 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
           q: debouncedQ || undefined,
         }),
         api.getConsentCoverage?.(patientId).catch(() => ({ data: [] })) ?? Promise.resolve({ data: [] }),
+        api.listPatientConsents?.(patientId, { limit: 200 }).catch(() => ({ data: [] })) ?? Promise.resolve({ data: [] }),
       ]);
       setRows(filesRes?.data || []);
       setTotal(Number(filesRes?.total) || 0);
       setPages(Number(filesRes?.pages) || 1);
       setCoverage(covRes?.data || []);
+      setConsents(consentRes?.data || []);
     } catch (e) {
       toast.error(e.message || t("documents.loadError"));
     } finally {
@@ -132,6 +137,14 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
   const canUpload = policy ? !!policy.canUpload : false;
   const canDelete = policy ? !!policy.canDelete : false;
   const canCaptureConsent = policy ? !!policy.canCaptureConsent : false;
+  const canWithdrawConsent = policy ? !!policy.canWithdrawConsent : false;
+
+  /** fileId -> consent publicId, so a consent row can be withdrawn by id. */
+  const consentByFile = useMemo(() => {
+    const m = new Map();
+    for (const c of consents) if (c.fileId) m.set(c.fileId, c.id);
+    return m;
+  }, [consents]);
 
   const onPick = async (e) => {
     const picked = [...(e.target.files || [])];
@@ -176,8 +189,16 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
     if (!row) return;
     setBusy(true);
     try {
-      await api.deletePatientFile(row.id);
-      toast.success(t("documents.deleted"));
+      const consentId = consentByFile.get(row.id);
+      if (consentId) {
+        // Withdrawing also soft-deletes the signed PDF server-side; the record
+        // and the file are both RETAINED.
+        await api.withdrawConsent(consentId, patientId);
+        toast.success(t("consent.withdrawn"));
+      } else {
+        await api.deletePatientFile(row.id);
+        toast.success(t("documents.deleted"));
+      }
       await load();
     } catch (e) {
       toast.error(e.message || t("documents.actionFailed"));
@@ -325,16 +346,28 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
                       <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => download(row)}>
                         <Download className="h-3.5 w-3.5" />
                       </Button>
-                      {canDelete && (
-                        <Button
-                          size="sm" variant="ghost"
-                          className="h-7 px-1.5 text-red-500 hover:bg-red-50"
-                          disabled={busy}
-                          onClick={() => setConfirmTarget(row)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                      {consentByFile.has(row.id)
+                        ? canWithdrawConsent && (
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 px-1.5 text-amber-600 hover:bg-amber-50"
+                              disabled={busy}
+                              title={t("consent.withdraw")}
+                              onClick={() => setConfirmTarget(row)}
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </Button>
+                          )
+                        : canDelete && (
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 px-1.5 text-red-500 hover:bg-red-50"
+                              disabled={busy}
+                              onClick={() => setConfirmTarget(row)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                     </div>
                   </div>
                 );
@@ -351,12 +384,12 @@ const PatientDocumentsPanel = ({ patient, api, appointmentId = "" }) => {
       <OwnerConfirmDialog
         open={!!confirmTarget}
         title={
-          confirmTarget?.category === "consent"
+          confirmTarget && consentByFile.has(confirmTarget.id)
             ? t("documents.withdrawConsentTitle")
             : t("documents.deleteTitle")
         }
         message={
-          confirmTarget?.category === "consent"
+          confirmTarget && consentByFile.has(confirmTarget.id)
             ? t("documents.withdrawConsentMessage", { name: confirmTarget?.originalName || "" })
             : t("documents.deleteMessage", { name: confirmTarget?.originalName || "" })
         }
