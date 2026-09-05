@@ -49,6 +49,8 @@ import {
 import {
   uploadMiddleware,
   uploadErrorHandler,
+  uploadLabCaseFiles,
+  listLabCaseFiles,
   uploadPatientFiles,
   listPatientFiles,
   listPatientXrayTeeth,
@@ -91,6 +93,8 @@ router.patch("/patients/:id/odontogram", requirePermission("tab_dentist_patients
 router.get("/cases",              requirePermission("tab_dentist_lab_samples"), getDentistCases);
 router.post("/cases",             requirePermission("tab_dentist_lab_samples"), createDentistCaseCtrl);
 router.patch("/cases/:id/status", requirePermission("tab_dentist_lab_samples"), updateDentistCaseStatus);
+router.get("/cases/:caseId/files", requirePermission("tab_dentist_lab_samples"), listLabCaseFiles);
+router.post("/cases/:caseId/files", requirePermission("tab_dentist_lab_samples"), uploadMiddleware, uploadErrorHandler, uploadLabCaseFiles);
 // labs list (for add-case modal dropdown)
 router.get("/labs", requirePermission("tab_dentist_lab_samples"), getDentistLabsCtrl);
 

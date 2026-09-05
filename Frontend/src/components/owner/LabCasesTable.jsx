@@ -1,26 +1,13 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
+import {
+  canonicalStatus, allowedNextStatuses, STATUS_LABEL_KEY, STATUS_BADGE,
+} from "@/lib/labCaseConfig";
+import { LabPriorityBadge, LabOverdueBadge } from "@/components/lab/LabCaseBadges";
 
-const STATUS_OPTIONS = [
-  { value: "sent",        label: "Sent" },
-  { value: "in_progress", label: "In Process" },
-  { value: "ready",       label: "Ready" },
-  { value: "delivered",   label: "Delivered" },
-  { value: "approved",    label: "Approved" },
-  { value: "rejected",    label: "Rejected" },
-];
-
-const STATUS_STYLES = {
-  sent:        "bg-gray-50 text-gray-700 border-gray-200",
-  received:    "bg-blue-50 text-blue-700 border-blue-200",
-  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
-  ready:       "bg-emerald-50 text-emerald-700 border-emerald-200",
-  delivered:   "bg-gray-50 text-gray-700 border-gray-200",
-  approved:    "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected:    "bg-rose-50 text-rose-700 border-rose-200",
-};
-
-const LabCasesTable = ({ data = [], onView, onEdit, onDelete, onStatusChange }) => {
+const LabCasesTable = ({ data = [], onView, onEdit, onDelete, onStatusChange, role = "owner", todayISO = "" }) => {
+  const { t } = useTranslation();
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full text-sm">
@@ -59,17 +46,25 @@ const LabCasesTable = ({ data = [], onView, onEdit, onDelete, onStatusChange }) 
                 <td className="py-3 pr-4">{c.labName}</td>
                 <td className="py-3 pr-4">{c.sampleTypeName}</td>
 
-                {/* Inline status dropdown */}
+                {/* Inline status: current value plus only the legal next steps */}
                 <td className="py-3 pr-4">
-                  <select
-                    value={c.status}
-                    onChange={(e) => onStatusChange && onStatusChange(c.id, e.target.value)}
-                    className={`rounded-full border px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none ${STATUS_STYLES[c.status] || "bg-gray-50 text-gray-700 border-gray-200"}`}
-                  >
-                    {STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <select
+                      value={canonicalStatus(c.status)}
+                      onChange={(e) => onStatusChange && onStatusChange(c.id, e.target.value)}
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none ${STATUS_BADGE[canonicalStatus(c.status)] || "bg-gray-50 text-gray-700 border-gray-200"}`}
+                    >
+                      {/* Current status is shown but not re-selectable as a change */}
+                      <option value={canonicalStatus(c.status)}>
+                        {t(STATUS_LABEL_KEY[canonicalStatus(c.status)] || "labCase.status.requested")}
+                      </option>
+                      {allowedNextStatuses(c.status, role, c.allowedNext).map((o) => (
+                        <option key={o} value={o}>{t(STATUS_LABEL_KEY[o] || o)}</option>
+                      ))}
+                    </select>
+                    <LabPriorityBadge priority={c.priority} />
+                    <LabOverdueBadge labCase={c} todayISO={todayISO} />
+                  </div>
                 </td>
 
                 <td className="py-3 text-right space-x-1 whitespace-nowrap">

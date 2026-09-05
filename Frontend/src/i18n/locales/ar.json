@@ -579,5 +579,41 @@
     "witnessedBy": "الشاهد",
     "withdraw": "سحب الموافقة",
     "withdrawn": "تم سحب الموافقة"
+  },
+  "labCase": {
+    "detailsTitle": "تفاصيل حالة المختبر",
+    "changeStatus": "تغيير الحالة",
+    "selectNextStatus": "اختر الحالة التالية…",
+    "noTransitions": "لا تتوفر لك تغييرات أخرى من \"{{status}}\".",
+    "teeth": "الأسنان",
+    "material": "المادة",
+    "materialHint": "مثل زركونيا، PFM، E-max",
+    "shade": "اللون",
+    "priority": {
+      "normal": "عادي",
+      "high": "مرتفع",
+      "urgent": "عاجل"
+    },
+    "dueDate": "تاريخ الاستحقاق",
+    "instructions": "التعليمات",
+    "instructionsHint": "ملاحظات التحضير، الإطباق، نقاط التلامس…",
+    "attachments": "المرفقات",
+    "addAttachment": "إضافة ملف",
+    "noAttachments": "لا توجد مرفقات بعد.",
+    "noTimeline": "لا توجد إدخالات في الجدول الزمني.",
+    "overdue": "متأخر",
+    "status": {
+      "requested": "مطلوب",
+      "accepted": "مقبول",
+      "inProduction": "قيد التصنيع",
+      "qc": "فحص الجودة",
+      "ready": "جاهز",
+      "dispatched": "تم الإرسال",
+      "received": "تم الاستلام",
+      "fitted": "تم التركيب",
+      "approved": "معتمد",
+      "rejected": "مرفوض"
+    },
+    "priorityLabel": "الأولوية"
   }
 }

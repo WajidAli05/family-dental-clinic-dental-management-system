@@ -7,6 +7,7 @@ import { assertDentistCanEditChart } from "../services/dentist.service.js";
 import { createConsent, listConsents, consentCoverage, softDeleteConsent } from "../services/shared/consents.js";
 import { listConsentTemplates, getConsentTemplate } from "../services/shared/consentTemplates.js";
 import { recordAudit } from "../services/shared/audit.js";
+import LabCase from "../models/LabCase.model.js";
 
 /**
  * Files are buffered in MEMORY, not written by multer.
@@ -106,6 +107,95 @@ const actorOf = (req) => ({
   name: req.user?.name || "",
 });
 
+
+// ── Lab case attachments ─────────────────────────────────────────────
+/**
+ * ACCESS GATE for lab case files.
+ *
+ * Deliberately NOT the patient gate. A lab user has no appointment with the
+ * patient and would fail assertDentistCanEditChart, yet the whole point of an
+ * attachment is that the lab can see the prescription photo and send back a
+ * shade-match picture. Access here follows the CASE, not the chart:
+ *
+ *   owner        → every case
+ *   dentist      → cases they raised
+ *   lab          → cases assigned to them
+ *   receptionist → read only (they chase cases, they do not author them)
+ *
+ * Returns the case so callers do not re-query it.
+ */
+async function assertCanAccessLabCase(req, casePublicId, { write = false } = {}) {
+  const role = req.user?.role;
+  const c = await LabCase.findOne({ publicId: casePublicId }).select("_id publicId dentist lab").lean();
+  if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
+
+  const uid = String(req.user?._id || "");
+  const ok =
+    role === "owner" ||
+    (role === "dentist" && String(c.dentist) === uid) ||
+    (role === "lab" && String(c.lab) === uid) ||
+    (role === "receptionist" && !write);
+
+  if (!ok) {
+    throw Object.assign(
+      new Error(
+        role === "receptionist"
+          ? "The front desk cannot modify lab case attachments"
+          : "You do not have access to this lab case"
+      ),
+      { status: 403 }
+    );
+  }
+  return c;
+}
+
+export const uploadLabCaseFiles = async (req, res) => {
+  try {
+    const caseId = String(req.params.caseId || "").trim();
+    await assertCanAccessLabCase(req, caseId, { write: true });
+
+    const files = req.files?.file || [];
+    const thumbs = req.files?.thumb || [];
+    if (!files.length) throw Object.assign(new Error("No file received"), { status: 400 });
+
+    const saved = [];
+    for (let i = 0; i < files.length; i++) {
+      saved.push(
+        await storeUpload({
+          ownerType: "labcase",
+          ownerId: caseId,
+          category: "lab_attachment",
+          file: files[i],
+          thumb: thumbs[i],
+          note: req.body?.note,
+          actor: actorOf(req),
+        })
+      );
+    }
+
+    for (const f of saved) {
+      await recordAudit({
+        req, action: "file.upload", entityType: "FileAsset", entityId: f.id, entityLabel: f.id,
+        after: { ownerType: f.ownerType, ownerId: f.ownerId, category: f.category, mimeType: f.mimeType, sizeBytes: f.sizeBytes },
+      });
+    }
+    return res.json({ success: true, data: saved });
+  } catch (e) { return fail(res, e); }
+};
+
+export const listLabCaseFiles = async (req, res) => {
+  try {
+    const caseId = String(req.params.caseId || "").trim();
+    await assertCanAccessLabCase(req, caseId);
+    const { page, limit, sortBy, sortDir, q } = req.query;
+    const r = await listFiles(
+      { ownerType: "labcase", ownerId: caseId, category: "lab_attachment", q },
+      { page, limit, sortBy, sortDir }
+    );
+    return res.json({ success: true, data: r.rows, total: r.total, page: r.page, pages: r.pages });
+  } catch (e) { return fail(res, e); }
+};
+
 // ── Patient imaging ─────────────────────────────────────────────────────────
 export const uploadPatientFiles = async (req, res) => {
   try {
@@ -175,7 +265,13 @@ export const listPatientXrayTeeth = async (req, res) => {
 export const downloadFile = async (req, res) => {
   try {
     const doc = await loadFile(req.params.id);
+    // Every owner type must be gated. Before lab attachments existed only
+    // "patient" was checked, so any other type would have streamed unguarded.
     if (doc.ownerType === "patient") await assertCanReadPatientFiles(req, doc.ownerId);
+    else if (doc.ownerType === "labcase") await assertCanAccessLabCase(req, doc.ownerId);
+    else if (req.user?.role !== "owner") {
+      throw Object.assign(new Error("You do not have access to this file"), { status: 403 });
+    }
     else if (req.user?.role !== "owner") {
       throw Object.assign(new Error("You do not have access to this file"), { status: 403 });
     }
@@ -210,6 +306,10 @@ export const deletePatientFile = async (req, res) => {
   try {
     const doc = await loadFile(req.params.id);
     if (doc.ownerType === "patient") await assertCanWritePatientFiles(req, doc.ownerId);
+    else if (doc.ownerType === "labcase") await assertCanAccessLabCase(req, doc.ownerId, { write: true });
+    else if (req.user?.role !== "owner") {
+      throw Object.assign(new Error("You do not have permission to delete this file"), { status: 403 });
+    }
     else if (req.user?.role !== "owner") {
       throw Object.assign(new Error("You do not have permission to delete this file"), { status: 403 });
     }

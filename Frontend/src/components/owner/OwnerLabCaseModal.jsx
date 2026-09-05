@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { ownerApi } from "@/lib/ownerApi";
 import { useFormatMoney } from "@/store/clinicConfigStore";
+import { CASE_PRIORITIES, PRIORITY_LABEL_KEY } from "@/lib/labCaseConfig";
 
 const ALL_STATUSES = [
   { value: "sent", label: "Sent" },
@@ -27,6 +29,7 @@ export default function OwnerLabCaseModal({
   onClose,
   onSubmit,
 }) {
+  const { t } = useTranslation();
   const isEdit = mode === "edit";
   const money = useFormatMoney();
 
@@ -38,6 +41,11 @@ export default function OwnerLabCaseModal({
   const [sampleTypeId, setSampleTypeId]   = useState("");
   const [teethInput, setTeethInput]       = useState("");
   const [note, setNote]                   = useState("");
+  const [material, setMaterial]           = useState("");
+  const [shade, setShade]                 = useState("");
+  const [priority, setPriority]           = useState("normal");
+  const [dueDate, setDueDate]             = useState("");
+  const [instructions, setInstructions]   = useState("");
   const [saving, setSaving]               = useState(false);
   const [error, setError]                 = useState("");
 
@@ -52,6 +60,11 @@ export default function OwnerLabCaseModal({
       setSampleTypeId(initial.sampleTypeId || "");
       setTeethInput(Array.isArray(initial.teeth) ? initial.teeth.join(", ") : (initial.teeth || ""));
       setNote(initial.notes || "");
+      setMaterial(initial.material || "");
+      setShade(initial.shade || "");
+      setPriority(initial.priority || "normal");
+      setDueDate(initial.dueDate || "");
+      setInstructions(initial.instructions || "");
     } else {
       resetForm();
     }
@@ -89,9 +102,10 @@ export default function OwnerLabCaseModal({
     const teeth = teethInput.split(/[,\s]+/).map((t) => t.replace("#", "").trim()).filter(Boolean);
     if (!isEdit && !teeth.length) { setError("Enter at least one tooth number"); return; }
 
+    const spec = { material, shade, priority, dueDate, instructions };
     const payload = isEdit
-      ? { labId, sampleTypeId, teeth: teeth.length ? teeth : undefined, note }
-      : { patientId, dentistId, labId, sampleTypeId, teeth, note };
+      ? { labId, sampleTypeId, teeth: teeth.length ? teeth : undefined, note, ...spec }
+      : { patientId, dentistId, labId, sampleTypeId, teeth, note, ...spec };
 
     setSaving(true);
     try {
@@ -198,6 +212,45 @@ export default function OwnerLabCaseModal({
               onChange={(e) => setTeethInput(e.target.value)}
             />
             <p className="text-xs text-gray-400">Comma-separated tooth numbers</p>
+          </div>
+
+          {/* Case specification */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>{t("labCase.material")}</Label>
+              <Input placeholder={t("labCase.materialHint")} value={material} onChange={(e) => setMaterial(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t("labCase.shade")}</Label>
+              <Input placeholder="A2" value={shade} onChange={(e) => setShade(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t("labCase.priorityLabel")}</Label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2ec4b6]"
+              >
+                {CASE_PRIORITIES.map((p) => (
+                  <option key={p} value={p}>{t(PRIORITY_LABEL_KEY[p])}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("labCase.dueDate")}</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Instructions — clinical detail, encrypted at rest on the server */}
+          <div className="space-y-1">
+            <Label>{t("labCase.instructions")}</Label>
+            <Textarea
+              placeholder={t("labCase.instructionsHint")}
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              rows={3}
+            />
           </div>
 
           {/* Note */}

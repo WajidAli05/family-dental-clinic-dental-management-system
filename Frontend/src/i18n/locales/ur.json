@@ -579,5 +579,41 @@
     "witnessedBy": "گواہ",
     "withdraw": "رضامندی واپس لیں",
     "withdrawn": "رضامندی واپس لے لی گئی"
+  },
+  "labCase": {
+    "detailsTitle": "لیب کیس کی تفصیلات",
+    "changeStatus": "اسٹیٹس تبدیل کریں",
+    "selectNextStatus": "اگلا اسٹیٹس منتخب کریں…",
+    "noTransitions": "\"{{status}}\" سے آپ کے لیے مزید کوئی تبدیلی دستیاب نہیں۔",
+    "teeth": "دانت",
+    "material": "میٹیریل",
+    "materialHint": "مثلاً زرکونیا، PFM، E-max",
+    "shade": "شیڈ",
+    "priority": {
+      "normal": "عام",
+      "high": "زیادہ",
+      "urgent": "فوری"
+    },
+    "dueDate": "مقررہ تاریخ",
+    "instructions": "ہدایات",
+    "instructionsHint": "تیاری کے نوٹس، اوکلوژن، کانٹیکٹ پوائنٹس…",
+    "attachments": "منسلکات",
+    "addAttachment": "فائل شامل کریں",
+    "noAttachments": "ابھی کوئی منسلکہ نہیں۔",
+    "noTimeline": "کوئی ٹائم لائن اندراج دستیاب نہیں۔",
+    "overdue": "تاخیر شدہ",
+    "status": {
+      "requested": "درخواست شدہ",
+      "accepted": "قبول شدہ",
+      "inProduction": "زیرِ تیاری",
+      "qc": "کوالٹی چیک",
+      "ready": "تیار",
+      "dispatched": "روانہ",
+      "received": "موصول",
+      "fitted": "فٹ شدہ",
+      "approved": "منظور شدہ",
+      "rejected": "مسترد"
+    },
+    "priorityLabel": "ترجیح"
   }
 }

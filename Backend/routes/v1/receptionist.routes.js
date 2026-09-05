@@ -52,6 +52,7 @@ import {
   getLinkableAppointments,
 } from "../../controllers/treatmentPlan.controller.js";
 import {
+  listLabCaseFiles,
   listPatientFiles,
   listPatientXrayTeeth,
   downloadFile,
@@ -104,6 +105,9 @@ router.patch("/lab-samples/:id", requirePermission("tab_receptionist_lab_samples
 router.patch("/lab-samples/:id/status", requirePermission("tab_receptionist_lab_samples"), updateReceptionistLabSampleStatus);
 router.patch("/lab-samples/:id/deliver", requirePermission("tab_receptionist_lab_samples"), deliverReceptionistLabSample);
 router.delete("/lab-samples/:id", requirePermission("tab_receptionist_lab_samples"), deleteReceptionistLabSample);
+// Read only: the front desk chases cases but does not author them, so no
+// upload route is mounted and the controller refuses receptionist writes.
+router.get("/lab-samples/:caseId/files", requirePermission("tab_receptionist_lab_samples"), listLabCaseFiles);
 
 // labs/sample types (used by lab samples UI)
 router.get("/labs", requirePermission("tab_receptionist_lab_samples"), getReceptionistLabs);

@@ -248,9 +248,10 @@ export const updateReceptionistLabSample = async (req, res) => {
 export const updateReceptionistLabSampleStatus = async (req, res) => {
   try {
     const updated = await receptionistUpdateLabSampleStatus(req.user, req.params.id, req.body);
+    await recordAudit({ req, action: "labcase.status_change", entityType: "LabCase", entityId: req.params.id, entityLabel: req.params.id, after: { status: req.body?.status } });
     return res.json({ success: true, data: updated });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    return res.status(e.status || 400).json({ success: false, message: e.message });
   }
 };
 

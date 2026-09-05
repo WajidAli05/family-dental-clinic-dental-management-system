@@ -137,6 +137,8 @@ import {
 import {
   uploadMiddleware,
   uploadErrorHandler,
+  uploadLabCaseFiles,
+  listLabCaseFiles,
   uploadPatientFiles,
   listPatientFiles,
   listPatientXrayTeeth,
@@ -192,6 +194,8 @@ router.get("/lab-cases/:id",           ownerGetLabCaseController);
 router.patch("/lab-cases/:id",         ownerUpdateLabCaseController);
 router.delete("/lab-cases/:id",        ownerDeleteLabCaseController);
 router.patch("/lab-cases/:id/status",  ownerUpdateLabCaseStatusController);
+router.get("/lab-cases/:caseId/files",  listLabCaseFiles);
+router.post("/lab-cases/:caseId/files", uploadMiddleware, uploadErrorHandler, uploadLabCaseFiles);
 
 // Sample types
 router.get("/sample-types", ownerListSampleTypesController);

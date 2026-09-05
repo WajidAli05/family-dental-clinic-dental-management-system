@@ -579,5 +579,41 @@
     "witnessedBy": "Witnessed by",
     "withdraw": "Withdraw consent",
     "withdrawn": "Consent withdrawn"
+  },
+  "labCase": {
+    "detailsTitle": "Lab Case Details",
+    "changeStatus": "Change Status",
+    "selectNextStatus": "Select next status…",
+    "noTransitions": "No further changes are available to you from \"{{status}}\".",
+    "teeth": "Teeth",
+    "material": "Material",
+    "materialHint": "e.g. Zirconia, PFM, E-max",
+    "shade": "Shade",
+    "priority": {
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "dueDate": "Due Date",
+    "instructions": "Instructions",
+    "instructionsHint": "Preparation notes, occlusion, contact points…",
+    "attachments": "Attachments",
+    "addAttachment": "Add File",
+    "noAttachments": "No attachments yet.",
+    "noTimeline": "No timeline entries available.",
+    "overdue": "Overdue",
+    "status": {
+      "requested": "Requested",
+      "accepted": "Accepted",
+      "inProduction": "In Production",
+      "qc": "Quality Check",
+      "ready": "Ready",
+      "dispatched": "Dispatched",
+      "received": "Received",
+      "fitted": "Fitted",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "priorityLabel": "Priority"
   }
 }

@@ -1,7 +1,9 @@
 import User from "../models/User.model.js";
 import LabCase from "../models/LabCase.model.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
-import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
+import { updateLabCaseStatus as sharedUpdateStatus, mapLabCase, applyCaseFields } from "./shared/labCases.js";
+import { clinicToday } from "./shared/clinicDate.js";
+import { statusesFor, OPEN_CASE_STATUSES, LAB_CASE_STATUSES } from "./shared/labCaseConfig.js";
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
@@ -10,7 +12,10 @@ const pick = (obj, keys) =>
   }, {});
 
 // lab may only write these statuses; approved/rejected are dentist-only
-const allowedStatuses = ["sent", "in_progress", "ready", "delivered"];
+// Was ["sent","in_progress","ready","delivered"] — any canonical value the new
+// UI sends ("requested", "in_production", …) fell through to a 200 with zero
+// rows. The shared list accepts canonical AND legacy spellings.
+const allowedStatuses = LAB_CASE_STATUSES;
 
 const formatTooth = (teeth = []) => teeth.map((t) => `#${t}`).join(", ");
 
@@ -21,13 +26,11 @@ const formatDate = (d) =>
     year: "numeric",
   });
 
-const mapCaseToFrontend = (c) => ({
-  id: c.publicId,
-  type: c.sampleType?.name || "",
+/** Shared mapper + the lab's own display extras. */
+const mapCaseToFrontend = (c, today = "") => ({
+  ...mapLabCase(c, { role: "lab", today }),
   tooth: formatTooth(c.teeth || []),
   date: formatDate(c.createdAt),
-  status: c.status, // ✅ now matches UI
-  note: c.note || "",
 });
 
 export async function labGetMe(publicId) {
@@ -78,8 +81,10 @@ export async function labGetStats(publicId) {
 
   const [total, inProcess, ready, recent] = await Promise.all([
     LabCase.countDocuments({ lab: labUser._id }),
-    LabCase.countDocuments({ lab: labUser._id, status: "in_progress" }), // ✅ fixed
-    LabCase.countDocuments({ lab: labUser._id, status: "ready" }),
+    // Legacy rows store "in_progress", new ones "in_production" — count both,
+    // otherwise this tile silently reads 0 for every case created from now on.
+    LabCase.countDocuments({ lab: labUser._id, status: { $in: statusesFor("in_production") } }),
+    LabCase.countDocuments({ lab: labUser._id, status: { $in: statusesFor("ready") } }),
     LabCase.countDocuments({ lab: labUser._id, updatedAt: { $gte: sevenDaysAgo } }), // ✅ "recently updated" matches UI
   ]);
 
@@ -96,7 +101,9 @@ export async function labGetCases(publicId, filters = {}) {
 
   if (filters.status && filters.status !== "all") {
     if (!allowedStatuses.includes(filters.status)) return { rows: [], total: 0, page: 1, pages: 1 };
-    query.status = filters.status;
+    // Match every stored spelling of the requested status, not just the one
+    // the caller happened to type.
+    query.status = { $in: statusesFor(filters.status) };
   }
 
   if (filters.dateFrom || filters.dateTo) {
@@ -110,7 +117,8 @@ export async function labGetCases(publicId, filters = {}) {
   const sort = buildSort(sb, sd, { createdAt: -1 });
   const rows = await LabCase.find(query).populate("sampleType", "name publicId").sort(sort).lean();
 
-  let mapped = rows.map(mapCaseToFrontend);
+  const todayISO = await clinicToday();
+  let mapped = rows.map((c) => mapCaseToFrontend(c, todayISO));
 
   const q = String(filters.q || "").trim().toLowerCase();
   if (q) {
@@ -145,7 +153,7 @@ export async function labUpdateCaseStatus(publicId, casePublicId, { status, note
     await c.save();
   }
 
-  return mapCaseToFrontend(c);
+  return mapCaseToFrontend(c, await clinicToday());
 }
 
 export async function labUpdateCaseNote(publicId, casePublicId, note) {

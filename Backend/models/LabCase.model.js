@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import toJSON from "./plugins/toJSON.js";
 import softDelete from "./plugins/softDelete.js";
+import { LAB_CASE_STATUSES, CASE_PRIORITIES } from "../services/shared/labCaseConfig.js";
 
 const { Schema } = mongoose;
 
@@ -12,7 +13,7 @@ const timelineSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: ["sent", "in_progress", "ready", "delivered", "approved", "rejected", "received"],
+      enum: LAB_CASE_STATUSES,
     },
     note: { type: String, default: "" },
   },
@@ -33,12 +34,28 @@ const labCaseSchema = new Schema(
       type: String,
       default: "sent",
       index: true,
-      enum: ["sent", "in_progress", "ready", "delivered", "approved", "rejected", "received"],
+      enum: LAB_CASE_STATUSES,
     },
 
     note: { type: String, default: "" }, // ✅ was notes
 
-    teeth: { type: [String], default: [] }, // ["14","15"]
+    teeth: { type: [String], default: [] }, // FDI, e.g. ["14","15"]
+
+    // ── Case specification (additive; existing cases read blank/normal) ──
+    material: { type: String, default: "" },   // e.g. "Zirconia", "E-max"
+    shade: { type: String, default: "" },      // e.g. "A2"
+    priority: { type: String, enum: CASE_PRIORITIES, default: "normal", index: true },
+    dueDate: { type: String, default: "", index: true }, // "YYYY-MM-DD"
+
+    /**
+     * PHI: free-text clinical direction to the technician. It can describe the
+     * presentation, the tooth condition and what the dentist wants done — that
+     * is clinical detail about an identifiable patient, so it is encrypted at
+     * rest (v1:iv:tag:ct) like prescription and treatment-plan notes.
+     * The pre-existing `note` field is deliberately left untouched so old
+     * cases stay readable without a migration.
+     */
+    instructions: { type: String, default: "" },
 
     timeline: { type: [timelineSchema], default: [] },
   },
@@ -85,5 +102,7 @@ labCaseSchema.pre("validate", async function () {
 labCaseSchema.plugin(toJSON);
 labCaseSchema.plugin(softDelete);
 labCaseSchema.index({ lab: 1, status: 1, createdAt: -1 });
+// Drives the overdue / urgent indicators without a collection scan.
+labCaseSchema.index({ dueDate: 1, status: 1 });
 
 export default mongoose.models.LabCase || mongoose.model("LabCase", labCaseSchema);

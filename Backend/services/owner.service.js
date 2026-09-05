@@ -50,7 +50,9 @@ import {
   OWNER_PERMISSION_KEYS,
   DEFAULT_ROLE_GRANTS,
 } from "./shared/permissionsConfig.js";
-import { updateLabCaseStatus as sharedUpdateLabCaseStatus } from "./shared/labCases.js";
+import { updateLabCaseStatus as sharedUpdateLabCaseStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
+import { clinicToday } from "./shared/clinicDate.js";
+import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
 
 const normalize = (v) => String(v || "").trim();
@@ -439,7 +441,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
     Patient.countDocuments(filter),                                               // pagination total
     Patient.countDocuments({ status: "active" }),                                 // card: active
     Patient.countDocuments({}),                                                   // card: all
-    LabCase.countDocuments({ status: { $in: ["sent", "received", "in_progress", "ready"] } }),
+    LabCase.countDocuments({ status: { $in: OPEN_CASE_STATUSES } }),
     Invoice.aggregate([{ $group: { _id: null, total: { $sum: "$totalAmount" } } }]),
     Patient.find(filter)
       .select("+insurance.policyNumber") // only to derive hasPolicyNumber below — never returned raw
@@ -465,7 +467,7 @@ export async function ownerPatientsList(_ownerId, { page, limit, sortBy, sortDir
   const patientIds = patients.map((p) => p._id);
 
   const pendingLabAgg = await LabCase.aggregate([
-    { $match: { patient: { $in: patientIds }, status: { $in: ["sent", "received", "in_progress", "ready"] } } },
+    { $match: { patient: { $in: patientIds }, status: { $in: OPEN_CASE_STATUSES } } },
     { $group: { _id: "$patient", count: { $sum: 1 } } },
   ]);
   const pendingLabMap = new Map(pendingLabAgg.map((x) => [String(x._id), Number(x.count || 0)]));
@@ -824,20 +826,8 @@ export async function ownerListLabCases(_ownerId, { page, limit, sortBy, sortDir
       .sort(sort).skip(skip).limit(L).lean(),
   ]);
 
-  let mapped = rows.map((c) => ({
-    id: c.publicId,
-    createdAt: toISO(c.createdAt),
-    patientName: c.patient?.name || "",
-    dentistId: c.dentist?.publicId || "",
-    dentistName: c.dentist?.name || "",
-    labId: c.lab?.publicId || "",
-    labName: c.lab?.name || "",
-    sampleTypeId: c.sampleType?.publicId || "",
-    sampleTypeName: c.sampleType?.name || "",
-    status: c.status || "",
-    notes: c.note || "",
-    timeline: (c.timeline || []).map((t) => ({ at: t.at, status: t.status, note: t.note || "" })),
-  }));
+  const todayISO = await clinicToday();
+  let mapped = rows.map((c) => mapOwnerCase(c, todayISO));
 
   const needle = String(q || "").trim().toLowerCase();
   if (needle) {
@@ -849,26 +839,20 @@ export async function ownerListLabCases(_ownerId, { page, limit, sortBy, sortDir
   return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
-function mapOwnerCase(c) {
+function mapOwnerCase(c, today = "") {
   return {
-    id: c.publicId,
+    ...mapLabCase(c, { role: "owner", today }),
+    // Owner-only extras. These override the shared keys deliberately: the
+    // owner UI reads `createdAt` as a date string and `notes`/`sampleTypeName`
+    // under its own names.
     createdAt: toISO(c.createdAt),
-    patientId: c.patient?.publicId || "",
-    patientName: c.patient?.name || "",
-    dentistId: c.dentist?.publicId || "",
-    dentistName: c.dentist?.name || "",
-    labId: c.lab?.publicId || "",
-    labName: c.lab?.name || "",
-    sampleTypeId: c.sampleType?.publicId || "",
     sampleTypeName: c.sampleType?.name || "",
-    teeth: Array.isArray(c.teeth) ? c.teeth : [],
-    status: c.status || "",
     notes: c.note || "",
-    timeline: (c.timeline || []).map((t) => ({ at: t.at, status: t.status, note: t.note || "" })),
   };
 }
 
 export async function ownerGetLabCase(_ownerId, casePublicId) {
+  const today = await clinicToday();
   const c = await LabCase.findOne({ publicId: casePublicId })
     .populate("patient", "name publicId")
     .populate("dentist", "name publicId")
@@ -876,7 +860,7 @@ export async function ownerGetLabCase(_ownerId, casePublicId) {
     .populate("sampleType", "name publicId")
     .lean();
   if (!c) throw Object.assign(new Error("Case not found"), { status: 404 });
-  return mapOwnerCase(c);
+  return mapOwnerCase(c, today);
 }
 
 export async function ownerCreateLabCase(_ownerId, body) {
@@ -914,8 +898,9 @@ export async function ownerCreateLabCase(_ownerId, body) {
     sampleType: sampleType._id,
     teeth,
     note,
-    status: "sent",
-    timeline: [{ at: new Date(), status: "sent", note: "Created by owner" }],
+    ...applyCaseFields({}, body),
+    status: INITIAL_STATUS,
+    timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by owner" }],
   });
 
   const populated = await LabCase.findById(created._id)
@@ -925,7 +910,7 @@ export async function ownerCreateLabCase(_ownerId, body) {
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapOwnerCase(populated);
+  return mapOwnerCase(populated, await clinicToday());
 }
 
 export async function ownerUpdateLabCase(_ownerId, casePublicId, body) {
@@ -948,6 +933,9 @@ export async function ownerUpdateLabCase(_ownerId, casePublicId, body) {
   }
   if (body?.note !== undefined) c.note = String(body.note || "");
   if (body?.notes !== undefined) c.note = String(body.notes || "");
+  // Spec fields (material/shade/priority/dueDate/instructions) go through the
+  // shared applier so validation and PHI encryption are identical everywhere.
+  applyCaseFields(c, body);
 
   await c.save();
 
@@ -958,7 +946,7 @@ export async function ownerUpdateLabCase(_ownerId, casePublicId, body) {
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapOwnerCase(populated);
+  return mapOwnerCase(populated, await clinicToday());
 }
 
 export async function ownerDeleteLabCase(_ownerId, casePublicId) {
@@ -976,7 +964,7 @@ export async function ownerUpdateLabCaseStatus(_ownerId, casePublicId, status) {
     .populate("lab", "name publicId")
     .populate("sampleType", "name publicId")
     .lean();
-  return mapOwnerCase(populated);
+  return mapOwnerCase(populated, await clinicToday());
 }
 
 // ---------- SAMPLE TYPES ----------
@@ -2167,7 +2155,7 @@ export async function ownerDashboardOverview(_ownerId, { date } = {}) {
 
   const [activePatients, pendingLabSamples, revToday, revMonth, apptAgg] = await Promise.all([
     Patient.countDocuments({ status: "active" }),
-    LabCase.countDocuments({ status: { $in: ["sent", "received", "in_progress", "ready"] } }),
+    LabCase.countDocuments({ status: { $in: OPEN_CASE_STATUSES } }),
     revenueCollected(today, today),
     revenueCollected(firstOfMonth, today),
     Appointment.aggregate([

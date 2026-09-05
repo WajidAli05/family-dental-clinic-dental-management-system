@@ -16,7 +16,9 @@ import {
   updateAppointmentStatusCore,
 } from "./shared/appointments.js";
 import { listPatientsCore, upsertOdontogramEntry, computeAge } from "./shared/patients.js";
-import { updateLabCaseStatus } from "./shared/labCases.js";
+import { updateLabCaseStatus, mapLabCase, applyCaseFields , INITIAL_STATUS } from "./shared/labCases.js";
+import { clinicToday } from "./shared/clinicDate.js";
+import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import {
   encryptPrescriptionDoc,
   decryptPrescriptionDoc,
@@ -99,7 +101,7 @@ export async function dentistGetStats(dentistId, { date: dateParam } = {}) {
     Appointment.find({ dentist: dentistId, date }).populate("patient", "_id").lean(),
     LabCase.find({
       dentist: dentistId,
-      status: { $in: ["sent", "in_progress", "ready", "delivered"] },
+      status: { $in: OPEN_CASE_STATUSES },
     }).populate("patient", "_id").lean(),
     Prescription.countDocuments({
       date,
@@ -193,19 +195,17 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
     .sort(sort)
     .lean();
 
+  // Shared mapper supplies canonical status, the new spec fields, allowedNext
+  // and the derived overdue flag; only the dentist-specific display extras are
+  // added on top. Adding a lifecycle field no longer means editing five files.
+  const today = await clinicToday();
   let mapped = rows.filter(hasActivePatient).map((c) => ({
-    id: c.publicId,
-    patientName: c.patient?.name || "",
+    ...mapLabCase(c, { role: "dentist", today }),
     lab: c.lab?.name || "",
     sentDate: c.createdAtISO || new Date(c.createdAt).toISOString().slice(0, 10),
-    teeth: Array.isArray(c.teeth) ? c.teeth : [],
-    type: c.sampleType?.name || "",
     sampleTypePrice: Number(c.sampleType?.price) || 0,
     tooth: (c.teeth || []).map((t) => `#${t}`).join(", "),
     date: new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
-    status: c.status,
-    note: c.notes || "",
-    dentistName: c.dentist?.name || "",
   }));
 
   const needle = String(q || "").trim().toLowerCase();
@@ -501,8 +501,9 @@ export async function dentistCreateCase(dentistId, body) {
     sampleType: sampleType._id,
     teeth,
     note,
-    status: "sent",
-    timeline: [{ at: new Date(), status: "sent", note: "Created by dentist" }],
+    ...applyCaseFields({}, body),
+    status: INITIAL_STATUS,
+    timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by dentist" }],
   });
 
   const populated = await LabCase.findById(created._id)

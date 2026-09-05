@@ -16,7 +16,10 @@ import {
 import { getNextSequence } from "./shared/counters.js";
 import { listFeeSchedules } from "./shared/feeSchedules.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
-import { updateLabCaseStatus as sharedUpdateStatus } from "./shared/labCases.js";
+import { updateLabCaseStatus as sharedUpdateStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
+import { clinicToday } from "./shared/clinicDate.js";
+import { canonicalStatus as canonicalLabStatus, CANONICAL_STATUSES as CANONICAL_LAB_STATUSES } from "./shared/labCaseConfig.js";
+import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
 import { generateAppointmentPublicId, toDbAppointmentStatus, toUiAppointmentStatus, assertNoSlotConflict, updateAppointmentCore, updateAppointmentStatusCore, rescheduleAppointmentCore } from "./shared/appointments.js";
 import { canonicalStatus, allowedNextStatuses, statusLabel, isEditLocked } from "./shared/appointmentConfig.js";
@@ -41,53 +44,43 @@ const humanizeAppointmentStatus = (status) => statusLabel(status);
 
 
 // LAB SAMPLES
+/**
+ * UI wording → stored status.
+ *
+ * Previously this fell back to "sent" for anything it did not recognise, so a
+ * newly-added lifecycle step ("dispatched", "qc", …) was silently written as
+ * "sent" — a wrong status saved with a 200. It now canonicalises through the
+ * shared config and rejects genuinely unknown values instead of guessing.
+ */
 function toDbLabStatus(ui) {
-  const v = String(ui || "").trim().toLowerCase();
-  if (v === "sent") return "sent";
-  if (v === "in process" || v === "in_process" || v === "in-progress" || v === "in_progress")
-    return "in_progress";
-  if (v === "ready") return "ready";
-  if (v === "delivered") return "delivered";
-  if (v === "approved") return "approved";
-  if (v === "rejected") return "rejected";
-  if (v === "received") return "received";
-  return "sent";
+  const v = String(ui || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (v === "in_process") return "in_production";
+  const c = canonicalLabStatus(v);
+  if (CANONICAL_LAB_STATUSES.includes(c)) return c;
+  throw Object.assign(new Error(`Invalid status "${ui}".`), { status: 400 });
 }
+
+const UI_LABELS = {
+  requested: "Sent", accepted: "Accepted", in_production: "In Process",
+  qc: "QC", ready: "Ready", dispatched: "Delivered", received: "Received",
+  fitted: "Fitted", approved: "Approved", rejected: "Rejected",
+};
 
 function toUiLabStatus(db) {
-  const v = String(db || "").trim().toLowerCase();
-  if (v === "sent" || v === "received") return "Sent";
-  if (v === "in_progress" || v === "in-process") return "In Process";
-  if (v === "ready") return "Ready";
-  if (v === "delivered") return "Delivered";
-  if (v === "approved") return "Approved";
-  if (v === "rejected") return "Rejected";
-  return "Sent";
+  return UI_LABELS[canonicalLabStatus(db)] || "Sent";
 }
 
-function mapCase(c) {
+function mapCase(c, today = "") {
   const teethArr = Array.isArray(c?.teeth)
     ? c.teeth.map((t) => String(t).replace("#", "").trim()).filter(Boolean)
     : [];
 
   return {
-    id: c.publicId,
-
-    patientName: c.patient?.name || "",
-    dentistName: c.dentist?.name || "",
-    labName: c.lab?.name || "",
-
-    // ✅ THIS is what your store uses first
+    // Shared mapper first: canonical status, spec fields, allowedNext, overdue.
+    ...mapLabCase(c, { role: "receptionist", today }),
     teeth: teethArr,
-
-    // ✅ store fallback uses x.tooth (string)
-    tooth: teethArr.map((t) => `#${t}`).join(", "),
-
-    status: c.status,
-    note: c.note || "",
-
-    // ✅ store uses x.date for sentDate
-    date: new Date(c.createdAt).toISOString().slice(0, 10),
+    tooth: teethArr.map((t) => `#${t}`).join(", "), // store falls back to x.tooth
+    date: new Date(c.createdAt).toISOString().slice(0, 10), // store reads x.date as sentDate
   };
 }
 
@@ -142,7 +135,7 @@ export async function receptionistGetStats(_receptionistId, { date } = {}) {
     await Promise.all([
       Appointment.countDocuments({ date: d }),
       Patient.countDocuments({ status: "active" }),
-      LabCase.countDocuments({ status: { $in: ["sent", "in_progress", "ready"] } }),
+      LabCase.countDocuments({ status: { $in: OPEN_CASE_STATUSES } }),
       revenueCollected(d, d),
       revenueCollected(firstOfMonth, d),
       Appointment.aggregate([
@@ -224,12 +217,7 @@ export async function receptionistGetLabSamples(_receptionistId, { date } = {}) 
 function humanizeLabStatus(status) {
   const s = normalizeStatus(status);
   if (!s) return "Pending";
-  if (s === "sent") return "Sent";
-  if (s === "in_progress") return "In Process";
-  if (s === "ready") return "Ready";
-  if (s === "delivered") return "Delivered";
-  if (s === "approved") return "Approved";
-  return status;
+  return UI_LABELS[canonicalLabStatus(s)] || status;
 }
 
 // -------------------- QUICK ACTIONS (MODALS) --------------------
@@ -744,7 +732,7 @@ export async function receptionistGetPatientStats(_receptionistId) {
 
   // Pending lab samples: safe status set (align with your UI "In Process")
   const pendingLabSamples = await LabCase.countDocuments({
-    status: { $in: ["sent", "in_progress", "ready"] },
+    status: { $in: OPEN_CASE_STATUSES },
   });
 
   // Pending invoices + totalRevenue: defensive (schema can vary)
@@ -888,7 +876,8 @@ export async function receptionistListLabSamples(_receptionistId, { status, q, d
     .sort(sort)
     .lean();
 
-  let mapped = rows.map((c) => mapCase(c));
+  const todayISO = await clinicToday();
+  let mapped = rows.map((c) => mapCase(c, todayISO));
 
   const needle = String(q || "").trim().toLowerCase();
   if (needle) {
@@ -952,16 +941,11 @@ export async function receptionistCreateLabSample(_user, body) {
     dentist: dentist._id,
     lab: lab._id,
     sampleType: sampleType._id,
-    teeth,                 // ✅ correct
-    note,                  // ✅ correct (not notes)
-    status: "sent",
-    timeline: [
-      {
-        at: new Date(),     // ✅ Date not string
-        status: "sent",
-        note: "Created by receptionist",
-      },
-    ],
+    teeth,
+    note,
+    ...applyCaseFields({}, body),
+    status: INITIAL_STATUS,
+    timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by receptionist" }],
   });
 
   const populated = await LabCase.findById(created._id)
@@ -971,7 +955,7 @@ export async function receptionistCreateLabSample(_user, body) {
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapCase(populated);
+  return mapCase(populated, await clinicToday());
 }
 
 // ---------- EDIT ----------
@@ -994,10 +978,10 @@ export async function receptionistUpdateLabSample(_user, casePublicId, body) {
       .filter(Boolean);
   }
 
-  // ✅ your schema field is `note` (NOT notes)
   if (body?.notes !== undefined) {
     c.note = String(body.notes || "");
   }
+  applyCaseFields(c, body);
 
   await c.save();
 
@@ -1008,7 +992,7 @@ export async function receptionistUpdateLabSample(_user, casePublicId, body) {
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapCase(populated);
+  return mapCase(populated, await clinicToday());
 }
 // ---------- STATUS UPDATE ----------
 export async function receptionistUpdateLabSampleStatus(_user, casePublicId, body) {
@@ -1025,7 +1009,7 @@ export async function receptionistUpdateLabSampleStatus(_user, casePublicId, bod
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapCase(populated);
+  return mapCase(populated, await clinicToday());
 }
 
 // ---------- DELIVER ----------
@@ -1033,11 +1017,11 @@ export async function receptionistDeliverLabSample(_user, casePublicId) {
   const c = await LabCase.findOne({ publicId: casePublicId });
   if (!c) throw new Error("Sample not found");
 
-  c.status = "delivered";
+  c.status = "dispatched";
   c.timeline = c.timeline || [];
 c.timeline.push({
   at: new Date(),
-  status: "delivered",
+  status: "dispatched",
   note: "Marked delivered by receptionist",
 });
 
@@ -1050,7 +1034,7 @@ c.timeline.push({
     .populate("sampleType", "name publicId")
     .lean();
 
-  return mapCase(populated);
+  return mapCase(populated, await clinicToday());
 }
 
 // ---------- DELETE ----------
