@@ -52,6 +52,7 @@ import {
 } from "./shared/permissionsConfig.js";
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
+import { getNextSequence } from "./shared/counters.js";
 import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
@@ -991,18 +992,22 @@ export async function ownerCreateSampleType(_ownerId, payload = {}) {
 
   if (!name) throw new Error("Name is required");
 
-  const last = await SampleType.findOne({ publicId: { $regex: /^ST-\d+$/ } })
-    .select("publicId")
-    .sort({ createdAt: -1 })
-    .lean();
+  // Atomic via the shared counter — the previous version sorted by createdAt
+  // (not by numeric suffix) and was blind to concurrent creates.
+  const n = await getNextSequence("sampletype", async () => {
+    const rows = await SampleType.find({})
+      .setOptions({ includeDeleted: true })
+      .select("publicId")
+      .lean();
+    let max = 0;
+    for (const r of rows) {
+      const m = /^ST-(\d+)$/.exec(String(r.publicId || ""));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return max;
+  });
 
-  let n = 1;
-  if (last?.publicId) {
-    const m = String(last.publicId).match(/^ST-(\d+)$/);
-    if (m?.[1]) n = parseInt(m[1], 10) + 1;
-  }
-
-  const st = await SampleType.create({
+    const st = await SampleType.create({
     publicId: `ST-${n}`,
     name,
     description,

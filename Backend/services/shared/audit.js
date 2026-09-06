@@ -1,17 +1,28 @@
 import crypto from "crypto";
 import AuditLog from "../../models/AuditLog.model.js";
+import { getNextSequence } from "./counters.js";
 
 const ZERO_HASH = "0".repeat(64);
 
+/**
+ * Audit ids ran countDocuments() then looped on exists() — check-then-act, and
+ * on the busiest write path in the app (nearly every mutation writes one).
+ * Two concurrent audits could read the same count and race to the same id.
+ * Now uses the shared atomic counter.
+ */
+async function computeAuditIdSeed() {
+  const rows = await AuditLog.find({}).select("publicId").lean();
+  let max = 0;
+  for (const r of rows) {
+    const m = /^AUD-(\d+)$/.exec(String(r.publicId || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max;
+}
+
 async function nextPublicId() {
-  const n = await AuditLog.countDocuments();
-  let count = n;
-  let id;
-  do {
-    count++;
-    id = `AUD-${String(count).padStart(6, "0")}`;
-  } while (await AuditLog.exists({ publicId: id }));
-  return id;
+  const n = await getNextSequence("auditlog", computeAuditIdSeed);
+  return `AUD-${String(n).padStart(6, "0")}`;
 }
 
 function sha256(str) {

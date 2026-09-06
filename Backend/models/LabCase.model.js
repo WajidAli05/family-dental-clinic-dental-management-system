@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getNextSequence } from "../services/shared/counters.js";
 import toJSON from "./plugins/toJSON.js";
 import softDelete from "./plugins/softDelete.js";
 import { LAB_CASE_STATUSES, CASE_PRIORITIES } from "../services/shared/labCaseConfig.js";
@@ -63,40 +64,63 @@ const labCaseSchema = new Schema(
 );
 
 /**
- * ✅ Generate publicId automatically for new cases.
- * - No `next()` to avoid "next is not a function"
- * - Collision-safe loop
+ * publicId — atomic, via the shared Counter (same as appointments/patients).
+ *
+ * WHY THE OLD ONE FAILED (E11000 on CASE-1770304130724):
+ *  1. It claimed to find "the last CASE-#### by highest numeric suffix" but
+ *     actually sorted by `createdAt: -1` — the newest ROW, not the highest id.
+ *  2. `exists()` runs through the softDelete plugin, so a soft-deleted row
+ *     still holding a publicId looked free while the unique index disagreed.
+ *  3. The retry loop re-ran the identical query every pass, so all 5 attempts
+ *     produced the SAME candidate — it never actually retried with n+1.
+ *  4. On exhausting the loop it wrote `CASE-${Date.now()}`. That timestamp row
+ *     then became the newest by createdAt, so step 1 derived every later id
+ *     from it — poisoning the sequence into the 13-digit range permanently and
+ *     making two creates in the same window collide on the same number.
+ *
+ * ID FORMAT DECISION
+ * ------------------
+ * The collection holds two shapes: 29 rows in the intended sequential range
+ * (CASE-3001 .. CASE-4012) and 23 rows carrying the timestamp fallback
+ * (CASE-1770304130702 .. CASE-1770304130724).
+ *
+ * The counter is seeded from the highest SEQUENTIAL id only (suffix of 6
+ * digits or fewer), NOT the global maximum. Seeding from the global max would
+ * be 1770304130724 and would lock every future id into a 13-digit number
+ * forever. Starting from 4012 means the next case is CASE-4013, which
+ * continues the readable format and cannot collide with the timestamp block —
+ * reaching it would take ~1.77 trillion cases.
+ *
+ * Existing ids of BOTH shapes are left exactly as stored; nothing is rewritten,
+ * so attachments (ownerId = case publicId) and invoice links keep resolving.
+ *
+ * The seed reads with includeDeleted so a soft-deleted case never has its
+ * number handed out again.
  */
-labCaseSchema.pre("validate", async function () {
-  if (!this.isNew || this.publicId) return;
+const CASE_SEQ_FLOOR = 3000;      // first id would be CASE-3001 on an empty DB
+const MAX_SEQUENTIAL_DIGITS = 6;  // anything longer is a legacy timestamp id
 
-  // Try a few times to avoid duplicate publicId in edge concurrent writes
-  for (let attempt = 0; attempt < 5; attempt++) {
-    // Find last CASE-#### by highest numeric suffix
-    const last = await this.constructor
-      .findOne({ publicId: { $regex: /^CASE-\d+$/ } })
-      .select("publicId")
-      .sort({ createdAt: -1 })
-      .lean();
+export async function computeLabCaseIdSeed() {
+  const rows = await mongoose.models.LabCase.find({})
+    .setOptions({ includeDeleted: true })
+    .select("publicId")
+    .lean();
 
-    let n = 1;
-    if (last?.publicId) {
-      const m = String(last.publicId).match(/^CASE-(\d+)$/);
-      if (m?.[1]) n = parseInt(m[1], 10) + 1;
-    }
-
-    const candidate = `CASE-${pad(n)}`;
-
-    // If candidate already exists, retry with n+1
-    const exists = await this.constructor.exists({ publicId: candidate });
-    if (!exists) {
-      this.publicId = candidate;
-      return;
+  let max = CASE_SEQ_FLOOR;
+  for (const r of rows) {
+    const m = /^CASE-(\d+)$/.exec(String(r.publicId || ""));
+    // Skip the timestamp-shaped ids deliberately — see the note above.
+    if (m && m[1].length <= MAX_SEQUENTIAL_DIGITS) {
+      max = Math.max(max, parseInt(m[1], 10));
     }
   }
+  return max;
+}
 
-  // If we keep colliding (extremely unlikely), force a unique fallback
-  this.publicId = `CASE-${Date.now()}`;
+labCaseSchema.pre("validate", async function () {
+  if (!this.isNew || this.publicId) return;
+  const n = await getNextSequence("labcase", computeLabCaseIdSeed);
+  this.publicId = `CASE-${pad(n)}`;
 });
 
 labCaseSchema.plugin(toJSON);

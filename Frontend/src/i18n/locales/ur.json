@@ -630,7 +630,16 @@
       "sent": "بھیجا گیا",
       "status": "اسٹیٹس"
     },
-    "download": "ڈاؤن لوڈ"
+    "download": "ڈاؤن لوڈ",
+    "validation": {
+      "patient": "مریض منتخب کریں",
+      "dentist": "ڈاکٹر منتخب کریں",
+      "lab": "لیب منتخب کریں",
+      "sampleType": "نمونے کی قسم منتخب کریں",
+      "teeth": "کم از کم ایک دانت کا نمبر درج کریں"
+    },
+    "created": "لیب کیس بن گیا",
+    "updated": "لیب کیس اپ ڈیٹ ہو گیا"
   },
   "notifications": {
     "labcase_assigned": {

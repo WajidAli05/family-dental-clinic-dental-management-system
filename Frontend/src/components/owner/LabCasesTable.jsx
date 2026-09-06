@@ -52,7 +52,10 @@ const LabCasesTable = ({ data = [], onView, onEdit, onDelete, onStatusChange, ro
                     <select
                       value={canonicalStatus(c.status)}
                       onChange={(e) => onStatusChange && onStatusChange(c.id, e.target.value)}
-                      className={`rounded-full border px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none ${STATUS_BADGE[canonicalStatus(c.status)] || "bg-gray-50 text-gray-700 border-gray-200"}`}
+                      /* The pill keeps its status colour, but the dropdown
+                         options are forced back to the normal foreground so
+                         they never inherit a low-contrast badge colour. */
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold cursor-pointer focus:outline-none [&>option]:bg-background [&>option]:text-foreground ${STATUS_BADGE[canonicalStatus(c.status)] || "bg-gray-50 text-gray-700 border-gray-200"}`}
                     >
                       {/* Current status is shown but not re-selectable as a change */}
                       <option value={canonicalStatus(c.status)}>

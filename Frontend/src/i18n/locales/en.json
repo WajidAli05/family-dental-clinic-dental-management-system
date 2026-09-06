@@ -630,7 +630,16 @@
       "sent": "Sent",
       "status": "Status"
     },
-    "download": "Download"
+    "download": "Download",
+    "validation": {
+      "patient": "Select a patient",
+      "dentist": "Select a dentist",
+      "lab": "Select a lab",
+      "sampleType": "Select a sample type",
+      "teeth": "Enter at least one tooth number"
+    },
+    "created": "Lab case created",
+    "updated": "Lab case updated"
   },
   "notifications": {
     "labcase_assigned": {

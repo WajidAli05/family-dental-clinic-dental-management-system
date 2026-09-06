@@ -630,7 +630,16 @@
       "sent": "أُرسل",
       "status": "الحالة"
     },
-    "download": "تنزيل"
+    "download": "تنزيل",
+    "validation": {
+      "patient": "اختر مريضًا",
+      "dentist": "اختر طبيبًا",
+      "lab": "اختر مختبرًا",
+      "sampleType": "اختر نوع العينة",
+      "teeth": "أدخل رقم سن واحد على الأقل"
+    },
+    "created": "تم إنشاء حالة المختبر",
+    "updated": "تم تحديث حالة المختبر"
   },
   "notifications": {
     "labcase_assigned": {

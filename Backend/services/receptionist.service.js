@@ -1183,9 +1183,32 @@ async function generateInvoicePublicId() {
   return `INV-${seq}`;
 }
 
+/**
+ * Payment ids are scoped to their invoice (embedded subdocuments), so no
+ * global counter is needed — but `payments.length + 1` was still wrong: after
+ * any payment is removed the length drops and the next payment reuses a
+ * retired id. There is no unique index on the subdocument, so this produced
+ * silent duplicates rather than an error. Derive from the highest suffix in
+ * use instead.
+ */
+/** Next MOV- id for one item's embedded history. Skips legacy timestamp ids. */
+function nextMovementId(history = []) {
+  let max = 0;
+  for (const h of history) {
+    const m = /^MOV-(\d+)$/.exec(String(h?.publicId || ""));
+    if (m && m[1].length <= 6) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `MOV-${max + 1}`;
+}
+
 async function generatePaymentPublicId(invoice) {
   const payments = Array.isArray(invoice?.payments) ? invoice.payments : [];
-  return `PAY-${payments.length + 1}`;
+  let max = 0;
+  for (const p of payments) {
+    const m = /^PAY-(\d+)$/.exec(String(p?.publicId || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `PAY-${max + 1}`;
 }
 
 // ✅ CREATE INVOICE
@@ -1490,7 +1513,10 @@ export async function receptionistConsumeInventory(_receptionistId, itemPublicId
   item.stock = current - qtyUsed;
   item.history = item.history || [];
   item.history.push({
-    publicId: `MOV-${Date.now()}`,
+    // Scoped to this item's history (no unique index), so a per-item sequence
+    // is enough. Date.now() silently produced duplicate ids for two movements
+    // on the same item within a millisecond.
+    publicId: nextMovementId(item.history),
     date: todayISO(),
     type: "use",
     qty: qtyUsed,

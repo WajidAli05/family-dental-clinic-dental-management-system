@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getNextSequence } from "../services/shared/counters.js";
 import toJSON from "./plugins/toJSON.js";
 
 const { Schema } = mongoose;
@@ -35,22 +36,27 @@ const purchaseOrderSchema = new Schema(
   { timestamps: true }
 );
 
-// ✅ generate PO id if missing
-purchaseOrderSchema.pre("validate", async function () {
-  if (!this.isNew) return;
-  if (this.publicId) return;
-
-  const last = await this.constructor
-    .findOne({ publicId: { $regex: /^PO-\d+$/ } })
-    .sort({ createdAt: -1 })
+/**
+ * Same fragile pattern as the lab case (createdAt sort, non-atomic, soft-delete
+ * blind). Replaced with the shared atomic counter. Floor 1000 keeps the
+ * existing PO-1001.. numbering.
+ */
+export async function computePurchaseOrderIdSeed() {
+  const rows = await mongoose.models.PurchaseOrder.find({})
+    .setOptions({ includeDeleted: true })
     .select("publicId")
     .lean();
-
-  let n = 1001;
-  if (last?.publicId) {
-    const m = String(last.publicId).match(/^PO-(\d+)$/);
-    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  let max = 1000;
+  for (const r of rows) {
+    const m = /^PO-(\d+)$/.exec(String(r.publicId || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
+  return max;
+}
+
+purchaseOrderSchema.pre("validate", async function () {
+  if (!this.isNew || this.publicId) return;
+  const n = await getNextSequence("purchaseorder", computePurchaseOrderIdSeed);
   this.publicId = `PO-${n}`;
 });
 

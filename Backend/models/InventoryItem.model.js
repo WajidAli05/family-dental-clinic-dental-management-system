@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getNextSequence } from "../services/shared/counters.js";
 import toJSON from "./plugins/toJSON.js";
 
 const { Schema } = mongoose;
@@ -26,22 +27,27 @@ const inventoryItemSchema = new Schema(
   { timestamps: true }
 );
 
-inventoryItemSchema.pre("validate", async function () {
-  if (!this.isNew) return;
-  if (this.publicId) return;
-
-  const last = await this.constructor
-    .findOne({ publicId: { $regex: /^IT-\d+$/ } })
-    .sort({ createdAt: -1 })
+/**
+ * Same fragile pattern the lab case had: sorted by `createdAt` rather than by
+ * numeric suffix, non-atomic, and blind to soft-deleted rows. Replaced with
+ * the shared atomic counter.
+ */
+export async function computeInventoryItemIdSeed() {
+  const rows = await mongoose.models.InventoryItem.find({})
+    .setOptions({ includeDeleted: true })
     .select("publicId")
     .lean();
-
-  let n = 1;
-  if (last?.publicId) {
-    const m = String(last.publicId).match(/^IT-(\d+)$/);
-    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  let max = 0;
+  for (const r of rows) {
+    const m = /^IT-(\d+)$/.exec(String(r.publicId || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
+  return max;
+}
 
+inventoryItemSchema.pre("validate", async function () {
+  if (!this.isNew || this.publicId) return;
+  const n = await getNextSequence("inventoryitem", computeInventoryItemIdSeed);
   this.publicId = `IT-${pad(n)}`;
 });
 

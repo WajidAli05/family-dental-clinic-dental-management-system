@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,6 @@ export default function OwnerLabCaseModal({
   const [dueDate, setDueDate]             = useState("");
   const [instructions, setInstructions]   = useState("");
   const [saving, setSaving]               = useState(false);
-  const [error, setError]                 = useState("");
 
   // Pre-fill when editing
   useEffect(() => {
@@ -85,22 +85,23 @@ export default function OwnerLabCaseModal({
   const resetForm = () => {
     setPatientSearch(""); setPatientId(""); setPatients([]);
     setDentistId(""); setLabId(""); setSampleTypeId("");
-    setTeethInput(""); setNote(""); setError("");
+    setTeethInput(""); setNote("");
   };
 
   const handleClose = () => { resetForm(); onClose(); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
-    if (!isEdit && !patientId) { setError("Select a patient"); return; }
-    if (!isEdit && !dentistId) { setError("Select a dentist"); return; }
-    if (!labId)         { setError("Select a lab"); return; }
-    if (!sampleTypeId)  { setError("Select a sample type"); return; }
+    // Validation and failures both go to the toast layer — the same mechanism
+    // the rest of the app uses. Nothing renders inside the modal any more.
+    if (!isEdit && !patientId) { toast.error(t("labCase.validation.patient")); return; }
+    if (!isEdit && !dentistId) { toast.error(t("labCase.validation.dentist")); return; }
+    if (!labId)         { toast.error(t("labCase.validation.lab")); return; }
+    if (!sampleTypeId)  { toast.error(t("labCase.validation.sampleType")); return; }
 
     const teeth = teethInput.split(/[,\s]+/).map((t) => t.replace("#", "").trim()).filter(Boolean);
-    if (!isEdit && !teeth.length) { setError("Enter at least one tooth number"); return; }
+    if (!isEdit && !teeth.length) { toast.error(t("labCase.validation.teeth")); return; }
 
     const spec = { material, shade, priority, dueDate, instructions };
     const payload = isEdit
@@ -110,9 +111,12 @@ export default function OwnerLabCaseModal({
     setSaving(true);
     try {
       await onSubmit(payload);
+      toast.success(isEdit ? t("labCase.updated") : t("labCase.created"));
       handleClose();
-    } catch (e) {
-      setError(e.message || "Failed to save");
+    } catch (err) {
+      // The modal stays OPEN with the user's input intact so they can correct
+      // and retry; only `saving` is reset, so the button re-enables cleanly.
+      toast.error(err?.message || t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -230,7 +234,7 @@ export default function OwnerLabCaseModal({
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2ec4b6]"
+                className="w-full rounded-lg border border-gray-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#2ec4b6] [&>option]:bg-background [&>option]:text-foreground"
               >
                 {CASE_PRIORITIES.map((p) => (
                   <option key={p} value={p}>{t(PRIORITY_LABEL_KEY[p])}</option>
@@ -265,7 +269,6 @@ export default function OwnerLabCaseModal({
             />
           </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
 
           {/* Always visible, never scrolled out of reach. */}

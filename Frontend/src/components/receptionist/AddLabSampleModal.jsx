@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Stores
 import { usePatientStore } from "@/store/patientStore";
@@ -34,10 +33,9 @@ import {
   Loader2,
   User,
   Phone,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
+import { toast } from "sonner";
 
 const AddLabSampleModal = ({ open, onOpenChange }) => {
   const money = useFormatMoney();
@@ -50,8 +48,6 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
   const [loading, setLoading] = useState(false); // patient search
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [patient, setPatient] = useState(null);
-  const [error, setError] = useState(null);
-  const [notification, setNotification] = useState(null);
 
   // dropdown data
   const [labs, setLabs] = useState([]);
@@ -70,7 +66,6 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
   const resetState = () => {
     setQuery("");
     setPatient(null);
-    setError(null);
     setSample({
       labId: "",
       dentistId: "",
@@ -79,7 +74,7 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
       notes: "",
       status: "Sent",
     });
-    setNotification(null);
+    
     setIsSubmitting(false);
     setLoading(false);
   };
@@ -100,10 +95,7 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
         setSampleTypes(typesRes?.data || []);
       } catch (e) {
         // non-fatal: user can’t create without dropdowns though
-        setNotification({
-          type: "error",
-          message: e?.message || "Failed to load labs/sample types.",
-        });
+        toast.error(e?.message || "Failed to load labs/sample types.");
       } finally {
         setMetaLoading(false);
       }
@@ -118,9 +110,8 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
 
   const handleSearch = async () => {
     setLoading(true);
-    setError(null);
     setPatient(null);
-    setNotification(null);
+    
 
     try {
       // ✅ Prefer DB lookup if available
@@ -149,7 +140,7 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
         });
       }
     } catch (e) {
-      setError(e.message || "Patient not found. Please register patient first.");
+      toast.error(e.message || "Patient not found. Please register patient first.");
     } finally {
       setLoading(false);
     }
@@ -157,26 +148,17 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
 
   const handleAddSample = async () => {
     if (!patient) {
-      setNotification({
-        type: "error",
-        message: "Please search and select a patient first.",
-      });
+      toast.error("Please search and select a patient first.");
       return;
     }
 
     if (!sample.labId || !sample.dentistId || !sample.sampleTypeId) {
-      setNotification({
-        type: "error",
-        message: "Please select Lab, Dentist, and Sample Type.",
-      });
+      toast.error("Please select Lab, Dentist, and Sample Type.");
       return;
     }
 
     if (!sample.teeth.trim()) {
-      setNotification({
-        type: "error",
-        message: "Teeth are required.",
-      });
+      toast.error("Teeth are required.");
       return;
     }
 
@@ -186,15 +168,12 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
       .filter(Boolean);
 
     if (teethArray.length === 0) {
-      setNotification({
-        type: "error",
-        message: "Please enter valid tooth numbers (e.g. 12, 14).",
-      });
+      toast.error("Please enter valid tooth numbers (e.g. 12, 14).");
       return;
     }
 
     setIsSubmitting(true);
-    setNotification(null);
+    
 
     try {
       // ✅ Real DB create
@@ -207,20 +186,12 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
         notes: sample.notes || "",
       });
 
-      setNotification({
-        type: "success",
-        message: "Lab sample added successfully.",
-      });
+      toast.success("Lab sample added successfully.");
 
-      setTimeout(() => {
-        resetState();
-        onOpenChange(false);
-      }, 900);
+      resetState();
+      onOpenChange(false);
     } catch (e) {
-      setNotification({
-        type: "error",
-        message: e.message || "Failed to add lab sample.",
-      });
+      toast.error(e.message || "Failed to add lab sample.");
       setIsSubmitting(false);
     }
   };
@@ -260,7 +231,6 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
               )}
             </Button>
           </div>
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
         </div>
 
         {patient && (
@@ -376,26 +346,6 @@ const AddLabSampleModal = ({ open, onOpenChange }) => {
                 />
               </div>
             </div>
-
-            {/* Notification */}
-            {notification && (
-              <Alert
-                className={`${
-                  notification.type === "success"
-                    ? "bg-green-50 border-green-200"
-                    : "bg-red-50 border-red-200"
-                }`}
-              >
-                {notification.type === "success" ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-600" />
-                )}
-                <AlertDescription className="ml-2">
-                  {notification.message}
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-4">

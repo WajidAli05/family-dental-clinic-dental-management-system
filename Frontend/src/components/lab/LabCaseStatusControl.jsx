@@ -48,7 +48,15 @@ const LabCaseStatusControl = ({ labCase, role, onStatusChange, disabled = false 
           value={next}
           disabled={disabled || saving}
           onChange={(e) => setNext(e.target.value)}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2ec4b6] disabled:opacity-60"
+          /*
+           * bg-background / text-foreground are explicit on purpose. The lab
+           * dashboard paints its <main> with `text-white`, which this select
+           * inherited — white text on the control's light background made
+           * every option unreadable. The <option> children are set too because
+           * some browsers do not inherit the select's colour into the popup.
+           * Design tokens, so this stays correct in dark mode as well.
+           */
+          className="rounded-lg border border-gray-200 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#2ec4b6] disabled:opacity-60 [&>option]:bg-background [&>option]:text-foreground"
         >
           <option value="">{t("labCase.selectNextStatus")}</option>
           {options.map((s) => (
