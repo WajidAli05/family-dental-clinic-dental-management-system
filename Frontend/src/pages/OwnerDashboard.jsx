@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SideBar from "@/components/SideBar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import NotificationBell from "@/components/owner/NotificationBell";
+import NotificationBell from "@/components/common/NotificationBell";
 import {
   Home,
   CalendarDays,

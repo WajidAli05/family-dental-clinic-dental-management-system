@@ -52,6 +52,7 @@ import {
 } from "./shared/permissionsConfig.js";
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
+import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
 
@@ -902,6 +903,9 @@ export async function ownerCreateLabCase(_ownerId, body) {
     status: INITIAL_STATUS,
     timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by owner" }],
   });
+
+  // Tell the lab a case has landed on them. Best-effort — never fails the create.
+  await notifyCaseAssigned(created, { sampleTypeName: sampleType?.name });
 
   const populated = await LabCase.findById(created._id)
     .populate("patient", "name publicId")

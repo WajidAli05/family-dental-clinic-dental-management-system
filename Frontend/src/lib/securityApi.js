@@ -3,6 +3,12 @@ import { handleUnauthorized } from "./httpClient";
 
 const baseURL = import.meta.env.VITE_API_BASE_URL;
 
+/** Route prefix for the signed-in role; falls back to owner. */
+function notifBase() {
+  const role = String(useUserStore.getState().currentUser?.role || "").toLowerCase();
+  return ["owner", "dentist", "lab", "receptionist"].includes(role) ? `/${role}` : "/owner";
+}
+
 async function request(path, { method = "GET", body } = {}) {
   const token = useUserStore.getState().token || localStorage.getItem("token");
   const res = await fetch(`${baseURL}${path}`, {
@@ -27,7 +33,10 @@ export const securityApi = {
 
   getStaffLoginHistory: (publicId) => request(`/owner/security/login-history/${publicId}`),
 
-  getNotifications:  ()         => request("/owner/notifications"),
-  markRead:          (id)       => request(`/owner/notifications/${id}/read`, { method: "PATCH" }),
-  markAllRead:       ()         => request("/owner/notifications/read-all",   { method: "PATCH" }),
+  // Notifications are mounted under every role's prefix and the controller
+  // scopes each query to req.user._id, so the ONLY thing that varies is the
+  // path. Deriving it from the signed-in role keeps one client for all roles.
+  getNotifications:  ()         => request(`${notifBase()}/notifications`),
+  markRead:          (id)       => request(`${notifBase()}/notifications/${id}/read`, { method: "PATCH" }),
+  markAllRead:       ()         => request(`${notifBase()}/notifications/read-all`,   { method: "PATCH" }),
 };

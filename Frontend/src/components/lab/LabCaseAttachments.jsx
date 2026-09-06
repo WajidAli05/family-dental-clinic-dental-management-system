@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Upload } from "lucide-react";
-import { listLabCaseFiles, uploadLabCaseFiles, canUploadLabCaseFiles } from "@/lib/labCaseFilesApi";
+import { Paperclip, Upload, Download } from "lucide-react";
+import { listLabCaseFiles, uploadLabCaseFiles, downloadLabCaseFile, labCaseFilePolicy } from "@/lib/labCaseFilesApi";
+import { toast } from "sonner";
 
 /**
  * Attachments for a lab case — prescription scans, shade photos, QC images.
@@ -19,7 +20,9 @@ const LabCaseAttachments = ({ caseId, role }) => {
   const [busy, setBusy] = useState(false);
   const inputRef = useRef(null);
 
-  const canUpload = canUploadLabCaseFiles(role);
+  // Controls are driven by the policy, so nothing renders that would 403.
+  const policy = labCaseFilePolicy(role);
+  const canUpload = policy.canUpload;
 
   const load = async () => {
     if (!caseId) return;
@@ -102,6 +105,23 @@ const LabCaseAttachments = ({ caseId, role }) => {
                     {f.uploadedAt ? ` · ${new Date(f.uploadedAt).toLocaleDateString()}` : ""}
                   </div>
                 </div>
+                {policy.canDownload && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg shrink-0"
+                    onClick={async () => {
+                      try {
+                        await downloadLabCaseFile(role, f.id, f.originalName || f.id);
+                      } catch (ex) {
+                        toast.error(ex.message || t("common.error"));
+                      }
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5 me-1" />
+                    {t("labCase.download")}
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

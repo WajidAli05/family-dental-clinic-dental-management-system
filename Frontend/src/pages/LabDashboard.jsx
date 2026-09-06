@@ -7,6 +7,7 @@ import LabStats from "@/components/lab/LabStats";
 import LabSamplesTable from "@/components/lab/LabSamplesTable";
 import LabProfile from "@/pages/lab/LabProfile";
 import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
+import NotificationBell from "@/components/common/NotificationBell";
 
 export default function LabDashboard() {
   const { t } = useTranslation();
@@ -24,6 +25,11 @@ export default function LabDashboard() {
         <SideBar title={t("nav.labPanel")} items={labMenu} />
 
         <main className="flex-1 lab-gradient text-white relative">
+          {/* Notifications — the same shared bell the owner uses. */}
+          <div className="absolute top-4 end-5 z-40">
+            <NotificationBell />
+          </div>
+
           <div className="lg:hidden fixed top-4 start-5 z-50">
             <SidebarTrigger className="text-[#2ec4b6] bg-white p-2.5 rounded-lg shadow-lg hover:bg-gray-50 transition-colors" />
           </div>

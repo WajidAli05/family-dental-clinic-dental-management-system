@@ -6,7 +6,6 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,25 +14,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Paperclip } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { allowedNextStatuses, STATUS_LABEL_KEY } from "@/lib/labCaseConfig";
+import { LabStatusBadge, LabPriorityBadge, LabDueBadge } from "@/components/lab/LabCaseBadges";
 
-const ALL_STATUSES = ["Sent", "In Process", "Ready", "Delivered", "Approved", "Rejected"];
-
-const statusStyles = {
-  Sent: "bg-blue-100 text-blue-700",
-  "In Process": "bg-yellow-100 text-yellow-700",
-  Ready: "bg-green-100 text-green-700",
-  Delivered: "bg-gray-200 text-gray-700",
-  Approved: "bg-emerald-100 text-emerald-700",
-  Rejected: "bg-red-100 text-red-700",
-};
-
+/**
+ * Statuses and transitions come from the shared config. This table used to
+ * offer "any ↔ any" from a Title-Case list of its own, which both disagreed
+ * with the other dashboards and offered moves the server refuses.
+ */
 export default function LabSampleManagementTable({
   data = [],
   onStatusChange,
   onEdit,
   onDelete,
+  onOpenFiles,
+  todayISO = "",
 }) {
+  const { t } = useTranslation();
   return (
     <Table>
       <TableHeader>
@@ -61,6 +60,7 @@ export default function LabSampleManagementTable({
             ? sample.teeth.filter(Boolean).join(", ")
             : "—";
 
+          const nextOptions = allowedNextStatuses(sample.status, "receptionist", sample.allowedNext);
           return (
             <TableRow key={sample.id}>
               <TableCell className="font-medium">{sample.id}</TableCell>
@@ -68,35 +68,40 @@ export default function LabSampleManagementTable({
               <TableCell>{sample.lab}</TableCell>
               <TableCell>{teethDisplay || "—"}</TableCell>
 
-              {/* Badge shows current status */}
               <TableCell>
-                <Badge className={statusStyles[sample.status] || "bg-gray-100 text-gray-600"}>
-                  {sample.status}
-                </Badge>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <LabStatusBadge status={sample.status} />
+                  <LabPriorityBadge priority={sample.priority} />
+                  <LabDueBadge labCase={sample} todayISO={todayISO} />
+                </div>
               </TableCell>
 
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
-                  {/* Status Select — any ↔ any */}
+                  {/* Only the steps the front desk may legally take next. */}
                   <Select
-                    value={sample.status}
-                    onValueChange={(newStatus) => {
-                      if (newStatus !== sample.status) {
-                        onStatusChange(sample.id, newStatus);
-                      }
-                    }}
+                    value=""
+                    onValueChange={(newStatus) => onStatusChange(sample.id, newStatus)}
+                    disabled={nextOptions.length === 0}
                   >
-                    <SelectTrigger className="w-[130px] h-8 text-sm">
-                      <SelectValue />
+                    <SelectTrigger className="w-[150px] h-8 text-sm">
+                      <SelectValue placeholder={t("labCase.selectNextStatus")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {ALL_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
+                      {nextOptions.map((st) => (
+                        <SelectItem key={st} value={st}>
+                          {t(STATUS_LABEL_KEY[st] || st)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {/* Attachments — read-only for the front desk */}
+                  {onOpenFiles && (
+                    <Button size="icon" variant="outline" title={t("labCase.attachments")} onClick={() => onOpenFiles(sample)}>
+                      <Paperclip size={16} />
+                    </Button>
+                  )}
 
                   {/* Edit */}
                   <Button size="icon" variant="outline" onClick={() => onEdit(sample)}>

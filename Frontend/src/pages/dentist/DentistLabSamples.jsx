@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import Wavify from "react-wavify";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,32 +15,23 @@ import DentistAddLabSampleModal from "@/components/dentist/DentistAddLabSampleMo
 import TablePagination from "@/components/ui/TablePagination";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import { usePagination } from "@/hooks/usePagination";
+import LabCaseAttachments from "@/components/lab/LabCaseAttachments";
+import { canonicalStatus, sortByAttention, STATUS_LABEL_KEY } from "@/lib/labCaseConfig";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const mapBackendStatusToUiTitle = (s) => {
-  const v = String(s || "").toLowerCase();
-  if (v === "received" || v === "sent") return "Sent";
-  if (v === "in_progress" || v === "in-process") return "In Process";
-  if (v === "ready") return "Ready";
-  if (v === "delivered") return "Delivered";
-  if (v === "approved") return "Approved";
-  if (v === "rejected") return "Rejected";
-  return "Sent";
-};
-
-const mapFilterToBackend = (filter) => {
-  if (filter === "all") return "all";
-  const f = String(filter).toLowerCase();
-  if (f === "sent") return "sent";
-  if (f === "in process" || f === "in-process") return "in_progress";
-  if (f === "ready") return "ready";
-  if (f === "delivered") return "delivered";
-  if (f === "approved") return "approved";
-  if (f === "rejected") return "rejected";
-  return "all";
-};
+/**
+ * Filter values are canonical now — the API accepts canonical AND legacy
+ * spellings, so no translation table is needed here any more. The two local
+ * status maps that used to live in this file produced Title Case labels that
+ * disagreed with every other dashboard.
+ */
+const mapFilterToBackend = (filter) =>
+  !filter || filter === "all" ? "all" : canonicalStatus(filter);
 
 const DentistLabSamples = () => {
-  const { cases, fetchCases, updateCaseStatus, loading, error, pagination } = useDentistCasesStore();
+  const { t } = useTranslation();
+  const { cases, fetchCases, updateCaseStatus, loading, pagination } = useDentistCasesStore();
+  const [filesCase, setFilesCase] = useState(null);
   const { page, limit, setPage, resetPage } = usePagination(50);
   const [filter, setFilter] = useState("all");
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -51,23 +44,31 @@ const DentistLabSamples = () => {
 
   const handleFilterChange = (f) => { setFilter(f); resetPage(); };
 
-  const normalized = useMemo(() => {
-    return (cases || []).map((c) => ({
-      ...c,
-      status: mapBackendStatusToUiTitle(c.status),
-    }));
-  }, [cases]);
+  // Server already returns canonical status + dueState; only ordering is added,
+  // so overdue / due-soon / urgent cases surface at the top.
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const normalized = useMemo(
+    () => sortByAttention(cases || [], todayISO),
+    [cases, todayISO]
+  );
 
   const stats = useMemo(() => {
     const total     = normalized.length;
-    const sent      = normalized.filter((x) => x.status === "Sent").length;
-    const inProcess = normalized.filter((x) => x.status === "In Process").length;
-    const ready     = normalized.filter((x) => x.status === "Ready").length;
+    const sent      = normalized.filter((x) => canonicalStatus(x.status) === "requested").length;
+    const inProcess = normalized.filter((x) => canonicalStatus(x.status) === "in_production").length;
+    const ready     = normalized.filter((x) => canonicalStatus(x.status) === "ready").length;
     return { total, sent, inProcess, ready };
   }, [normalized]);
 
-  const handleStatusChange = async (id, uiAction) => {
-    await updateCaseStatus(id, uiAction);
+  // Success and failure both surface as toasts — one mechanism, app-wide.
+  const handleStatusChange = async (id, next) => {
+    try {
+      await updateCaseStatus(id, next);
+      toast.success(t("labCase.statusUpdated", { status: t(STATUS_LABEL_KEY[next] || next) }));
+      load();
+    } catch (e) {
+      toast.error(e?.message || t("common.error"));
+    }
   };
 
   return (
@@ -107,12 +108,10 @@ const DentistLabSamples = () => {
             </Button>
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
           {loading ? (
             <TableSkeleton rows={6} cols={5} />
           ) : normalized.length > 0 ? (
-            <LabSamplesTable data={normalized} onStatusChange={handleStatusChange} />
+            <LabSamplesTable data={normalized} onStatusChange={handleStatusChange} onOpenFiles={setFilesCase} todayISO={todayISO} />
           ) : (
             <p className="text-sm text-gray-500">No samples found.</p>
           )}
@@ -126,6 +125,16 @@ const DentistLabSamples = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Attachments — the SAME component the owner screen uses. */}
+      <Dialog open={!!filesCase} onOpenChange={(o) => !o && setFilesCase(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("labCase.attachments")} — {filesCase?.id}</DialogTitle>
+          </DialogHeader>
+          {filesCase && <LabCaseAttachments caseId={filesCase.id} role="dentist" />}
+        </DialogContent>
+      </Dialog>
 
       <DentistAddLabSampleModal
         open={addModalOpen}

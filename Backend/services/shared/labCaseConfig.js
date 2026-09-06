@@ -144,3 +144,29 @@ export function statusesFor(canonical) {
     .filter(([, c]) => c === target)
     .map(([legacy]) => legacy)];
 }
+
+/**
+ * "Due soon" window, in days. A case due within this many days (and not yet
+ * closed) is flagged so the clinic can chase it before it slips.
+ * N = 3: short enough to be actionable, long enough to act on a lab turnaround.
+ */
+export const DUE_SOON_DAYS = 3;
+
+const addDays = (iso, n) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * One derivation of due state, shared by every role and mirrored on the client.
+ * Returns "overdue" | "due_soon" | "" (never late for a closed case).
+ */
+export function dueState(dueDate, status, today) {
+  const d = String(dueDate || "").trim();
+  if (!d || !today) return "";
+  if (!OPEN_CANONICAL.includes(canonicalStatus(status))) return "";
+  if (d < today) return "overdue";
+  if (d <= addDays(today, DUE_SOON_DAYS)) return "due_soon";
+  return "";
+}

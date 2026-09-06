@@ -135,8 +135,16 @@ export async function updateLabCaseStatus(actorRole, actorId, casePublicId, requ
           `Cannot reopen a case with status "${canonicalStatus(c.status)}". Only approved, rejected, or dispatched cases can be reopened.`
         );
     } else {
-      if (!FINALIZE_FROM.has(canonicalStatus(c.status)))
-        throw makeErr(`Cannot ${raw} a case that is already "${canonicalStatus(c.status)}". Reopen it first.`);
+      // Approve/reject must follow the SAME shared transition table the UI
+      // renders its buttons from. FINALIZE_FROM used to allow it from
+      // "requested", so a brand-new case could be approved before the lab had
+      // even seen it — the UI and the server now agree exactly.
+      if (!canTransition(c.status, dbStatus, "dentist")) {
+        throw makeErr(
+          `Cannot set status "${dbStatus}" on a case with status "${canonicalStatus(c.status)}". Allowed next: ${allowedNextStatuses(c.status, "dentist").join(", ") || "none"}.`,
+          400
+        );
+      }
     }
   }
 
@@ -161,12 +169,36 @@ export async function updateLabCaseStatus(actorRole, actorId, casePublicId, requ
   });
 
   await c.save();
+
+  // Notify the party that actually needs to know. Deliberately AFTER save and
+  // non-throwing: a failed notification must never undo a saved status change.
+  try {
+    const actorName = await resolveActorName(role, actorId);
+    await notifyStatusChange(c, {
+      actorRole: role,
+      labName: role === "lab" ? actorName : "",
+      dentistName: role === "dentist" ? actorName : "",
+    });
+  } catch { /* notification is best-effort */ }
+
   return c;
 }
 
+/** Display name for the notification body; never blocks the write. */
+async function resolveActorName(role, actorId) {
+  try {
+    const q = role === "dentist" ? { _id: actorId } : { publicId: actorId, role };
+    const u = await User.findOne(q).select("name").lean();
+    return u?.name || "";
+  } catch {
+    return "";
+  }
+}
+
 // ── THE shared mapper ───────────────────────────────────────────────────────
-import { canonicalStatus as canon, isOverdue, CANONICAL_STATUSES, INITIAL_STATUS } from "./labCaseConfig.js";
+import { canonicalStatus as canon, isOverdue, dueState, DUE_SOON_DAYS, CANONICAL_STATUSES, INITIAL_STATUS } from "./labCaseConfig.js";
 import { decryptField, encryptField } from "../../utils/fieldEncryption.js";
+import { notifyStatusChange } from "./labCaseNotifications.js";
 
 /**
  * ONE case → UI shape, used by every role's endpoint.
@@ -205,6 +237,7 @@ export function mapLabCase(doc, { role = "", today = "" } = {}) {
     dueDate: c.dueDate || "",
     // Derived, never stored — an urgent/overdue badge must not go stale.
     overdue: isOverdue(c.dueDate, c.status, today),
+    dueState: dueState(c.dueDate, c.status, today), // "overdue" | "due_soon" | ""
 
     note: c.note || "",
     instructions: decryptField(c.instructions || ""), // PHI, decrypted for authorised reads
@@ -235,4 +268,4 @@ export function applyCaseFields(doc, body = {}) {
   return doc;
 }
 
-export { CANONICAL_STATUSES, INITIAL_STATUS };
+export { CANONICAL_STATUSES, INITIAL_STATUS, DUE_SOON_DAYS };

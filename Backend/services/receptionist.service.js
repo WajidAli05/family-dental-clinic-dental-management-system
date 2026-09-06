@@ -18,6 +18,7 @@ import { listFeeSchedules } from "./shared/feeSchedules.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
+import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { canonicalStatus as canonicalLabStatus, CANONICAL_STATUSES as CANONICAL_LAB_STATUSES } from "./shared/labCaseConfig.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { findPatientsByPhone, generatePatientPublicId, computeAge, mapInsurance, mapEmergencyContact, encryptMedicalFields, mapMedicalInfo, mapOdontogram, latestToothEntriesByPatient, mergeToothClinical } from "./shared/patients.js";
@@ -947,6 +948,9 @@ export async function receptionistCreateLabSample(_user, body) {
     status: INITIAL_STATUS,
     timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by receptionist" }],
   });
+
+  // Tell the lab a case has landed on them. Best-effort — never fails the create.
+  await notifyCaseAssigned(created, { sampleTypeName: sampleType?.name });
 
   const populated = await LabCase.findById(created._id)
     .populate("patient", "name publicId mr phone")

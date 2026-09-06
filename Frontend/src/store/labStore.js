@@ -17,17 +17,6 @@ const authFetch = async (url, options = {}) => {
   return res;
 };
 
-const mapBackendStatusToUi = (s) => {
-  const v = String(s || "").toLowerCase();
-  if (v === "received" || v === "sent") return "sent";
-  if (v === "in_progress" || v === "in-process") return "in-process";
-  if (v === "ready") return "ready";
-  if (v === "delivered") return "delivered";
-  if (v === "approved") return "approved";
-  if (v === "rejected") return "rejected";
-  return v || "sent";
-};
-
 export const useLabStore = create((set, get) => ({
   loadingStats: false,
   loadingSamples: false,
@@ -36,6 +25,9 @@ export const useLabStore = create((set, get) => ({
   stats: { total: 0, inProcess: 0, ready: 0, recent: 0 },
   samples: [],
   pagination: { total: 0, page: 1, pages: 1 },
+  // Remembered so a post-update refetch keeps the active filter and page
+  // instead of silently resetting the view to page 1 / all.
+  lastParams: {},
 
   fetchStats: async () => {
     try {
@@ -50,20 +42,17 @@ export const useLabStore = create((set, get) => ({
 
   fetchSamples: async (params = {}) => {
     try {
-      set({ loadingSamples: true, error: null });
+      set({ loadingSamples: true, error: null, lastParams: params });
       const qs = new URLSearchParams(
         Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== "all"))
       ).toString();
       const res = await authFetch(`${API}/cases${qs ? `?${qs}` : ""}`);
       const json = await res.json();
 
-      const normalized = (json.data || []).map((x) => ({
-        ...x,
-        status: mapBackendStatusToUi(x.status),
-      }));
-
+      // Status arrives CANONICAL from the shared mapper; rewriting it here is
+      // what made the select fall out of sync with its own options.
       set({
-        samples: normalized,
+        samples: json.data || [],
         pagination: { total: json.total ?? 0, page: json.page ?? 1, pages: json.pages ?? 1 },
         loadingSamples: false,
       });
@@ -72,55 +61,57 @@ export const useLabStore = create((set, get) => ({
     }
   },
 
-  // Unified status update — sends canonical DB status string
+  /** Re-runs the last fetchSamples call with the same params. */
+  refetchSamples: async () => get().fetchSamples(get().lastParams || {}),
+
+  /**
+   * Status update.
+   *
+   * Applies the SERVER's response rather than a locally-guessed value, then
+   * refetches. The old version optimistically wrote a UI-only status string
+   * that matched none of the dropdown's options, so React fell back to
+   * rendering the first option ("Sent") even though the change had succeeded.
+   *
+   * Rethrows so the caller can toast the failure.
+   */
   updateStatus: async (sampleId, dbStatus) => {
-    const { samples } = get();
-    const idx = samples.findIndex((s) => s.id === sampleId);
-    if (idx === -1) return;
+    const res = await authFetch(`${API}/cases/${sampleId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: dbStatus }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.message || `Failed: ${res.status}`);
 
-    const oldStatus = samples[idx].status;
-    const newUiStatus = mapBackendStatusToUi(dbStatus);
-
-    // Optimistic update
-    const optimistic = [...samples];
-    optimistic[idx] = { ...optimistic[idx], status: newUiStatus };
-    set({ samples: optimistic, error: null });
-
-    try {
-      const res = await authFetch(`${API}/cases/${sampleId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: dbStatus }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json?.message || `Failed: ${res.status}`);
-      }
-      await get().fetchStats();
-    } catch (e) {
-      // Rollback
-      const rolled = [...get().samples];
-      rolled[idx] = { ...rolled[idx], status: oldStatus };
-      set({ samples: rolled, error: e.message });
+    // Apply what the server actually saved, including the fresh allowedNext.
+    const updated = json?.data;
+    if (updated?.id) {
+      set((state) => ({
+        samples: state.samples.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)),
+      }));
     }
+    // Refetch so allowedNext and the stats tiles stay truthful.
+    await Promise.all([get().fetchStats(), get().refetchSamples()]);
+    return updated;
   },
 
   addNote: async (sampleId, note) => {
-    try {
-      set({ error: null });
-      await authFetch(`${API}/cases/${sampleId}/note`, {
-        method: "PATCH",
-        body: JSON.stringify({ note }),
-      });
-      set((state) => ({
-        samples: state.samples.map((s) => s.id === sampleId ? { ...s, note } : s),
-      }));
-      await get().fetchStats();
-    } catch (e) {
-      set({ error: e.message });
+    const res = await authFetch(`${API}/cases/${sampleId}/note`, {
+      method: "PATCH",
+      body: JSON.stringify({ note }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.message || `Failed: ${res.status}`);
     }
+    set((state) => ({
+      samples: state.samples.map((s) => (s.id === sampleId ? { ...s, note } : s)),
+    }));
+    await get().fetchStats();
   },
 
-  startWork: async (sampleId) => get().updateStatus(sampleId, "in_progress"),
+  // Canonical statuses — the legacy spellings are still accepted by the API,
+  // but nothing new should be written in them.
+  startWork: async (sampleId) => get().updateStatus(sampleId, "in_production"),
   markReady: async (sampleId) => get().updateStatus(sampleId, "ready"),
-  markDelivered: async (sampleId) => get().updateStatus(sampleId, "delivered"),
+  markDelivered: async (sampleId) => get().updateStatus(sampleId, "dispatched"),
 }));

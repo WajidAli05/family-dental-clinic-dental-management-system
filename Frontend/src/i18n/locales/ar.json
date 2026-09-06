@@ -614,6 +614,53 @@
       "approved": "معتمد",
       "rejected": "مرفوض"
     },
-    "priorityLabel": "الأولوية"
+    "priorityLabel": "الأولوية",
+    "dueSoon": "يستحق قريبًا",
+    "noActions": "لا توجد إجراءات",
+    "statusUpdated": "تم تحديث الحالة إلى {{status}}",
+    "addTitle": "إضافة حالة مختبر",
+    "editTitle": "تعديل حالة المختبر",
+    "createCase": "إنشاء حالة",
+    "col": {
+      "id": "المعرف",
+      "patient": "المريض",
+      "lab": "المختبر",
+      "sampleType": "نوع العينة",
+      "teeth": "الأسنان",
+      "sent": "أُرسل",
+      "status": "الحالة"
+    },
+    "download": "تنزيل"
+  },
+  "notifications": {
+    "labcase_assigned": {
+      "title": "حالة مختبر جديدة",
+      "message": "تم إرسال حالة مختبر جديدة {{caseId}} ({{type}}) إليك."
+    },
+    "labcase_ready": {
+      "title": "حالة المختبر جاهزة",
+      "message": "حالة المختبر {{caseId}} جاهزة في {{labName}}."
+    },
+    "labcase_dispatched": {
+      "title": "تم إرسال حالة المختبر",
+      "message": "تم إرسال حالة المختبر {{caseId}} من {{labName}}."
+    },
+    "labcase_decided": {
+      "title": "قرار حالة المختبر",
+      "message": "حالة المختبر {{caseId}} تم {{status}} بواسطة {{dentistName}}."
+    },
+    "labcase_overdue": {
+      "title": "حالة مختبر متأخرة",
+      "message": "حالة المختبر {{caseId}} متأخرة (استحقاق {{dueDate}})."
+    }
+  },
+  "common": {
+    "all": "الكل",
+    "apply": "تطبيق",
+    "saving": "جارٍ الحفظ…",
+    "loading": "جارٍ التحميل…",
+    "error": "حدث خطأ ما",
+    "cancel": "إلغاء",
+    "saveChanges": "حفظ التغييرات"
   }
 }

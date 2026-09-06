@@ -1,106 +1,108 @@
+import { useTranslation } from "react-i18next";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, Paperclip } from "lucide-react";
 import { useFormatMoney } from "@/store/clinicConfigStore";
+import { allowedNextStatuses, STATUS_LABEL_KEY } from "@/lib/labCaseConfig";
+import { LabStatusBadge, LabPriorityBadge, LabDueBadge } from "@/components/lab/LabCaseBadges";
 
-const statusStyles = {
-  Sent: "bg-gray-100 text-gray-700",
-  "In Process": "bg-yellow-100 text-yellow-700",
-  Ready: "bg-blue-100 text-blue-700",
-  Delivered: "bg-green-100 text-green-700",
-  Approved: "bg-emerald-100 text-emerald-700",
-  Rejected: "bg-red-100 text-red-700",
+/**
+ * Dentist lab-case table.
+ *
+ * Actions are derived from the SHARED allowedNext for this (status, role)
+ * pair — never a hardcoded button list. Previously this rendered Approve and
+ * Reject for anything that was not already approved/rejected, so a case the
+ * lab had not even accepted yet already offered a clinical sign-off.
+ *
+ * The buttons the dentist gets are the intersection of what the lifecycle
+ * permits and what this role may set, so they cannot offer a call the server
+ * would refuse.
+ */
+const ACTION_META = {
+  approved:      { icon: CheckCircle, variant: "primary" },
+  rejected:      { icon: XCircle,     variant: "destructive" },
+  in_production: { icon: RotateCcw,   variant: "outline" },
+  received:      { icon: CheckCircle, variant: "outline" },
+  fitted:        { icon: CheckCircle, variant: "outline" },
 };
 
-// Finalized = no further approve/reject allowed without reopening first
-const FINALIZED = new Set(["Approved", "Rejected"]);
-// Reopenable = dentist can send back to lab
-const REOPENABLE = new Set(["Approved", "Rejected", "Delivered"]);
-
-const LabSamplesTable = ({ data, onStatusChange }) => {
+const LabSamplesTable = ({ data, onStatusChange, onOpenFiles, todayISO = "" }) => {
+  const { t } = useTranslation();
   const money = useFormatMoney();
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>ID</TableHead>
-          <TableHead>Patient</TableHead>
-          <TableHead>Lab</TableHead>
-          <TableHead>Sample Type</TableHead>
-          <TableHead>Teeth</TableHead>
-          <TableHead>Sent</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead></TableHead>
+          <TableHead>{t("labCase.col.id")}</TableHead>
+          <TableHead>{t("labCase.col.patient")}</TableHead>
+          <TableHead>{t("labCase.col.lab")}</TableHead>
+          <TableHead>{t("labCase.col.sampleType")}</TableHead>
+          <TableHead>{t("labCase.col.teeth")}</TableHead>
+          <TableHead>{t("labCase.col.sent")}</TableHead>
+          <TableHead>{t("labCase.col.status")}</TableHead>
+          <TableHead />
         </TableRow>
       </TableHeader>
 
       <TableBody>
         {data.map((s) => {
-          const finalized = FINALIZED.has(s.status);
-          const reopenable = REOPENABLE.has(s.status);
+          // The single source of truth for what this dentist may do next.
+          const actions = allowedNextStatuses(s.status, "dentist", s.allowedNext);
           return (
             <TableRow key={s.id}>
               <TableCell className="font-medium">{s.id}</TableCell>
               <TableCell>{s.patientName}</TableCell>
-              <TableCell>{s.lab}</TableCell>
+              <TableCell>{s.lab || s.labName}</TableCell>
               <TableCell>
                 <span className="text-sm">{s.type || "—"}</span>
                 {s.sampleTypePrice > 0 && (
-                  <span className="ml-1 text-xs text-gray-500">
-                    {money(s.sampleTypePrice)}
-                  </span>
+                  <span className="ms-1 text-xs text-gray-500">{money(s.sampleTypePrice)}</span>
                 )}
               </TableCell>
-              <TableCell>#{s.teeth.join(", ")}</TableCell>
+              <TableCell>#{(s.teeth || []).join(", ")}</TableCell>
               <TableCell>{s.sentDate}</TableCell>
               <TableCell>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    statusStyles[s.status] || "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {s.status}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <LabStatusBadge status={s.status} />
+                  <LabPriorityBadge priority={s.priority} />
+                  <LabDueBadge labCase={s} todayISO={todayISO} />
+                </div>
               </TableCell>
 
               <TableCell>
-                <div className="flex gap-1 flex-wrap">
-                  {!finalized && (
-                    <>
-                      <Button
-                        size="sm"
-                        className="bg-[#2ec4b6] hover:bg-[#26a699]"
-                        onClick={() => onStatusChange(s.id, "approved")}
-                      >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => onStatusChange(s.id, "rejected")}
-                      >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                  {reopenable && (
+                <div className="flex gap-1 flex-wrap items-center justify-end">
+                  {onOpenFiles && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => onStatusChange(s.id, "reopened")}
+                      variant="ghost"
+                      title={t("labCase.attachments")}
+                      onClick={() => onOpenFiles(s)}
                     >
-                      <RotateCcw className="w-4 h-4 mr-1" />
-                      Reopen
+                      <Paperclip className="w-4 h-4" />
                     </Button>
+                  )}
+                  {actions.length === 0 ? (
+                    <span className="text-xs text-gray-400 italic">{t("labCase.noActions")}</span>
+                  ) : (
+                    actions.map((next) => {
+                      const meta = ACTION_META[next] || { icon: CheckCircle, variant: "outline" };
+                      const Icon = meta.icon;
+                      return (
+                        <Button
+                          key={next}
+                          size="sm"
+                          variant={meta.variant === "primary" ? "default" : meta.variant}
+                          className={meta.variant === "primary" ? "bg-[#2ec4b6] hover:bg-[#26a699]" : ""}
+                          onClick={() => onStatusChange(s.id, next)}
+                        >
+                          <Icon className="w-4 h-4 me-1" />
+                          {t(STATUS_LABEL_KEY[next] || next)}
+                        </Button>
+                      );
+                    })
                   )}
                 </div>
               </TableCell>

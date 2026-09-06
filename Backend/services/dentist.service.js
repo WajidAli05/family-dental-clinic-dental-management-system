@@ -18,6 +18,7 @@ import {
 import { listPatientsCore, upsertOdontogramEntry, computeAge } from "./shared/patients.js";
 import { updateLabCaseStatus, mapLabCase, applyCaseFields , INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
+import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import {
   encryptPrescriptionDoc,
@@ -199,6 +200,9 @@ export async function dentistGetCases(dentistId, { status, q, page, limit, sortB
   // and the derived overdue flag; only the dentist-specific display extras are
   // added on top. Adding a lifecycle field no longer means editing five files.
   const today = await clinicToday();
+  // Overdue notifications are derived HERE, on read, from the rows we already
+  // hold — no scheduler. De-duplicated per (recipient, case, dueDate).
+  await sweepOverdueNotifications(rows, today, { recipient: "dentist" });
   let mapped = rows.filter(hasActivePatient).map((c) => ({
     ...mapLabCase(c, { role: "dentist", today }),
     lab: c.lab?.name || "",
@@ -505,6 +509,9 @@ export async function dentistCreateCase(dentistId, body) {
     status: INITIAL_STATUS,
     timeline: [{ at: new Date(), status: INITIAL_STATUS, note: "Created by dentist" }],
   });
+
+  // Tell the lab a case has landed on them. Best-effort — never fails the create.
+  await notifyCaseAssigned(created, { sampleTypeName: sampleType?.name });
 
   const populated = await LabCase.findById(created._id)
     .populate("patient", "name publicId")

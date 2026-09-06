@@ -1,4 +1,6 @@
 import { useEffect, useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -13,19 +15,20 @@ import LabSearch from "./LabSearch";
 import TablePagination from "@/components/ui/TablePagination";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import { usePagination } from "@/hooks/usePagination";
+import LabCaseAttachments from "@/components/lab/LabCaseAttachments";
+import { CANONICAL_STATUSES, STATUS_LABEL_KEY, sortByAttention } from "@/lib/labCaseConfig";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const STATUS_FILTERS = [
-  { key: "all",         label: "All" },
-  { key: "sent",        label: "Sent" },
-  { key: "in_progress", label: "In Process" },
-  { key: "ready",       label: "Ready" },
-  { key: "delivered",   label: "Delivered" },
-  { key: "approved",    label: "Approved" },
-  { key: "rejected",    label: "Rejected" },
-];
+// Filters come from the shared canonical list. The lab never acts on
+// approved/rejected, but it must still be able to FILTER by them to see
+// decisions that came back.
+const FILTER_KEYS = ["all", ...CANONICAL_STATUSES];
 
 export default function LabSamplesTable() {
+  const { t } = useTranslation();
   const { samples, fetchSamples, loadingSamples, error, pagination } = useLabStore();
+  const [filesCase, setFilesCase] = useState(null);
+  const todayISO = new Date().toISOString().slice(0, 10);
   const { page, limit, setPage, resetPage } = usePagination(50);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQ, setSearchQ] = useState("");
@@ -40,6 +43,12 @@ export default function LabSamplesTable() {
   }, [fetchSamples, page, limit, statusFilter, searchQ]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Store-level failures become a toast. Keyed on the message so a single
+  // failure toasts once rather than on every re-render.
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
   const handleStatusFilter = (key) => {
     setStatusFilter(key);
@@ -60,7 +69,7 @@ export default function LabSamplesTable() {
 
       {/* Status filter pills */}
       <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => (
+        {FILTER_KEYS.map((key) => ({ key })).map((f) => (
           <button
             key={f.key}
             onClick={() => handleStatusFilter(f.key)}
@@ -70,12 +79,10 @@ export default function LabSamplesTable() {
                 : "bg-white text-gray-600 border-gray-200 hover:border-[#2ec4b6] hover:text-[#2ec4b6]"
             }`}
           >
-            {f.label}
+            {f.key === "all" ? t("common.all") : t(STATUS_LABEL_KEY[f.key] || f.key)}
           </button>
         ))}
       </div>
-
-      {error ? <p className="text-red-600 text-sm">{error}</p> : null}
 
       {loadingSamples ? (
         <TableSkeleton rows={6} cols={6} />
@@ -98,11 +105,27 @@ export default function LabSamplesTable() {
                 <td className="p-4 text-gray-600" colSpan={6}>No assigned samples found.</td>
               </TableRow>
             ) : (
-              samples.map((sample) => <LabSampleRow key={sample.id} sample={sample} />)
+              sortByAttention(samples, todayISO).map((sample) => (
+                <LabSampleRow
+                  key={sample.id}
+                  sample={sample}
+                  onOpenFiles={setFilesCase}
+                  todayISO={todayISO}
+                />
+              ))
             )}
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={!!filesCase} onOpenChange={(o) => !o && setFilesCase(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("labCase.attachments")} — {filesCase?.id}</DialogTitle>
+          </DialogHeader>
+          {filesCase && <LabCaseAttachments caseId={filesCase.id} role="lab" />}
+        </DialogContent>
+      </Dialog>
 
       <TablePagination
         page={pagination?.page ?? page}

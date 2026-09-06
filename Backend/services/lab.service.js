@@ -3,6 +3,7 @@ import LabCase from "../models/LabCase.model.js";
 import { parsePagination, paginateArray, buildSort } from "./shared/paginate.js";
 import { updateLabCaseStatus as sharedUpdateStatus, mapLabCase, applyCaseFields } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
+import { sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { statusesFor, OPEN_CASE_STATUSES, LAB_CASE_STATUSES } from "./shared/labCaseConfig.js";
 
 const pick = (obj, keys) =>
@@ -118,6 +119,7 @@ export async function labGetCases(publicId, filters = {}) {
   const rows = await LabCase.find(query).populate("sampleType", "name publicId").sort(sort).lean();
 
   const todayISO = await clinicToday();
+  await sweepOverdueNotifications(rows, todayISO, { recipient: "lab" });
   let mapped = rows.map((c) => mapCaseToFrontend(c, todayISO));
 
   const q = String(filters.q || "").trim().toLowerCase();

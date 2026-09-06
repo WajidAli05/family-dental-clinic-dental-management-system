@@ -122,12 +122,13 @@ export default function OwnerLabCaseModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Lab Case" : "Add Lab Case"}</DialogTitle>
+      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
+          <DialogTitle>{isEdit ? t("labCase.editTitle") : t("labCase.addTitle")}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="space-y-4 overflow-y-auto px-6 py-4 flex-1 min-h-0">
           {/* Patient — only for create */}
           {!isEdit && (
             <div className="space-y-1">
@@ -264,12 +265,14 @@ export default function OwnerLabCaseModal({
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+          {/* Always visible, never scrolled out of reach. */}
+          <DialogFooter className="px-6 py-4 border-t border-gray-100 shrink-0">
+            <Button type="button" variant="outline" onClick={handleClose}>{t("common.cancel")}</Button>
             <Button type="submit" className="bg-[#2ec4b6] hover:bg-[#26a699]" disabled={saving}>
-              {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Case"}
+              {saving ? t("common.saving") : isEdit ? t("common.saveChanges") : t("labCase.createCase")}
             </Button>
           </DialogFooter>
         </form>

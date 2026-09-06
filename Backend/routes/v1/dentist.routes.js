@@ -65,8 +65,17 @@ import {
   createPatientConsent,
   deletePatientConsent,
 } from "../../controllers/file.controller.js";
+import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 
 const router = express.Router();
+
+// Notifications — the SAME controller the owner uses. It scopes every query to
+// req.user._id, so a user can only ever read their own; mounting it per role
+// adds no new access path.
+router.get("/notifications",            getNotifications);
+router.patch("/notifications/read-all", markAllRead);
+router.patch("/notifications/:id/read", markRead);
+
 
 // profile
 router.get("/me", requirePermission("tab_dentist_profile"), getDentistMe);
@@ -94,6 +103,7 @@ router.get("/cases",              requirePermission("tab_dentist_lab_samples"), 
 router.post("/cases",             requirePermission("tab_dentist_lab_samples"), createDentistCaseCtrl);
 router.patch("/cases/:id/status", requirePermission("tab_dentist_lab_samples"), updateDentistCaseStatus);
 router.get("/cases/:caseId/files", requirePermission("tab_dentist_lab_samples"), listLabCaseFiles);
+router.get("/lab-files/:id", requirePermission("tab_dentist_lab_samples"), downloadFile);
 router.post("/cases/:caseId/files", requirePermission("tab_dentist_lab_samples"), uploadMiddleware, uploadErrorHandler, uploadLabCaseFiles);
 // labs list (for add-case modal dropdown)
 router.get("/labs", requirePermission("tab_dentist_lab_samples"), getDentistLabsCtrl);

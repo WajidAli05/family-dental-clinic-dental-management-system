@@ -69,8 +69,17 @@ import {
   getPatientConsentCoverage,
   createPatientConsent,
 } from "../../controllers/file.controller.js";
+import { getNotifications, markRead, markAllRead } from "../../controllers/notifications.controller.js";
 
 const router = express.Router();
+
+// Notifications — the SAME controller the owner uses. It scopes every query to
+// req.user._id, so a user can only ever read their own; mounting it per role
+// adds no new access path.
+router.get("/notifications",            getNotifications);
+router.patch("/notifications/read-all", markAllRead);
+router.patch("/notifications/:id/read", markRead);
+
 
 // profile
 router.get("/me", requirePermission("tab_receptionist_profile"), getReceptionistMe);
@@ -108,6 +117,7 @@ router.delete("/lab-samples/:id", requirePermission("tab_receptionist_lab_sample
 // Read only: the front desk chases cases but does not author them, so no
 // upload route is mounted and the controller refuses receptionist writes.
 router.get("/lab-samples/:caseId/files", requirePermission("tab_receptionist_lab_samples"), listLabCaseFiles);
+router.get("/lab-files/:id", requirePermission("tab_receptionist_lab_samples"), downloadFile);
 
 // labs/sample types (used by lab samples UI)
 router.get("/labs", requirePermission("tab_receptionist_lab_samples"), getReceptionistLabs);

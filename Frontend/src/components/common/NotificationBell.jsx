@@ -13,11 +13,28 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+/**
+ * Shared across all roles. Moved out of components/owner/ unchanged in
+ * behaviour: the endpoints it calls are scoped to the signed-in user, so the
+ * same component serves owner, dentist, lab and receptionist without a fork.
+ */
 export default function NotificationBell() {
   const { t } = useTranslation();
   const { notifications, unreadCount, fetch, markRead, markAllRead } = useNotificationsStore();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
+
+  /**
+   * Notifications are written with an i18n key plus params, so the reader sees
+   * their own language rather than the writer's. Falls back to the stored
+   * English text when a key is absent (lockout alerts) or missing from the
+   * bundle, so nothing ever renders as a raw key.
+   */
+  const tr = (key, params, fallback) => {
+    if (!key) return fallback;
+    const out = t(key, { ...(params || {}), defaultValue: "" });
+    return out || fallback;
+  };
 
   // Initial load + polling every 60 s
   useEffect(() => {
@@ -143,10 +160,10 @@ export default function NotificationBell() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 leading-snug">
-                        {n.title}
+                        {tr(n.meta?.i18n?.titleKey, n.meta?.i18n?.params, n.title)}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5 leading-snug break-words">
-                        {n.message}
+                        {tr(n.meta?.i18n?.messageKey, n.meta?.i18n?.params, n.message)}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
                         {timeAgo(n.createdAt)}

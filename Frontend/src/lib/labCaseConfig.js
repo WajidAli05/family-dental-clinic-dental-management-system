@@ -123,5 +123,54 @@ export function isOverdue(labCase, todayISO) {
   return due < todayISO;
 }
 
+/**
+ * "Due soon" window in days — mirrors DUE_SOON_DAYS on the backend.
+ * N = 3.
+ */
+export const DUE_SOON_DAYS = 3;
+
+const addDays = (iso, n) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * "overdue" | "due_soon" | "". Prefers the server's `dueState`, which is
+ * computed in the CLINIC timezone; the local derivation is the fallback for
+ * rows fetched by screens that do not yet return it.
+ */
+export function dueState(labCase, todayISO) {
+  if (typeof labCase?.dueState === "string") return labCase.dueState;
+  const d = String(labCase?.dueDate || "").trim();
+  if (!d || !todayISO) return "";
+  if (!OPEN_CANONICAL.includes(canonicalStatus(labCase?.status))) return "";
+  if (d < todayISO) return "overdue";
+  if (d <= addDays(todayISO, DUE_SOON_DAYS)) return "due_soon";
+  return "";
+}
+
+/**
+ * Sort key that floats the cases needing attention to the top:
+ * overdue first, then due-soon, then urgent priority, then everything else.
+ */
+export function attentionRank(labCase, todayISO) {
+  const ds = dueState(labCase, todayISO);
+  if (ds === "overdue") return 0;
+  if (ds === "due_soon") return 1;
+  const p = String(labCase?.priority || "normal").toLowerCase();
+  if (p === "urgent") return 2;
+  if (p === "high") return 3;
+  return 4;
+}
+
+/** Stable sort putting attention-worthy cases first. */
+export function sortByAttention(rows, todayISO) {
+  return [...(rows || [])]
+    .map((r, i) => ({ r, i, k: attentionRank(r, todayISO) }))
+    .sort((a, b) => a.k - b.k || a.i - b.i)
+    .map((x) => x.r);
+}
+
 /** FDI teeth, shared with the odontogram. */
 export const isValidTooth = (t) => /^[1-4][1-8]$/.test(String(t || "").trim());

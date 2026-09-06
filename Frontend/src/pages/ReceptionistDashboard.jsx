@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 // Store
 import { usePermissionsStore } from "@/store/permissionsStore";
 import { useLogoutConfirm } from "@/hooks/useLogoutConfirm";
+import NotificationBell from "@/components/common/NotificationBell";
 
 // Icons
 import {
@@ -61,6 +62,11 @@ const ReceptionistDashboard = () => {
         <SideBar title={t("nav.receptionistPanel")} items={receptionistMenu} />
 
         <main className="flex-1 relative min-w-0">
+          {/* Notifications — the same shared bell the owner uses; the endpoint
+              is scoped to the signed-in user. */}
+          <div className="absolute top-4 end-5 z-40">
+            <NotificationBell />
+          </div>
           <div className="lg:hidden fixed top-4 start-5 z-50">
             <SidebarTrigger className="text-[#2ec4b6] bg-white p-2.5 rounded-lg shadow-lg hover:bg-gray-50 transition-colors" />
           </div>

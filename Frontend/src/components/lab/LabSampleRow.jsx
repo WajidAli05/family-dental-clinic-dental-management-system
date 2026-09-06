@@ -1,50 +1,30 @@
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Paperclip } from "lucide-react";
 import { useLabStore } from "@/store/labStore";
 import AddNoteDialog from "@/components/lab/AddNoteDialog";
+import LabCaseStatusControl from "@/components/lab/LabCaseStatusControl";
+import { LabStatusBadge, LabPriorityBadge, LabDueBadge } from "@/components/lab/LabCaseBadges";
+import { STATUS_LABEL_KEY } from "@/lib/labCaseConfig";
 
-// Lab can only advance to these statuses (approved/rejected are dentist-only)
-const LAB_STATUS_OPTIONS = [
-  { value: "sent",        label: "Sent" },
-  { value: "in-process",  label: "In Process", db: "in_progress" },
-  { value: "ready",       label: "Ready" },
-  { value: "delivered",   label: "Delivered" },
-];
-
-const STATUS_STYLES = {
-  "sent":        "bg-blue-50 text-blue-700 border-blue-200",
-  "in-process":  "bg-amber-50 text-amber-700 border-amber-200",
-  "ready":       "bg-purple-50 text-purple-700 border-purple-200",
-  "delivered":   "bg-indigo-50 text-indigo-700 border-indigo-200",
-  "approved":    "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "rejected":    "bg-rose-50 text-rose-700 border-rose-200",
-};
-
-const STATUS_LABELS = {
-  "sent":       "Sent",
-  "in-process": "In Process",
-  "ready":      "Ready",
-  "delivered":  "Delivered",
-  "approved":   "Approved",
-  "rejected":   "Rejected",
-};
-
-// Map UI status back to DB status for the API call
-const UI_TO_DB = {
-  "sent":       "sent",
-  "in-process": "in_progress",
-  "ready":      "ready",
-  "delivered":  "delivered",
-};
-
-const FINALIZED = new Set(["approved", "rejected"]);
-
-export default function LabSampleRow({ sample }) {
+/**
+ * One lab case row.
+ *
+ * The old version kept its own status option list, style map and label map in
+ * UI-only spellings ("in-process"), which disagreed with every other
+ * dashboard and left the select showing a stale value after a change. It now
+ * renders the shared badge and the shared, role-aware status control.
+ */
+export default function LabSampleRow({ sample, onOpenFiles, todayISO = "" }) {
+  const { t } = useTranslation();
   const { updateStatus } = useLabStore();
-  const finalized = FINALIZED.has(sample.status);
 
-  const handleChange = (e) => {
-    const uiVal = e.target.value;
-    const dbVal = UI_TO_DB[uiVal] ?? uiVal;
-    updateStatus(sample.id, dbVal);
+  const handleChange = async (id, next) => {
+    // Rethrows are caught by LabCaseStatusControl; toast here so the lab sees
+    // one confirmation per action and nothing renders inline.
+    await updateStatus(id, next);
+    toast.success(t("labCase.statusUpdated", { status: t(STATUS_LABEL_KEY[next] || next) }));
   };
 
   return (
@@ -54,29 +34,29 @@ export default function LabSampleRow({ sample }) {
       <td className="font-mono text-gray-700">{sample.tooth}</td>
       <td className="text-gray-600">{sample.date}</td>
 
-      {/* Status badge */}
       <td>
-        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[sample.status] || "bg-gray-50 text-gray-700 border-gray-200"}`}>
-          {STATUS_LABELS[sample.status] || sample.status}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <LabStatusBadge status={sample.status} />
+          <LabPriorityBadge priority={sample.priority} />
+          <LabDueBadge labCase={sample} todayISO={todayISO} />
+        </div>
       </td>
 
-      <td className="text-right space-x-2">
-        <AddNoteDialog sample={sample} />
-
-        {finalized ? (
-          <span className="text-sm text-gray-400 italic">Final</span>
-        ) : (
-          <select
-            value={sample.status}
-            onChange={handleChange}
-            className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#2ec4b6] cursor-pointer"
-          >
-            {LAB_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        )}
+      <td className="text-end">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          {onOpenFiles && (
+            <Button
+              size="sm"
+              variant="ghost"
+              title={t("labCase.attachments")}
+              onClick={() => onOpenFiles(sample)}
+            >
+              <Paperclip className="w-4 h-4" />
+            </Button>
+          )}
+          <AddNoteDialog sample={sample} />
+          <LabCaseStatusControl labCase={sample} role="lab" onStatusChange={handleChange} />
+        </div>
       </td>
     </tr>
   );

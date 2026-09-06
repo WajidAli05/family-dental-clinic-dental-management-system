@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import {
   canonicalStatus, STATUS_LABEL_KEY, STATUS_BADGE,
-  PRIORITY_LABEL_KEY, PRIORITY_BADGE, isOverdue,
+  PRIORITY_LABEL_KEY, PRIORITY_BADGE, dueState,
 } from "@/lib/labCaseConfig";
 
 const pill = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
@@ -29,22 +29,32 @@ export const LabPriorityBadge = ({ priority, showNormal = false }) => {
   );
 };
 
-/** Only shown for cases still open — a delivered case cannot be late. */
-export const LabOverdueBadge = ({ labCase, todayISO = "" }) => {
+/**
+ * Due state. Only shown for cases still open — a delivered case cannot be late.
+ * "Overdue" = past dueDate; "Due soon" = within DUE_SOON_DAYS (3).
+ */
+export const LabDueBadge = ({ labCase, todayISO = "" }) => {
   const { t } = useTranslation();
-  if (!isOverdue(labCase, todayISO)) return null;
+  const state = dueState(labCase, todayISO);
+  if (!state) return null;
+  const cls = state === "overdue"
+    ? "bg-red-100 text-red-700 border-red-200"
+    : "bg-amber-100 text-amber-800 border-amber-200";
   return (
-    <span className={`${pill} bg-red-100 text-red-700 border-red-200`}>
-      {t("labCase.overdue")}
+    <span className={`${pill} ${cls}`}>
+      {t(state === "overdue" ? "labCase.overdue" : "labCase.dueSoon")}
     </span>
   );
 };
+
+/** Kept as the previous name so existing call sites keep working. */
+export const LabOverdueBadge = LabDueBadge;
 
 export const LabCaseBadges = ({ labCase, todayISO = "" }) => (
   <div className="flex items-center gap-1.5 flex-wrap">
     <LabStatusBadge status={labCase?.status} />
     <LabPriorityBadge priority={labCase?.priority} />
-    <LabOverdueBadge labCase={labCase} todayISO={todayISO} />
+    <LabDueBadge labCase={labCase} todayISO={todayISO} />
   </div>
 );
 

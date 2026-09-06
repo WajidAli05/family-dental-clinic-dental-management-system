@@ -614,6 +614,53 @@
       "approved": "منظور شدہ",
       "rejected": "مسترد"
     },
-    "priorityLabel": "ترجیح"
+    "priorityLabel": "ترجیح",
+    "dueSoon": "جلد واجب",
+    "noActions": "کوئی کارروائی نہیں",
+    "statusUpdated": "اسٹیٹس {{status}} میں تبدیل ہو گیا",
+    "addTitle": "لیب کیس شامل کریں",
+    "editTitle": "لیب کیس میں ترمیم",
+    "createCase": "کیس بنائیں",
+    "col": {
+      "id": "آئی ڈی",
+      "patient": "مریض",
+      "lab": "لیب",
+      "sampleType": "نمونے کی قسم",
+      "teeth": "دانت",
+      "sent": "بھیجا گیا",
+      "status": "اسٹیٹس"
+    },
+    "download": "ڈاؤن لوڈ"
+  },
+  "notifications": {
+    "labcase_assigned": {
+      "title": "نیا لیب کیس",
+      "message": "نیا لیب کیس {{caseId}} ({{type}}) آپ کو بھیجا گیا ہے۔"
+    },
+    "labcase_ready": {
+      "title": "لیب کیس تیار",
+      "message": "لیب کیس {{caseId}} {{labName}} پر تیار ہے۔"
+    },
+    "labcase_dispatched": {
+      "title": "لیب کیس روانہ",
+      "message": "لیب کیس {{caseId}} {{labName}} کی جانب سے روانہ کر دیا گیا۔"
+    },
+    "labcase_decided": {
+      "title": "لیب کیس کا فیصلہ",
+      "message": "لیب کیس {{caseId}} کو {{dentistName}} نے {{status}} کیا۔"
+    },
+    "labcase_overdue": {
+      "title": "لیب کیس تاخیر شدہ",
+      "message": "لیب کیس {{caseId}} تاخیر کا شکار ہے (مقررہ {{dueDate}})۔"
+    }
+  },
+  "common": {
+    "all": "سب",
+    "apply": "لاگو کریں",
+    "saving": "محفوظ ہو رہا ہے…",
+    "loading": "لوڈ ہو رہا ہے…",
+    "error": "کچھ غلط ہو گیا",
+    "cancel": "منسوخ",
+    "saveChanges": "تبدیلیاں محفوظ کریں"
   }
 }

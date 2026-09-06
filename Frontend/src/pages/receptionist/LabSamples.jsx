@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -16,8 +18,12 @@ import DeleteConfirmModal from "@/components/receptionist/DeleteConfirmModal";
 import TablePagination from "@/components/ui/TablePagination";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 import { usePagination } from "@/hooks/usePagination";
+import LabCaseAttachments from "@/components/lab/LabCaseAttachments";
+import { sortByAttention, STATUS_LABEL_KEY } from "@/lib/labCaseConfig";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LabSamples = () => {
+  const { t } = useTranslation();
   const {
     samples,
     fetchSamples,
@@ -36,6 +42,8 @@ const LabSamples = () => {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
 
+  const [filesCase, setFilesCase] = useState(null);
+  const todayISO = new Date().toISOString().slice(0, 10);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingSample, setEditingSample] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -51,6 +59,21 @@ const LabSamples = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Store errors become toasts — one mechanism app-wide, no inline banner.
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  const handleCaseStatus = async (id, next) => {
+    try {
+      await updateStatus(id, next);
+      toast.success(t("labCase.statusUpdated", { status: t(STATUS_LABEL_KEY[next] || next) }));
+      load();
+    } catch (e) {
+      toast.error(e?.message || t("common.error"));
+    }
+  };
 
   const handleQueryChange = (q) => { setQuery(q); resetPage(); };
   const handleStatusChange = (s) => { setStatus(s); resetPage(); };
@@ -71,9 +94,6 @@ const LabSamples = () => {
         </div>
       </div>
 
-      {error ? (
-        <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
-      ) : null}
 
       <LabSampleStats stats={stats} />
 
@@ -100,8 +120,10 @@ const LabSamples = () => {
             <TableSkeleton rows={8} cols={6} />
           ) : (
             <LabSampleManagementTable
-              data={samples}
-              onStatusChange={updateStatus}
+              data={sortByAttention(samples, todayISO)}
+              todayISO={todayISO}
+              onOpenFiles={setFilesCase}
+              onStatusChange={handleCaseStatus}
               onDeliver={markDelivered}
               onEdit={(sample) => setEditingSample(sample)}
               onDelete={(id) => setDeletingId(id)}
@@ -117,6 +139,17 @@ const LabSamples = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Attachments — the shared component; the front desk is read-only and
+          the component hides upload for this role. */}
+      <Dialog open={!!filesCase} onOpenChange={(o) => !o && setFilesCase(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("labCase.attachments")} — {filesCase?.id}</DialogTitle>
+          </DialogHeader>
+          {filesCase && <LabCaseAttachments caseId={filesCase.id} role="receptionist" />}
+        </DialogContent>
+      </Dialog>
 
       <AddLabSampleModal open={isAddOpen} onOpenChange={setIsAddOpen} />
 

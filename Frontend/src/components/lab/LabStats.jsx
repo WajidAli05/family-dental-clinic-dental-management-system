@@ -5,7 +5,9 @@ import CountUp from "react-countup";
 import { ClipboardList, RefreshCcw, CheckCircle, Clock } from "lucide-react";
 
 export default function LabStats() {
-  const { stats, fetchStats, loadingStats, error } = useLabStore();
+  // Errors surface as toasts from LabSamplesTable — the same store error was
+  // previously rendered inline in two places at once.
+  const { stats, fetchStats, loadingStats } = useLabStore();
 
   useEffect(() => {
     fetchStats();
@@ -13,7 +15,6 @@ export default function LabStats() {
 
   return (
     <div className="space-y-3">
-      {error ? <p className="text-red-200 text-sm text-center">{error}</p> : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Assigned" value={loadingStats ? 0 : stats.total} icon={ClipboardList} />

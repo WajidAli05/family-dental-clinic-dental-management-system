@@ -614,6 +614,53 @@
       "approved": "Approved",
       "rejected": "Rejected"
     },
-    "priorityLabel": "Priority"
+    "priorityLabel": "Priority",
+    "dueSoon": "Due soon",
+    "noActions": "No actions",
+    "statusUpdated": "Status updated to {{status}}",
+    "addTitle": "Add Lab Case",
+    "editTitle": "Edit Lab Case",
+    "createCase": "Create Case",
+    "col": {
+      "id": "ID",
+      "patient": "Patient",
+      "lab": "Lab",
+      "sampleType": "Sample Type",
+      "teeth": "Teeth",
+      "sent": "Sent",
+      "status": "Status"
+    },
+    "download": "Download"
+  },
+  "notifications": {
+    "labcase_assigned": {
+      "title": "New Lab Case",
+      "message": "New lab case {{caseId}} ({{type}}) has been sent to you."
+    },
+    "labcase_ready": {
+      "title": "Lab Case Ready",
+      "message": "Lab case {{caseId}} is ready at {{labName}}."
+    },
+    "labcase_dispatched": {
+      "title": "Lab Case Dispatched",
+      "message": "Lab case {{caseId}} has been dispatched by {{labName}}."
+    },
+    "labcase_decided": {
+      "title": "Lab Case Decision",
+      "message": "Lab case {{caseId}} was {{status}} by {{dentistName}}."
+    },
+    "labcase_overdue": {
+      "title": "Lab Case Overdue",
+      "message": "Lab case {{caseId}} is overdue (due {{dueDate}})."
+    }
+  },
+  "common": {
+    "all": "All",
+    "apply": "Apply",
+    "saving": "Saving…",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes"
   }
 }
