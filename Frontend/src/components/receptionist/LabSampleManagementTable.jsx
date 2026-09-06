@@ -98,7 +98,7 @@ export default function LabSampleManagementTable({
 
                   {/* Attachments — read-only for the front desk */}
                   {onOpenFiles && (
-                    <Button size="icon" variant="outline" title={t("labCase.attachments")} onClick={() => onOpenFiles(sample)}>
+                    <Button size="icon" variant="outline" className="text-muted-foreground hover:text-foreground" title={t("labCase.attachments")} onClick={() => onOpenFiles(sample)}>
                       <Paperclip size={16} />
                     </Button>
                   )}

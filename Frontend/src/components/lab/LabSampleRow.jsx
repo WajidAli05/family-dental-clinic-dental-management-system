@@ -50,6 +50,13 @@ export default function LabSampleRow({ sample, onOpenFiles, todayISO = "" }) {
               variant="ghost"
               title={t("labCase.attachments")}
               onClick={() => onOpenFiles(sample)}
+              /*
+               * The `ghost` variant sets only hover colours, so the icon
+               * inherited whatever the ancestor had — and LabDashboard paints
+               * its <main> `text-white`, making this invisible on the light
+               * row. Tokens, so it stays correct in dark mode too.
+               */
+              className="text-muted-foreground hover:text-foreground"
             >
               <Paperclip className="w-4 h-4" />
             </Button>

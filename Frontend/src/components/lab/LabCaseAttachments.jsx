@@ -57,12 +57,12 @@ const LabCaseAttachments = ({ caseId, role }) => {
   };
 
   return (
-    <div className="rounded-2xl border border-gray-100 p-4">
+    <div className="rounded-2xl border border-border p-4 text-foreground">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+        <div className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Paperclip className="h-4 w-4" />
           {t("labCase.attachments")}
-          <span className="text-xs font-normal text-gray-500">({rows.length})</span>
+          <span className="text-xs font-normal text-muted-foreground">({rows.length})</span>
         </div>
         {canUpload && (
           <>
@@ -91,16 +91,16 @@ const LabCaseAttachments = ({ caseId, role }) => {
 
       <div className="mt-3">
         {loading ? (
-          <p className="text-sm text-gray-500 py-4 text-center">{t("common.loading")}</p>
+          <p className="text-sm text-muted-foreground py-4 text-center">{t("common.loading")}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4 text-center">{t("labCase.noAttachments")}</p>
+          <p className="text-sm text-muted-foreground py-4 text-center">{t("labCase.noAttachments")}</p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-border">
             {rows.map((f) => (
               <li key={f.id} className="py-2 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">{f.originalName || f.id}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm font-medium text-foreground truncate">{f.originalName || f.id}</div>
+                  <div className="text-xs text-muted-foreground">
                     {f.mimeType} · {Math.max(1, Math.round((f.sizeBytes || 0) / 1024))} KB
                     {f.uploadedAt ? ` · ${new Date(f.uploadedAt).toLocaleDateString()}` : ""}
                   </div>

@@ -80,6 +80,7 @@ const LabSamplesTable = ({ data, onStatusChange, onOpenFiles, todayISO = "" }) =
                       variant="ghost"
                       title={t("labCase.attachments")}
                       onClick={() => onOpenFiles(s)}
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       <Paperclip className="w-4 h-4" />
                     </Button>
