@@ -46,6 +46,7 @@
   receptionistUpdateSupplier,
   receptionistDeleteSupplier,
   receptionistGetSupplierLedger,
+  receptionistRecordSupplierPayment,
   receptionistListPurchaseOrders,
   receptionistGetPurchaseOrder,
   receptionistCreatePurchaseOrder,
@@ -505,6 +506,25 @@ export const getSupplierLedger = async (req, res) => {
   try {
     const { page, limit } = req.query;
     const data = await receptionistGetSupplierLedger(req.user?.id, req.params.id, { page, limit });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+/**
+ * Receptionist may now record supplier payments (was owner-only). Reuses
+ * the SAME shared FIFO service path as owner — recordAudit captures who
+ * acted; recordedBy/recordedByName come only from req.user, never req.body.
+ */
+export const recordSupplierPayment = async (req, res) => {
+  try {
+    const actor = { recordedBy: req.user?.publicId || "", recordedByName: req.user?.name || "" };
+    const data = await receptionistRecordSupplierPayment(req.user?.id, req.params.id, req.body || {}, actor);
+    await recordAudit({
+      req, action: "supplier.payment", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id,
+      after: { ...data, recordedBy: actor.recordedBy, recordedByName: actor.recordedByName },
+    });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

@@ -45,6 +45,7 @@ import {
   updateSupplier,
   deleteSupplier,
   getSupplierLedger,
+  recordSupplierPayment,
   listPurchaseOrders,
   getPurchaseOrder,
   createPurchaseOrder,
@@ -153,12 +154,15 @@ router.patch("/inventory/:id", requirePermission("tab_receptionist_inventory"), 
 router.patch("/inventory/:id/stock", requirePermission("tab_receptionist_inventory"), updateInventoryStock);
 router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"), deleteInventoryItem);
 
-// Suppliers — full CRUD, gated by the same existing inventory permission.
-// Recording a payment is deliberately NOT here — owner-only (money out).
+// Suppliers — full CRUD + payments, gated by the same existing inventory
+// permission. Recording a payment now widens to receptionist; recordedBy/
+// recordedByName are stamped from req.user server-side (see the controller),
+// the accountability control for that widened access.
 router.post("/suppliers", requirePermission("tab_receptionist_inventory"), createSupplier);
 router.patch("/suppliers/:id", requirePermission("tab_receptionist_inventory"), updateSupplier);
 router.delete("/suppliers/:id", requirePermission("tab_receptionist_inventory"), deleteSupplier); // soft-delete
 router.get("/suppliers/:id/ledger", requirePermission("tab_receptionist_inventory"), getSupplierLedger);
+router.post("/suppliers/:id/payments", requirePermission("tab_receptionist_inventory"), recordSupplierPayment);
 
 // Purchase orders — both roles create/receive; no delete route here (owner-only).
 router.get("/inventory/purchases", requirePermission("tab_receptionist_inventory"), listPurchaseOrders);

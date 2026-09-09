@@ -54,11 +54,12 @@ export const receptionistInventoryApi = {
   remove: (id) =>
     request(`/receptionist/inventory/${id}`, { method: "DELETE" }),
 
-  // ── Suppliers (full CRUD; recording a payment is owner-only, no route here) ──
+  // ── Suppliers (full CRUD + payments) ──
   createSupplier: (body) => request("/receptionist/suppliers", { method: "POST", body }),
   updateSupplier: (id, body) => request(`/receptionist/suppliers/${id}`, { method: "PATCH", body }),
   deleteSupplier: (id) => request(`/receptionist/suppliers/${id}`, { method: "DELETE" }),
   getSupplierLedger: (id, params) => request(`/receptionist/suppliers/${id}/ledger`, { params }),
+  recordSupplierPayment: (id, body) => request(`/receptionist/suppliers/${id}/payments`, { method: "POST", body }),
 
   // ── Purchase orders (create/receive; no delete route here — owner-only) ──
   listPurchaseOrders: (params) => request("/receptionist/inventory/purchases", { params }),

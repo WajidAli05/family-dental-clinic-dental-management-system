@@ -59,13 +59,22 @@ export function canonicalPoStatus(doc) {
 }
 
 /**
- * `role` filters "cancelled" out for anyone but the owner, so the dropdown
- * this powers can never offer a transition the backend would 403 — the same
- * role-aware allowedNext pattern used for lab-case status.
+ * Roles allowed to cancel a purchase order. ONE list, read by both the
+ * dropdown-filtering function below and the write-side guard in
+ * updatePurchaseOrderStatusShared — updating this one entry (rather than two
+ * separate hardcoded checks) is what "role-aware allowedNext" means here.
+ * PO delete is intentionally NOT on this list — it stays owner-only.
+ */
+export const ROLES_THAT_CAN_CANCEL_PO = Object.freeze(["owner", "receptionist"]);
+
+/**
+ * `role` filters "cancelled" out for anyone not in ROLES_THAT_CAN_CANCEL_PO,
+ * so the dropdown this powers can never offer a transition the backend would
+ * 403 — the same role-aware allowedNext pattern used for lab-case status.
  */
 export function allowedNextPoStatuses(doc, role) {
   const legal = PO_TRANSITIONS[canonicalPoStatus(doc)] || [];
-  if (role && role !== "owner") return legal.filter((s) => s !== "cancelled");
+  if (role && !ROLES_THAT_CAN_CANCEL_PO.includes(role)) return legal.filter((s) => s !== "cancelled");
   return [...legal];
 }
 
@@ -222,8 +231,8 @@ export async function updatePurchaseOrderStatusShared(poPublicId, nextStatus, { 
   const current = canonicalPoStatus(doc);
   if (next === current) return mapPurchaseOrderCore(await hydrate(doc), role);
 
-  if (next === "cancelled" && role !== "owner") {
-    throw Object.assign(new Error("Only the owner can cancel a purchase order"), { status: 403 });
+  if (next === "cancelled" && !ROLES_THAT_CAN_CANCEL_PO.includes(role)) {
+    throw Object.assign(new Error("You do not have permission to cancel a purchase order"), { status: 403 });
   }
 
   const legal = PO_TRANSITIONS[current] || [];

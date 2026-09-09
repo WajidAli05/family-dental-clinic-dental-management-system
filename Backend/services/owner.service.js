@@ -1413,8 +1413,8 @@ export async function ownerListSupplierDues(_ownerId) {
 }
 
 /** Recording a payment is owner-only (money out) — enforced at the route/controller layer. */
-export async function ownerRecordSupplierPayment(_ownerId, supplierId, body = {}) {
-  return recordSupplierPaymentShared({ ...body, supplierId });
+export async function ownerRecordSupplierPayment(_ownerId, supplierId, body = {}, actor = {}) {
+  return recordSupplierPaymentShared({ ...body, supplierId }, actor);
 }
 
 // ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────

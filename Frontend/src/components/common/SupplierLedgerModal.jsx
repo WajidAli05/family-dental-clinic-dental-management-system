@@ -173,11 +173,12 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
                         <th className="py-2 px-3 font-semibold text-gray-700">Amount</th>
                         <th className="py-2 px-3 font-semibold text-gray-700">Method</th>
                         <th className="py-2 px-3 font-semibold text-gray-700">Reference</th>
+                        <th className="py-2 px-3 font-semibold text-gray-700">Recorded By</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(data.payments || []).length === 0 ? (
-                        <tr><td colSpan={4} className="py-6 text-center text-gray-500">No payments recorded yet.</td></tr>
+                        <tr><td colSpan={5} className="py-6 text-center text-gray-500">No payments recorded yet.</td></tr>
                       ) : (
                         data.payments.map((p) => (
                           <tr key={p.id} className="border-b border-gray-50">
@@ -185,6 +186,10 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
                             <td className="py-2 px-3">{money(p.amount)}</td>
                             <td className="py-2 px-3 capitalize">{p.method}</td>
                             <td className="py-2 px-3">{p.reference || "—"}</td>
+                            {/* Accountability control for widened money-out access —
+                                absent on payments recorded before this session, so
+                                a blank name must show "—", never "undefined". */}
+                            <td className="py-2 px-3">{p.recordedByName || "—"}</td>
                           </tr>
                         ))
                       )}

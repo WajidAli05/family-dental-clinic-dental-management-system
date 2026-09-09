@@ -9,7 +9,8 @@ import { useInventoryStore } from "@/store/inventoryStore";
 import InventoryStats from "@/components/receptionist/InventoryStats";
 import InventoryFilters from "@/components/receptionist/InventoryFilters";
 import InventoryTable from "@/components/receptionist/InventoryTable";
-import AddInventoryModal from "@/components/receptionist/AddInventoryModal";
+// Shared with owner (Part 2 consolidation) — no more per-role Add Item modal.
+import AddInventoryItemModal from "@/components/common/AddInventoryItemModal";
 import EditInventoryModal from "@/components/receptionist/EditInventoryModal";
 import ConfirmDeleteDialog from "@/components/ConfirmDeleteDialog";
 // FIX 5: reuse the owner's stock modal rather than a second implementation —
@@ -41,12 +42,14 @@ const Inventory = () => {
     error,
     pagination,
     getStats,
+    createItem,
     deleteItem,
     updateStock,
     createSupplier,
     updateSupplier,
     deleteSupplier,
     getSupplierLedger,
+    recordSupplierPayment,
     fetchPurchaseOrders,
     getPurchaseOrder,
     createPurchaseOrder,
@@ -218,8 +221,8 @@ const Inventory = () => {
               updateSupplier={updateSupplier}
               deleteSupplier={deleteSupplier}
               fetchLedger={getSupplierLedger}
-              recordPayment={null}
-              canRecordPayment={false}
+              recordPayment={recordSupplierPayment}
+              canRecordPayment
             />
           </CardContent>
         </Card>
@@ -254,7 +257,7 @@ const Inventory = () => {
         }}
       />
 
-      <AddInventoryModal open={addOpen} onOpenChange={setAddOpen} suppliers={suppliers} />
+      <AddInventoryItemModal open={addOpen} onOpenChange={setAddOpen} suppliers={suppliers} onSubmit={createItem} />
 
       <EditInventoryModal
         open={!!editItem}

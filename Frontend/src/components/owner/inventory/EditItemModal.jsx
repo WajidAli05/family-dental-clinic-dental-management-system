@@ -21,22 +21,16 @@ const categories = [
 ];
 
 /**
- * BUG 1 FIX: this modal was edit-only — no initial-quantity field, and no
- * owner screen ever rendered it in "create" mode (`openCreateItem` /
- * `createItem` existed in the store, unused). The backend create endpoint
- * always worked; the owner simply had no button that reached it. Now serves
- * both modes off one `mode` prop, matching the pattern already proven for
- * the shared UpdateStockModal: scrollable body with a fixed footer so Save
- * stays reachable, loading spinner during submit.
+ * Edit-only. The "create" mode this component briefly carried is gone — Add
+ * Item now goes through the shared AddInventoryItemModal (common/), used by
+ * both roles, so this file no longer needs to duplicate that capability.
  */
-const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClose, onSubmit, loading }) => {
+const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, loading }) => {
   const { currency } = useClinicConfig();
-  const isCreate = mode === "create";
   const [form, setForm] = useState({
     name: "",
     category: "consumables",
     unit: "",
-    qty: 0,
     reorderLevel: 0,
     maximumStock: 0,
     unitCost: 0,
@@ -64,7 +58,6 @@ const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClos
       name: item?.name || "",
       category: item?.category || "consumables",
       unit: item?.unit || "",
-      qty: toNum(item?.qty),
       reorderLevel: toNum(item?.reorderLevel),
       maximumStock: toNum(item?.maximumStock),
       unitCost: toNum(item?.unitCost),
@@ -100,7 +93,6 @@ const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClos
             .filter(Boolean)
         : [],
     };
-    if (isCreate) payload.qty = Math.max(0, toNum(form.qty));
 
     await onSubmit?.(payload);
   };
@@ -110,7 +102,7 @@ const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClos
       <DialogContent className="sm:max-w-[760px] max-h-[85vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <DialogTitle className="text-lg font-semibold">
-            {isCreate ? "Add Inventory Item" : `Edit Item ${item?.sku ? `• ${item.sku}` : ""}`}
+            Edit Item {item?.sku ? `• ${item.sku}` : ""}
           </DialogTitle>
         </DialogHeader>
 
@@ -146,18 +138,6 @@ const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClos
               placeholder="box, vial, piece..."
             />
           </Field>
-
-          {isCreate && (
-            <Field label="Initial Quantity">
-              <input
-                type="number"
-                className={inputClass}
-                value={form.qty}
-                onChange={(e) => setField("qty", e.target.value)}
-                min={0}
-              />
-            </Field>
-          )}
 
           <Field label="Supplier">
             {supplierNames.length ? (
@@ -267,8 +247,6 @@ const EditItemModal = ({ open, mode = "edit", item, supplierOptions = [], onClos
                 <Loader2 className="w-4 h-4 me-2 animate-spin" />
                 Saving…
               </>
-            ) : isCreate ? (
-              "Create Item"
             ) : (
               "Save Changes"
             )}

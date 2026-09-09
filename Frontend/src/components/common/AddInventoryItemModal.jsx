@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useInventoryStore } from "@/store/inventoryStore";
 import {
   Select,
   SelectContent,
@@ -22,16 +21,28 @@ import {
 
 const UNITS = ["boxes", "pairs", "vials", "tubes", "pieces", "bottles"];
 
-const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
-  const { createItem } = useInventoryStore();
-
+/**
+ * Shared Add Item modal — the receptionist's version, generalized as the
+ * base for BOTH roles (per an explicit request). The owner had its own
+ * separate create UI (folded into EditItemModal's "create" mode); comparing
+ * the two field-for-field found no owner-only capability that genuinely
+ * existed once `packSize` is set aside — that field was already dead on the
+ * receptionist side too (no `packSize` column on the schema; the one place
+ * that read it, services/receptionist.service.js's `mapInventoryItem`, is
+ * itself unreachable dead code), so it is dropped here rather than carried
+ * into a second role.
+ *
+ * Takes `onSubmit` rather than importing a store directly, so this is truly
+ * one component for both roles — each page wires its own store's create
+ * action (same pattern as UpdateStockModal / SupplierModal).
+ */
+const AddInventoryItemModal = ({ open, onOpenChange, suppliers = [], onSubmit }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
     category: "Consumable",
     unit: "boxes",
-    packSize: "",
     stock: "",
     minStock: "",
     maximumStock: "",
@@ -55,9 +66,8 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
     setIsSubmitting(false);
     setForm({
       name: "",
-        category: "Consumable",
+      category: "Consumable",
       unit: "boxes",
-      packSize: "",
       stock: "",
       minStock: "",
       maximumStock: "",
@@ -72,7 +82,6 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
 
   useEffect(() => {
     if (!open) reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const usedInArray = useMemo(() => {
@@ -88,13 +97,13 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
       return;
     }
 
-    const stock = Number(form.stock);
-    const minStock = Number(form.minStock);
-    if (Number.isNaN(stock) || stock < 0) {
+    const qty = Number(form.stock);
+    const reorderLevel = Number(form.minStock);
+    if (Number.isNaN(qty) || qty < 0) {
       toast.error("Stock must be 0 or more.");
       return;
     }
-    if (Number.isNaN(minStock) || minStock < 0) {
+    if (Number.isNaN(reorderLevel) || reorderLevel < 0) {
       toast.error("Min stock must be 0 or more.");
       return;
     }
@@ -102,14 +111,16 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
     setIsSubmitting(true);
 
     try {
-      await createItem({
+      await onSubmit({
         name: form.name.trim(),
         // sku is always backend-generated — never sent from the client.
         category: form.category,
         unit: form.unit,
-        packSize: Number(form.packSize || 0) || 0,
-        stock,
-        minStock,
+        // Canonical schema field names (qty/reorderLevel) — the receptionist
+        // service also accepts stock/minStock as aliases, so either backend
+        // reads this correctly without per-role branching in the modal.
+        qty,
+        reorderLevel,
         maximumStock: Math.max(0, Number(form.maximumStock || 0) || 0),
         batchNumber: form.batchNumber.trim(),
         usedIn: usedInArray,
@@ -169,17 +180,7 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
           </div>
 
           <div className="space-y-2">
-            <Label>Pack Size (optional)</Label>
-            <Input
-              type="number"
-              placeholder="e.g. 100 gloves per box"
-              value={form.packSize}
-              onChange={(e) => setForm({ ...form, packSize: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Stock *</Label>
+            <Label>Initial Quantity *</Label>
             <Input
               type="number"
               value={form.stock}
@@ -212,15 +213,6 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
               placeholder="For lot tracking / recalls"
               value={form.batchNumber}
               onChange={(e) => setForm({ ...form, batchNumber: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label>Used In (comma separated)</Label>
-            <Textarea
-              placeholder="Cleaning, Extraction, Root Canal"
-              value={form.usedIn}
-              onChange={(e) => setForm({ ...form, usedIn: e.target.value })}
             />
           </div>
 
@@ -270,6 +262,15 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
               onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
             />
           </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label>Used In (comma separated)</Label>
+            <Textarea
+              placeholder="Cleaning, Extraction, Root Canal"
+              value={form.usedIn}
+              onChange={(e) => setForm({ ...form, usedIn: e.target.value })}
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
@@ -296,4 +297,4 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
   );
 };
 
-export default AddInventoryModal;
+export default AddInventoryItemModal;

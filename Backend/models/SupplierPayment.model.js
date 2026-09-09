@@ -25,6 +25,13 @@ const supplierPaymentSchema = new Schema(
     method: { type: String, default: "cash" },
     reference: { type: String, default: "" },
     note: { type: String, default: "" },
+    // Accountability control for widening money-out access to receptionist:
+    // WHO recorded this payment. Additive — absent on every payment recorded
+    // before this session; the mapper/UI must show "—", never "undefined".
+    // Always sourced from the authenticated req.user on the server, never
+    // from client input (see recordSupplierPaymentShared's `actor` param).
+    recordedBy: { type: String, default: "" }, // User.publicId
+    recordedByName: { type: String, default: "" }, // name snapshot
   },
   { timestamps: true }
 );

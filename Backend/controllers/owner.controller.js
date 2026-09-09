@@ -589,11 +589,19 @@ export const ownerGetSupplierDuesController = async (req, res) => {
   }
 };
 
-/** Owner-only — recording a supplier payment is money out. */
+/**
+ * recordedBy/recordedByName come from req.user ONLY — the authenticated
+ * actor, never anything the client could set via req.body. This is the
+ * accountability control for widening money-out access to receptionist.
+ */
 export const ownerRecordSupplierPaymentController = async (req, res) => {
   try {
-    const data = await ownerRecordSupplierPayment(req.user?._id, req.params.id, req.body || {});
-    await recordAudit({ req, action: "supplier.payment", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id, after: data });
+    const actor = { recordedBy: req.user?.publicId || "", recordedByName: req.user?.name || "" };
+    const data = await ownerRecordSupplierPayment(req.user?._id, req.params.id, req.body || {}, actor);
+    await recordAudit({
+      req, action: "supplier.payment", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id,
+      after: { ...data, recordedBy: actor.recordedBy, recordedByName: actor.recordedByName },
+    });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

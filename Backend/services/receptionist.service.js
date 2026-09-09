@@ -11,7 +11,7 @@ import { mapInventoryItemCore, applyInventoryExtraFields, nextInventorySku, comp
 import { sweepInventoryThresholdNotifications } from "./shared/inventoryNotifications.js";
 import {
   listSuppliersShared, createSupplierShared, updateSupplierShared, softDeleteSupplierShared,
-  supplierLedger, supplierDuesSummary,
+  supplierLedger, supplierDuesSummary, recordSupplierPaymentShared,
 } from "./shared/suppliers.js";
 import {
   listPurchaseOrdersShared, getPurchaseOrderShared, createPurchaseOrderShared,
@@ -1802,6 +1802,16 @@ export async function receptionistDeleteSupplier(_receptionistId, supplierId) {
 
 export async function receptionistGetSupplierLedger(_receptionistId, supplierId, { page, limit } = {}) {
   return supplierLedger(supplierId, { page, limit });
+}
+
+/**
+ * Receptionist may now record supplier payments too — reuses the SAME
+ * shared FIFO service path as owner (recordSupplierPaymentShared), never a
+ * second implementation. `actor` is passed straight through from the
+ * controller's req.user; there is no client-controlled recordedBy.
+ */
+export async function receptionistRecordSupplierPayment(_receptionistId, supplierId, body = {}, actor = {}) {
+  return recordSupplierPaymentShared({ ...body, supplierId }, actor);
 }
 
 // ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────

@@ -84,6 +84,12 @@ export const useInventoryStore = create((set, get) => ({
     const res = await receptionistInventoryApi.getSupplierLedger(id, params);
     return res?.data;
   },
+  // Reuses the SAME shared FIFO service path as owner — recordedBy is
+  // stamped server-side from the authenticated user, never sent from here.
+  recordSupplierPayment: async (id, body) => {
+    const res = await receptionistInventoryApi.recordSupplierPayment(id, body);
+    return res?.data;
+  },
 
   // ---------------- purchase orders ----------------
   purchaseOrders: [],

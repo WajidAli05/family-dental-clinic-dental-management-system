@@ -236,6 +236,9 @@ export async function supplierLedger(supplierPublicId, { page = 1, limit = 50 } 
       method: p.method || "cash",
       reference: p.reference || "",
       note: p.note || "",
+      // Absent on every payment recorded before this session — "" (never
+      // "undefined") so the UI can render a plain "—" for legacy rows.
+      recordedByName: p.recordedByName || "",
     })),
   };
 }
@@ -245,8 +248,15 @@ export async function supplierLedger(supplierPublicId, { page = 1, limit = 50 } 
  * exactly (same lack of an overpayment guard — a supplier ledger going
  * temporarily negative-outstanding is a bookkeeping correction the owner can
  * see and reconcile, not an error state to block).
+ *
+ * `actor` is a SEPARATE parameter from `body` on purpose — recordedBy/
+ * recordedByName are the accountability control for widening this action to
+ * receptionist, so they must come only from the authenticated req.user the
+ * controller passes in here, never from anything a client could put in the
+ * request body. There is deliberately no `body.recordedBy` read anywhere in
+ * this function.
  */
-export async function recordSupplierPaymentShared({ supplierId, amount, date, method, reference, note } = {}) {
+export async function recordSupplierPaymentShared({ supplierId, amount, date, method, reference, note } = {}, actor = {}) {
   const supplier = await getSupplierByPublicId(supplierId);
   const amt = Number(amount);
   if (!amt || amt <= 0) throw new Error("amount must be positive");
@@ -263,6 +273,8 @@ export async function recordSupplierPaymentShared({ supplierId, amount, date, me
     method: m,
     reference: normalize(reference),
     note: normalize(note),
+    recordedBy: normalize(actor.recordedBy),
+    recordedByName: normalize(actor.recordedByName),
   });
 
   return {
@@ -271,6 +283,7 @@ export async function recordSupplierPaymentShared({ supplierId, amount, date, me
     amount: amt,
     date: d,
     method: m,
+    recordedByName: doc.recordedByName || "",
   };
 }
 

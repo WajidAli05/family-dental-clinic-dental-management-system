@@ -17,6 +17,9 @@ import EditItemModal from "@/components/owner/inventory/EditItemModal";
 import DeleteConfirmDialog from "@/components/owner/inventory/DeleteConfirmDialog";
 import SuppliersPanel from "@/components/common/SuppliersPanel";
 import PurchaseOrdersPanel from "@/components/common/PurchaseOrdersPanel";
+// Part 2: consolidated with the receptionist's Add Item modal — one shared
+// component for both roles instead of divergent per-role create UIs.
+import AddInventoryItemModal from "@/components/common/AddInventoryItemModal";
 
 import { useOwnerInventoryStore } from "@/store/ownerInventoryStore";
 import TableSkeleton from "@/components/ui/TableSkeleton";
@@ -139,8 +142,9 @@ const OwnerInventory = () => {
   );
 
   // ---------- local UI state ----------
+  const [addOpen, setAddOpen] = useState(false);
+
   const [editOpen, setEditOpen] = useState(false);
-  const [editMode, setEditMode] = useState("edit"); // "edit" | "create" — BUG 1 fix
   const [editItemRow, setEditItemRow] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -153,6 +157,17 @@ const OwnerInventory = () => {
       <OwnerPageHeader
         title="Inventory"
         subtitle="Owner visibility: low stock, suppliers and purchasing"
+        action={
+          uiTab === "items" ? (
+            <Button
+              className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus className="w-4 h-4 me-1" />
+              Add Item
+            </Button>
+          ) : null
+        }
       />
 
       {/* Suppliers/Purchase Orders were scaffolded (activeTab/setActiveTab)
@@ -192,30 +207,14 @@ const OwnerInventory = () => {
 
           {lowStockList.length ? <LowStockAlerts data={lowStockList.slice(0, 6)} /> : null}
 
-          {/* ✅ Filters (items only) */}
-          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-            <OwnerInventoryFilters
-              tab={activeTab}
-              filters={filters?.items || {}}
-              supplierOptions={supplierOptions}
-              onChange={(key, value) => setFilter("items", key, value)}
-              onReset={() => resetFilters("items")}
-            />
-            {/* BUG 1: this button — and the create-mode EditItemModal it opens —
-                was entirely missing. openCreateItem/createItem already existed
-                in the store, unused; the backend endpoint always worked. */}
-            <Button
-              className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
-              onClick={() => {
-                setEditMode("create");
-                setEditItemRow(null);
-                setEditOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4 me-1" />
-              Add Item
-            </Button>
-          </div>
+          {/* ✅ Filters (items only) — Add Item now lives in the header stripe */}
+          <OwnerInventoryFilters
+            tab={activeTab}
+            filters={filters?.items || {}}
+            supplierOptions={supplierOptions}
+            onChange={(key, value) => setFilter("items", key, value)}
+            onReset={() => resetFilters("items")}
+          />
 
           <Card className="rounded-2xl">
             <CardContent className="p-6">
@@ -224,7 +223,6 @@ const OwnerInventory = () => {
                   data={itemsData}
                   onUpdateStock={(item) => openStockModal(item)}
                   onEdit={(item) => {
-                    setEditMode("edit");
                     setEditItemRow(item);
                     setEditOpen(true);
                   }}
@@ -285,10 +283,17 @@ const OwnerInventory = () => {
         }}
       />
 
-      {/* Add / Edit item modal — one component, two modes */}
+      {/* Add Item — shared modal, same one the receptionist uses */}
+      <AddInventoryItemModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        suppliers={supplierOptions}
+        onSubmit={createItem}
+      />
+
+      {/* Edit item modal — edit-only */}
       <EditItemModal
         open={editOpen}
-        mode={editMode}
         item={editItemRow}
         supplierOptions={supplierOptions}
         loading={editSaving}
@@ -297,16 +302,11 @@ const OwnerInventory = () => {
           setEditItemRow(null);
         }}
         onSubmit={async (patch) => {
-          if (editMode === "edit" && !editItemRow?.id) return;
+          if (!editItemRow?.id) return;
           setEditSaving(true);
           try {
-            if (editMode === "create") {
-              await createItem(patch);
-              toast.success("Item created.");
-            } else {
-              await updateItem(editItemRow.id, patch);
-              toast.success("Item updated.");
-            }
+            await updateItem(editItemRow.id, patch);
+            toast.success("Item updated.");
             setEditOpen(false);
             setEditItemRow(null);
           } catch (e) {
