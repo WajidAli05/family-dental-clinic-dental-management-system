@@ -604,7 +604,9 @@ export const ownerRecordSupplierPaymentController = async (req, res) => {
     });
     return res.json({ success: true, data });
   } catch (e) {
-    return res.status(400).json({ success: false, message: e.message });
+    // 409 PAYMENT_EXCEEDS_BALANCE from the overpayment guard must survive —
+    // same pattern as the invoice payment guard.
+    return res.status(e.status || 400).json({ success: false, message: e.message, code: e.code });
   }
 };
 

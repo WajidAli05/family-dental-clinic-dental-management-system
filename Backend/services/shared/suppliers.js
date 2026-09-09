@@ -244,10 +244,49 @@ export async function supplierLedger(supplierPublicId, { page = 1, limit = 50 } 
 }
 
 /**
- * Records a payment against a supplier. Mirrors ownerRecordLabPayment
- * exactly (same lack of an overpayment guard — a supplier ledger going
- * temporarily negative-outstanding is a bookkeeping correction the owner can
- * see and reconcile, not an error state to block).
+ * OVERPAYMENT GUARD — the authoritative rule, server-side. Mirrors
+ * assertPaymentWithinBalance (services/shared/invoices.js) exactly: a
+ * payment may never push total payments above the total billed. Without
+ * this the ledger silently absorbs the excess (remaining clamps to 0 via
+ * Math.max and the surplus is unaccounted for — this is the same defect
+ * already fixed once for patient invoices, e.g. INV-1017).
+ *
+ * Reuses the SAME billed/paid computation as supplierLedger/
+ * supplierDuesSummary, so this guard can never disagree with what the
+ * ledger UI displays.
+ */
+export async function assertSupplierPaymentWithinBalance(supplier, amount) {
+  const [billedAgg, paidAgg] = await Promise.all([
+    PurchaseOrder.aggregate([
+      { $match: { supplier: supplier._id, status: { $in: BILLED_PO_STATUSES } } },
+      { $group: { _id: null, total: { $sum: "$total" } } },
+    ]),
+    SupplierPayment.aggregate([
+      { $match: { supplierId: supplier.publicId } },
+      { $group: { _id: null, paid: { $sum: "$amount" } } },
+    ]),
+  ]);
+
+  const totalBilled = Number(billedAgg[0]?.total || 0);
+  const alreadyPaid = Number(paidAgg[0]?.paid || 0);
+  const remaining = Math.max(0, totalBilled - alreadyPaid);
+  const value = Number(amount) || 0;
+
+  if (value > remaining) {
+    throw Object.assign(
+      new Error(
+        remaining === 0
+          ? `This supplier is already settled in full — nothing is outstanding.`
+          : `Payment exceeds the outstanding balance (${remaining} remaining).`
+      ),
+      { status: 409, code: "PAYMENT_EXCEEDS_BALANCE", remaining, attempted: value }
+    );
+  }
+  return remaining;
+}
+
+/**
+ * Records a payment against a supplier.
  *
  * `actor` is a SEPARATE parameter from `body` on purpose — recordedBy/
  * recordedByName are the accountability control for widening this action to
@@ -260,6 +299,7 @@ export async function recordSupplierPaymentShared({ supplierId, amount, date, me
   const supplier = await getSupplierByPublicId(supplierId);
   const amt = Number(amount);
   if (!amt || amt <= 0) throw new Error("amount must be positive");
+  await assertSupplierPaymentWithinBalance(supplier, amt);
   const d = normalize(date) || new Date().toISOString().slice(0, 10);
   const m = normalize(method) || "cash";
 

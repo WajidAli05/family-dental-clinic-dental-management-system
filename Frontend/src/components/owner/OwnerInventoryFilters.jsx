@@ -7,27 +7,34 @@ const inputClass =
 
 /**
  * `action` is an optional slot for the tab's primary button (currently only
- * "Add Item" on the items tab). `justify-between` + no directional classes
- * mirrors correctly under RTL — Reset and the action just swap visual sides,
- * their relative order in markup is unaffected.
+ * "Add Item" on the items tab). Reset + action sit in the SAME row as the
+ * filter fields now (one row, per the fix) rather than a separate header row
+ * above them — a Field-shaped invisible label spacer keeps their button
+ * bottom-aligned with the inputs' bottom edge, matching every other cell in
+ * the row. `ms-auto` (not `ml-auto`) pushes the group to the end so it mirrors
+ * correctly under RTL.
  */
 const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, onReset, action }) => {
+  const buttonGroup = (
+    <div className="flex flex-col ms-auto">
+      <p aria-hidden="true" className="text-xs font-semibold mb-1 invisible select-none">Actions</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="outline" className="rounded-xl" onClick={onReset}>
+          Reset
+        </Button>
+        {action}
+      </div>
+    </div>
+  );
+
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" className="rounded-xl" onClick={onReset}>
-              Reset
-            </Button>
-            {action}
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
 
         {/* ITEMS */}
         {tab === "items" ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="mt-4 flex flex-wrap items-end gap-4">
             <Field label="Category">
               <select value={filters.category} onChange={(e) => onChange("category", e.target.value)} className={inputClass}>
                 <option value="all">All</option>
@@ -54,12 +61,14 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
                 className={inputClass}
               />
             </Field>
+
+            {buttonGroup}
           </div>
         ) : null}
 
         {/* PURCHASES */}
         {tab === "purchases" ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="mt-4 flex flex-wrap items-end gap-4">
             <Field label="From">
               <input type="date" value={filters.dateFrom} onChange={(e) => onChange("dateFrom", e.target.value)} className={inputClass} />
             </Field>
@@ -87,12 +96,14 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
                 className={inputClass}
               />
             </Field>
+
+            {buttonGroup}
           </div>
         ) : null}
 
         {/* CONSUMPTION */}
         {tab === "consumption" ? (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="mt-4 flex flex-wrap items-end gap-4">
             <Field label="From">
               <input type="date" value={filters.dateFrom} onChange={(e) => onChange("dateFrom", e.target.value)} className={inputClass} />
             </Field>
@@ -116,6 +127,8 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
                 className={inputClass}
               />
             </Field>
+
+            {buttonGroup}
           </div>
         ) : null}
       </CardContent>
@@ -123,8 +136,11 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
   );
 };
 
+// Fixed width now that the row is flex, not grid — grid tracks used to size
+// these automatically; flex needs an explicit width or each field collapses
+// to its input's intrinsic minimum.
 const Field = ({ label, children }) => (
-  <div>
+  <div className="w-full sm:w-48">
     <p className="text-xs font-semibold text-gray-600 mb-1">{label}</p>
     {children}
   </div>

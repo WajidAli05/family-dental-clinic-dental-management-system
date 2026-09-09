@@ -52,6 +52,15 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
       toast.error("Enter a valid payment amount greater than 0.");
       return;
     }
+    // UX aid only — the SERVER re-checks this against live data
+    // (assertSupplierPaymentWithinBalance) and is the actual authority; this
+    // just avoids a round-trip for the common case of a stale `outstanding`
+    // read in the client's state.
+    const outstanding = Number(data?.outstanding || 0);
+    if (amount > outstanding) {
+      toast.error(`Payment exceeds the outstanding balance (${money(outstanding)} remaining).`);
+      return;
+    }
     setPaying(true);
     try {
       await onRecordPayment(supplierId, { ...payForm, amount });
@@ -100,7 +109,12 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
                 <div className="rounded-xl border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
                   <div>
                     <p className="text-xs font-semibold text-gray-600 mb-1">Amount</p>
-                    <input type="number" min={0} className={inputClass} value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} />
+                    {/* max is a UX aid only, not the guard — see handleRecordPayment. */}
+                    <input
+                      type="number" min={0} max={data.outstanding} className={inputClass}
+                      value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Outstanding: {money(data.outstanding)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-600 mb-1">Date</p>
