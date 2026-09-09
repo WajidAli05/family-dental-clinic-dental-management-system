@@ -6,6 +6,7 @@ export const useInventoryStore = create((set, get) => ({
   loading: false,
   error: null,
   stats: null,
+  suppliers: [],
   pagination: { total: 0, page: 1, pages: 1 },
 
   getStats: () => {
@@ -48,6 +49,19 @@ export const useInventoryStore = create((set, get) => ({
     } catch (e) {
       set({ error: e.message });
       return null;
+    }
+  },
+
+  // Was missing entirely — the front desk had no way to see existing
+  // suppliers, so Add/Edit modals fell back to a free-text field.
+  fetchSuppliers: async () => {
+    try {
+      const res = await receptionistInventoryApi.listSuppliers();
+      set({ suppliers: Array.isArray(res.data) ? res.data : [] });
+      return res.data;
+    } catch {
+      set({ suppliers: [] });
+      return [];
     }
   },
 

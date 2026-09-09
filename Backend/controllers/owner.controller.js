@@ -472,6 +472,7 @@ export const ownerInventoryGetItems = async (req, res) => {
 export const ownerInventoryCreateItemController = async (req, res) => {
   try {
     const data = await ownerInventoryCreateItem(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "inventory.create", entityType: "InventoryItem", entityId: data?.id, entityLabel: data?.name || data?.id, after: { sku: data?.sku, qty: data?.qty, reorderLevel: data?.reorderLevel } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -481,6 +482,7 @@ export const ownerInventoryCreateItemController = async (req, res) => {
 export const ownerInventoryUpdateItemController = async (req, res) => {
   try {
     const data = await ownerInventoryUpdateItem(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "inventory.update", entityType: "InventoryItem", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { qty: data?.qty, reorderLevel: data?.reorderLevel, maximumStock: data?.maximumStock } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -490,6 +492,7 @@ export const ownerInventoryUpdateItemController = async (req, res) => {
 export const ownerInventoryUpdateStockController = async (req, res) => {
   try {
     const data = await ownerInventoryUpdateStock(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "inventory.update", entityType: "InventoryItem", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { mode: req.body?.mode, qty: data?.qty } });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -499,6 +502,7 @@ export const ownerInventoryUpdateStockController = async (req, res) => {
 export const ownerInventoryDeleteItemController = async (req, res) => {
   try {
     const data = await ownerInventoryDeleteItem(req.user?._id, req.params.id);
+    await recordAudit({ req, action: "inventory.delete", entityType: "InventoryItem", entityId: req.params.id, entityLabel: req.params.id });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

@@ -26,18 +26,24 @@ const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, lo
     category: "consumables",
     unit: "",
     reorderLevel: 0,
+    maximumStock: 0,
     unitCost: 0,
     supplier: "", // stored as supplier name string
     location: "",
     expiryDate: "",
+    batchNumber: "",
     usedIn: "", // comma-separated
   });
 
-  // Convert supplierOptions -> names (since InventoryItem.supplier is a STRING in your model)
-  const supplierNames = useMemo(
-    () => (supplierOptions || []).map((s) => s.name).filter(Boolean),
-    [supplierOptions]
-  );
+  // Convert supplierOptions -> names (since InventoryItem.supplier is a STRING
+  // in the model). The item's current supplier is appended if it doesn't
+  // match any Supplier record, so an existing value stays visible/selected
+  // instead of the picker showing nothing for it.
+  const supplierNames = useMemo(() => {
+    const names = (supplierOptions || []).map((s) => s.name).filter(Boolean);
+    const current = String(item?.supplier || "").trim();
+    return current && !names.includes(current) ? [current, ...names] : names;
+  }, [supplierOptions, item]);
 
   useEffect(() => {
     if (!open) return;
@@ -47,10 +53,12 @@ const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, lo
       category: item?.category || "consumables",
       unit: item?.unit || "",
       reorderLevel: toNum(item?.reorderLevel),
+      maximumStock: toNum(item?.maximumStock),
       unitCost: toNum(item?.unitCost),
       supplier: item?.supplier || "",
       location: item?.location || "",
       expiryDate: item?.expiryDate || "",
+      batchNumber: item?.batchNumber || "",
       usedIn: Array.isArray(item?.usedIn) ? item.usedIn.join(", ") : "",
     });
   }, [open, item]);
@@ -63,10 +71,12 @@ const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, lo
       category: normalizeStr(form.category),
       unit: normalizeStr(form.unit),
       reorderLevel: Math.max(0, toNum(form.reorderLevel)),
+      maximumStock: Math.max(0, toNum(form.maximumStock)),
       unitCost: Math.max(0, toNum(form.unitCost)),
       supplier: normalizeStr(form.supplier), // ✅ keep supplier as string (name)
       location: normalizeStr(form.location),
       expiryDate: normalizeStr(form.expiryDate),
+      batchNumber: normalizeStr(form.batchNumber),
       usedIn: normalizeStr(form.usedIn)
         ? normalizeStr(form.usedIn)
             .split(",")
@@ -154,6 +164,26 @@ const EditItemModal = ({ open, item, supplierOptions = [], onClose, onSubmit, lo
               value={form.reorderLevel}
               onChange={(e) => setField("reorderLevel", e.target.value)}
               min={0}
+            />
+          </Field>
+
+          <Field label="Maximum Stock">
+            <input
+              type="number"
+              className={inputClass}
+              value={form.maximumStock}
+              onChange={(e) => setField("maximumStock", e.target.value)}
+              min={0}
+              placeholder="Upper threshold"
+            />
+          </Field>
+
+          <Field label="Batch Number">
+            <input
+              className={inputClass}
+              value={form.batchNumber}
+              onChange={(e) => setField("batchNumber", e.target.value)}
+              placeholder="For lot tracking / recalls"
             />
           </Field>
 

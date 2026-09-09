@@ -40,6 +40,7 @@
   receptionistCreateInventoryItem,
   receptionistUpdateInventoryItem,
   receptionistDeleteInventoryItem,
+  receptionistListSuppliers,
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
@@ -403,6 +404,7 @@ export const inventoryStats = async (req, res) => {
 export const createInventoryItem = async (req, res) => {
   try {
     const data = await receptionistCreateInventoryItem(req.user?.id, req.body);
+    await recordAudit({ req, action: "inventory.create", entityType: "InventoryItem", entityId: data?.id, entityLabel: data?.name || data?.id, after: { sku: data?.sku, stock: data?.stock, minStock: data?.minStock } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -416,6 +418,7 @@ export const updateInventoryItem = async (req, res) => {
       req.params.id,
       req.body
     );
+    await recordAudit({ req, action: "inventory.update", entityType: "InventoryItem", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { stock: data?.stock, minStock: data?.minStock, maximumStock: data?.maximumStock } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -425,7 +428,20 @@ export const updateInventoryItem = async (req, res) => {
 export const deleteInventoryItem = async (req, res) => {
   try {
     const data = await receptionistDeleteInventoryItem(req.user?.id, req.params.id);
+    await recordAudit({ req, action: "inventory.delete", entityType: "InventoryItem", entityId: req.params.id, entityLabel: req.params.id });
     res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// Suppliers — read-only, so the Add/Edit item modals can offer a picker
+// instead of free-text (delegates to the same shared query as the owner side).
+export const listInventorySuppliers = async (req, res) => {
+  try {
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await receptionistListSuppliers(req.user?.id, { page, limit, sortBy, sortDir });
+    res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }

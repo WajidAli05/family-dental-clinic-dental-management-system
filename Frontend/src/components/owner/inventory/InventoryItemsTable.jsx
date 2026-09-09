@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useFormatMoney } from "@/store/clinicConfigStore";
 
 const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => {
@@ -15,6 +16,7 @@ const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => 
             <th className="py-2 px-3 text-sm font-semibold text-gray-700">Qty</th>
             <th className="py-2 px-3 text-sm font-semibold text-gray-700">Reorder</th>
             <th className="py-2 px-3 text-sm font-semibold text-gray-700">Unit Cost</th>
+            <th className="py-2 px-3 text-sm font-semibold text-gray-700">Status</th>
             <th className="py-2 px-3 text-sm font-semibold text-gray-700">Actions</th>
           </tr>
         </thead>
@@ -22,7 +24,7 @@ const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => 
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={8} className="py-8 text-center text-sm text-gray-500">
+              <td colSpan={9} className="py-8 text-center text-sm text-gray-500">
                 No inventory items found
               </td>
             </tr>
@@ -39,6 +41,29 @@ const InventoryItemsTable = ({ data = [], onEdit, onUpdateStock, onDelete }) => 
                 <td className="py-2 px-3 text-sm text-gray-800">{i.reorderLevel}</td>
                 <td className="py-2 px-3 text-sm text-gray-800">
                   {money(i.unitCost)}
+                </td>
+
+                {/*
+                  Previously there was no per-row status at all — low-stock
+                  only surfaced in the separate LowStockAlerts panel above the
+                  table, and near-expiry/expired had no indicator anywhere.
+                  Flags come from the shared backend mapper (one source of
+                  truth with the receptionist table).
+                */}
+                <td className="py-2 px-3">
+                  <div className="flex flex-wrap gap-1">
+                    {i.outOfStock && <Badge variant="destructive">Out</Badge>}
+                    {!i.outOfStock && i.lowStock && <Badge variant="secondary">Low</Badge>}
+                    {i.expiryState === "expired" && <Badge variant="destructive">Expired</Badge>}
+                    {i.expiryState === "near_expiry" && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                        Expiring soon
+                      </Badge>
+                    )}
+                    {!i.outOfStock && !i.lowStock && !i.expiryState && (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </div>
                 </td>
 
                 <td className="py-2 px-3">

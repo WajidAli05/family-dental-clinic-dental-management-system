@@ -39,6 +39,7 @@ async function request(path, { method = "GET", params, body } = {}) {
 export const receptionistInventoryApi = {
   list: (params) => request("/receptionist/inventory", { params }),
   stats: () => request("/receptionist/inventory/stats"),
+  listSuppliers: () => request("/receptionist/inventory/suppliers"),
 
   create: (body) =>
     request("/receptionist/inventory", { method: "POST", body }),

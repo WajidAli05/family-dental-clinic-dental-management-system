@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
@@ -161,8 +162,15 @@ const OwnerInventory = () => {
         onClose={closeStockModal}
         onSubmit={async ({ mode, qty }) => {
           if (!stockModal?.payload?.id) return;
-          await updateStock(stockModal.payload.id, { mode, qty });
-          closeStockModal();
+          try {
+            await updateStock(stockModal.payload.id, { mode, qty });
+            toast.success("Stock updated.");
+            closeStockModal();
+          } catch (e) {
+            // Previously an unhandled rejection — a failed save gave the
+            // owner no feedback at all. Modal stays open for a clean retry.
+            toast.error(e?.message || "Failed to update stock.");
+          }
         }}
       />
 
@@ -181,8 +189,11 @@ const OwnerInventory = () => {
           setEditSaving(true);
           try {
             await updateItem(editItemRow.id, patch);
+            toast.success("Item updated.");
             setEditOpen(false);
             setEditItemRow(null);
+          } catch (e) {
+            toast.error(e?.message || "Failed to update item.");
           } finally {
             setEditSaving(false);
           }
@@ -208,8 +219,11 @@ const OwnerInventory = () => {
           setDeleteLoading(true);
           try {
             await deleteItem(deleteRow.id);
+            toast.success("Item deleted.");
             setDeleteOpen(false);
             setDeleteRow(null);
+          } catch (e) {
+            toast.error(e?.message || "Failed to delete item.");
           } finally {
             setDeleteLoading(false);
           }

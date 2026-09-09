@@ -24,6 +24,7 @@ const ACTIONS = [
   "consent.create",      "consent.withdraw",
   "system.backup",
   "patient.erasure",
+  "inventory.create",    "inventory.update",      "inventory.delete",
 ];
 
 const auditLogSchema = new Schema(

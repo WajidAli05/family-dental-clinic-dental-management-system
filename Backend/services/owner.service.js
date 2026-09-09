@@ -53,6 +53,7 @@ import {
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
 import { getNextSequence } from "./shared/counters.js";
+import { mapInventoryItemCore, applyInventoryExtraFields, listSuppliersShared } from "./shared/inventory.js";
 import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
@@ -1240,52 +1241,40 @@ export async function ownerBillingARSummaryService(_ownerId, { dateFrom, dateTo 
 // =====================================================
 
 const SKU_PREFIX = "SKU";
-
 const skuPad = (n, w = 6) => String(n).padStart(w, "0");
 
-async function nextSku() {
-  // Find last SKU like SKU-000001
-  const last = await InventoryItem.findOne({
-    sku: { $regex: new RegExp(`^${SKU_PREFIX}-\\d+$`) },
-  })
+/**
+ * SKU generation — TWO copies of this existed (a module-level function and an
+ * identical one nested inside ownerInventoryCreateItem that shadowed it, so
+ * only the inner one ever ran). Both used the exact fragile pattern that just
+ * caused the lab case E11000: sort by createdAt (not by numeric suffix),
+ * check-then-act via findOne-then-create, and a Date.now() fallback on the
+ * rare miss. sku has no unique index, so a collision here would not throw —
+ * it would silently hand two items the same SKU. Migrated to the same atomic
+ * counter as publicId, appointments, invoices, etc.
+ */
+async function computeInventorySkuSeed() {
+  const rows = await InventoryItem.find({ sku: { $regex: /^SKU-\d+$/ } })
     .select("sku")
-    .sort({ createdAt: -1 })
     .lean();
-
-  let n = 1;
-  if (last?.sku) {
-    const m = String(last.sku).match(new RegExp(`^${SKU_PREFIX}-(\\d+)$`));
-    if (m?.[1]) n = parseInt(m[1], 10) + 1;
+  let max = 0;
+  for (const r of rows) {
+    const m = /^SKU-(\d+)$/.exec(String(r.sku || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
-
-  // ensure uniqueness even if old data has holes
-  // retry a few times
-  for (let i = 0; i < 20; i++) {
-    const candidate = `${SKU_PREFIX}-${skuPad(n + i)}`;
-    // sku isn't unique in schema, so ensure manually
-    const exists = await InventoryItem.findOne({ sku: candidate }).select("_id").lean();
-    if (!exists) return candidate;
-  }
-
-  // fallback — very unlikely to hit
-  return `${SKU_PREFIX}-${Date.now()}`;
+  return max;
 }
 
-const mapItem = (doc) => ({
-  id: doc.publicId,
-  sku: doc.sku || "",
-  name: doc.name || "",
-  category: doc.category || "",
-  unit: doc.unit || "",
-  qty: Number(doc.qty || 0),
-  reorderLevel: Number(doc.reorderLevel || 0),
-  unitCost: Number(doc.unitCost || 0),
-  supplier: doc.supplier || "",
-  location: doc.location || "",
-  expiryDate: doc.expiryDate || "",
-  usedIn: Array.isArray(doc.usedIn) ? doc.usedIn : [],
-  createdAt: toISO(doc.createdAt),
-});
+async function nextSku() {
+  const n = await getNextSequence("inventoryitem_sku", computeInventorySkuSeed);
+  return `${SKU_PREFIX}-${skuPad(n)}`;
+}
+
+/** Owner's DTO shape, built on the one shared core mapper. */
+const mapItem = (doc, today = "") => {
+  const core = mapInventoryItemCore(doc, today);
+  return { ...core, createdAt: toISO(doc.createdAt) };
+};
 
 export async function ownerInventoryListItems(_ownerId, { page, limit, sortBy, sortDir, q } = {}) {
   const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
@@ -1299,53 +1288,42 @@ export async function ownerInventoryListItems(_ownerId, { page, limit, sortBy, s
     ];
   }
   const sort = buildSort(sb, sd, { createdAt: -1 });
+  const today = await clinicToday();
   const [total, rows] = await Promise.all([
     InventoryItem.countDocuments(filter),
     InventoryItem.find(filter).sort(sort).skip(skip).limit(L).lean(),
   ]);
-  return { rows: rows.map(mapItem), total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+  return { rows: rows.map((r) => mapItem(r, today)), total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
 }
 
 export async function ownerInventoryCreateItem(_ownerId, payload = {}) {
   const name = normalize(payload.name);
   if (!name) throw new Error("Item name is required");
 
-  // ------------------------------------------------------------------//
-
-  // ✅ SKU must NOT be accepted from frontend
-  async function nextSku() {
-  // Pattern: SKU-0001
-  const last = await InventoryItem.findOne({ sku: { $regex: /^SKU-\d+$/ } })
-    .select("sku")
-    .sort({ createdAt: -1 })
-    .lean();
-
-  let n = 1;
-  if (last?.sku) {
-    const m = String(last.sku).match(/^SKU-(\d+)$/);
-    if (m?.[1]) n = parseInt(m[1], 10) + 1;
-  }
-  return `SKU-${pad(n)}`;
-}
-
+  // SKU must NOT be accepted from frontend — it is always backend-generated.
   const sku = await nextSku();
 
-  const item = await InventoryItem.create({
-    sku,
-    name,
-    category: normalize(payload.category),
-    unit: normalize(payload.unit),
-    qty: Math.max(0, Number(payload.qty || 0)),
-    reorderLevel: Math.max(0, Number(payload.reorderLevel || 0)),
-    unitCost: Math.max(0, Number(payload.unitCost || 0)),
-    supplier: normalize(payload.supplier),
-    location: normalize(payload.location),
-    expiryDate: normalize(payload.expiryDate),
-    usedIn: Array.isArray(payload.usedIn) ? payload.usedIn.map(normalize).filter(Boolean) : [],
-  });
+  const item = await InventoryItem.create(
+    applyInventoryExtraFields(
+      {
+        sku,
+        name,
+        category: normalize(payload.category),
+        unit: normalize(payload.unit),
+        qty: Math.max(0, Number(payload.qty || 0)),
+        reorderLevel: Math.max(0, Number(payload.reorderLevel || 0)),
+        unitCost: Math.max(0, Number(payload.unitCost || 0)),
+        supplier: normalize(payload.supplier),
+        location: normalize(payload.location),
+        expiryDate: normalize(payload.expiryDate),
+        usedIn: Array.isArray(payload.usedIn) ? payload.usedIn.map(normalize).filter(Boolean) : [],
+      },
+      payload
+    )
+  );
 
   const saved = await InventoryItem.findById(item._id).lean();
-  return mapItem(saved);
+  return mapItem(saved, await clinicToday());
 }
 
 export async function ownerInventoryUpdateItem(_ownerId, itemPublicId, patch = {}) {
@@ -1369,11 +1347,13 @@ export async function ownerInventoryUpdateItem(_ownerId, itemPublicId, patch = {
     doc.usedIn = Array.isArray(patch.usedIn) ? patch.usedIn.map(normalize).filter(Boolean) : [];
   }
 
+  applyInventoryExtraFields(doc, patch);
+
   if (!doc.name) throw new Error("Item name is required");
 
   await doc.save();
   const saved = await InventoryItem.findById(doc._id).lean();
-  return mapItem(saved);
+  return mapItem(saved, await clinicToday());
 }
 
 export async function ownerInventoryUpdateStock(_ownerId, itemPublicId, payload = {}) {
@@ -1399,7 +1379,7 @@ export async function ownerInventoryUpdateStock(_ownerId, itemPublicId, payload 
 
   await doc.save();
   const saved = await InventoryItem.findById(doc._id).lean();
-  return mapItem(saved);
+  return mapItem(saved, await clinicToday());
 }
 
 export async function ownerInventoryDeleteItem(_ownerId, itemPublicId) {
@@ -1413,16 +1393,12 @@ export async function ownerInventoryDeleteItem(_ownerId, itemPublicId) {
   return { message: "Deleted", id };
 }
 
-// Suppliers list (for filters/columns; do NOT remove even if tab removed)
-export async function ownerInventoryListSuppliers(_ownerId, { page, limit, sortBy, sortDir } = {}) {
-  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
-  const sort = buildSort(sb, sd, { name: 1 });
-  const [total, rows] = await Promise.all([
-    Supplier.countDocuments({}),
-    Supplier.find({}).sort(sort).skip(skip).limit(L).lean(),
-  ]);
-  const mapped = rows.map((s) => ({ id: s.publicId, name: s.name || "", phone: s.phone || "", email: s.email || "", address: s.address || "" }));
-  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+// Suppliers list (for filters/columns; do NOT remove even if tab removed).
+// Delegates to the shared query so owner and receptionist see the identical
+// supplier list — this used to be owner-only logic duplicated nowhere yet,
+// but the receptionist supplier selector now needs the exact same data.
+export async function ownerInventoryListSuppliers(_ownerId, params = {}) {
+  return listSuppliersShared(params);
 }
 
 // Purchases list

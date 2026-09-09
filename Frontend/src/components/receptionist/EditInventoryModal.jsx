@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useInventoryStore } from "@/store/inventoryStore";
 import {
   Select,
@@ -22,11 +22,10 @@ import {
 
 const UNITS = ["boxes", "pairs", "vials", "tubes", "pieces", "bottles"];
 
-const EditInventoryModal = ({ open, onOpenChange, item }) => {
+const EditInventoryModal = ({ open, onOpenChange, item, suppliers = [] }) => {
   const { updateItem } = useInventoryStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notification, setNotification] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -36,6 +35,8 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
     packSize: "",
     stock: "",
     minStock: "",
+    maximumStock: "",
+    batchNumber: "",
     usedIn: "",
     supplier: "",
     unitCost: "",
@@ -43,9 +44,18 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
     expiryDate: "",
   });
 
+  // Supplier stays backward-compatible: an item's stored supplier name may not
+  // match any current Supplier record (renamed, removed, or entered as free
+  // text before this selector existed). Appending it as an extra option keeps
+  // it visible and selected instead of the picker silently showing blank.
+  const supplierNames = useMemo(() => {
+    const names = (suppliers || []).map((s) => s.name).filter(Boolean);
+    const current = String(item?.supplier || "").trim();
+    return current && !names.includes(current) ? [current, ...names] : names;
+  }, [suppliers, item]);
+
   useEffect(() => {
     if (!item) return;
-    setNotification(null);
     setIsSubmitting(false);
 
     setForm({
@@ -56,6 +66,8 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
       packSize: String(item.packSize || ""),
       stock: String(item.stock ?? ""),
       minStock: String(item.minStock ?? ""),
+      maximumStock: String(item.maximumStock || ""),
+      batchNumber: item.batchNumber || "",
       usedIn: Array.isArray(item.usedIn) ? item.usedIn.join(", ") : "",
       supplier: item.supplier || "",
       unitCost: String(item.unitCost || ""),
@@ -75,23 +87,22 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
     if (!item?.id) return;
 
     if (!form.name.trim()) {
-      setNotification({ type: "error", message: "Item name is required." });
+      toast.error("Item name is required.");
       return;
     }
 
     const stock = Number(form.stock);
     const minStock = Number(form.minStock);
     if (Number.isNaN(stock) || stock < 0) {
-      setNotification({ type: "error", message: "Stock must be 0 or more." });
+      toast.error("Stock must be 0 or more.");
       return;
     }
     if (Number.isNaN(minStock) || minStock < 0) {
-      setNotification({ type: "error", message: "Min stock must be 0 or more." });
+      toast.error("Min stock must be 0 or more.");
       return;
     }
 
     setIsSubmitting(true);
-    setNotification(null);
 
     try {
       await updateItem(item.id, {
@@ -102,6 +113,8 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
         packSize: Number(form.packSize || 0) || 0,
         stock,
         minStock,
+        maximumStock: Math.max(0, Number(form.maximumStock || 0) || 0),
+        batchNumber: form.batchNumber.trim(),
         usedIn: usedInArray,
         supplier: form.supplier.trim(),
         unitCost: Number(form.unitCost || 0) || 0,
@@ -109,10 +122,13 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
         expiryDate: form.expiryDate.trim(),
       });
 
-      setNotification({ type: "success", message: "Inventory item updated." });
-      setTimeout(() => onOpenChange(false), 700);
+      toast.success("Inventory item updated.");
+      onOpenChange(false);
     } catch (e) {
-      setNotification({ type: "error", message: e.message || "Failed to update item." });
+      // Modal stays open with the entered data intact so the user can
+      // correct and retry — only the submit lock is released.
+      toast.error(e.message || "Failed to update item.");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -189,6 +205,25 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>Maximum Stock</Label>
+            <Input
+              type="number"
+              placeholder="Upper threshold"
+              value={form.maximumStock}
+              onChange={(e) => setForm({ ...form, maximumStock: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Batch Number</Label>
+            <Input
+              placeholder="For lot tracking / recalls"
+              value={form.batchNumber}
+              onChange={(e) => setForm({ ...form, batchNumber: e.target.value })}
+            />
+          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label>Used In</Label>
             <Textarea value={form.usedIn} onChange={(e) => setForm({ ...form, usedIn: e.target.value })} />
@@ -196,7 +231,22 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
 
           <div className="space-y-2">
             <Label>Supplier</Label>
-            <Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
+            {supplierNames.length ? (
+              <Select
+                value={form.supplier}
+                onValueChange={(v) => setForm({ ...form, supplier: v === "__none" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Select a supplier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {supplierNames.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -222,23 +272,6 @@ const EditInventoryModal = ({ open, onOpenChange, item }) => {
             />
           </div>
         </div>
-
-        {notification && (
-          <Alert
-            className={
-              notification.type === "success"
-                ? "bg-green-50 border-green-200 text-green-800"
-                : "bg-red-50 border-red-200 text-red-800"
-            }
-          >
-            {notification.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            ) : (
-              <XCircle className="h-4 w-4 text-red-600" />
-            )}
-            <AlertDescription className="ml-2">{notification.message}</AlertDescription>
-          </Alert>
-        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>

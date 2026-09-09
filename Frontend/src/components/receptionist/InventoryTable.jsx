@@ -20,6 +20,7 @@ const InventoryTable = ({ data, onEdit, onDelete }) => {
           <TableHead>Stock</TableHead>
           <TableHead>Min Stock</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>Expiry</TableHead>
           <TableHead>Used In</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
@@ -41,21 +42,29 @@ const InventoryTable = ({ data, onEdit, onDelete }) => {
               </TableCell>
               <TableCell>{item.minStock}</TableCell>
               <TableCell>
+                {/*
+                  Reads the flags the backend now computes once (see
+                  services/shared/inventory.js) instead of re-deriving the
+                  same qty<=reorderLevel threshold here — one source of truth.
+                */}
                 <Badge
                   variant={
-                    item.stock === 0
-                      ? "destructive"
-                      : item.stock <= item.minStock
-                      ? "secondary"
-                      : "default"
+                    item.outOfStock ? "destructive" : item.lowStock ? "secondary" : "default"
                   }
                 >
-                  {item.stock === 0
-                    ? "Out"
-                    : item.stock <= item.minStock
-                    ? "Low"
-                    : "OK"}
+                  {item.outOfStock ? "Out" : item.lowStock ? "Low" : "OK"}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                {item.expiryState === "expired" && (
+                  <Badge variant="destructive">Expired</Badge>
+                )}
+                {item.expiryState === "near_expiry" && (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                    Expiring soon
+                  </Badge>
+                )}
+                {!item.expiryState && <span className="text-sm text-muted-foreground">—</span>}
               </TableCell>
               <TableCell className="text-sm text-gray-500">
                 {(item.usedIn || []).length > 0 ? item.usedIn.join(", ") : "—"}

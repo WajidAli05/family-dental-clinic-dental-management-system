@@ -7,6 +7,7 @@ import LabBill from "../models/LabBill.model.js";
 import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
+import { mapInventoryItemCore, applyInventoryExtraFields, listSuppliersShared } from "./shared/inventory.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import {
   validateAndPriceItems,
@@ -1478,6 +1479,24 @@ export async function receptionistDeleteInvoicePayment(_receptionistId, invoiceP
 }
 
 
+/**
+ * DEAD CODE — found during the Prompt-11 inventory audit, left as-is.
+ *
+ * Neither `mapInventoryItem` nor `receptionistConsumeInventory` below is
+ * wired to any route or controller (confirmed: no route references
+ * receptionistConsumeInventory). They also do not work if called: the schema
+ * fields are `qty`/`reorderLevel`, not `stock`/`minStock`, and there is no
+ * `packSize` field at all, so `item.stock = current - qtyUsed` sets a plain
+ * JS property that Mongoose's strict mode never persists — `current` is
+ * therefore always 0 and this function would always throw "Not enough stock"
+ * if it were ever reached. `item.history` is likewise not a schema path.
+ *
+ * This looks like an abandoned attempt at writing to InventoryConsumption
+ * (which is what actually has a `qtyUsed`/`date` shape) via a wrong field
+ * set instead. Left untouched per this task's scope ("do not touch
+ * InventoryConsumption business flows") — reported here instead of wired up
+ * or deleted, since either action would be new functionality, not a gap fill.
+ */
 const mapInventoryItem = (x) => ({
   id: x.publicId,
   name: x.name || "",
@@ -1497,7 +1516,6 @@ const mapInventoryItem = (x) => ({
 
   original: x,
 });
-
 
 // Optional: consume stock (future use, keeps your clinic realistic)
 export async function receptionistConsumeInventory(_receptionistId, itemPublicId, body) {
@@ -1529,20 +1547,35 @@ export async function receptionistConsumeInventory(_receptionistId, itemPublicId
   return mapInventoryItem(row);
 }
 
-const toUiItem = (x) => ({
-  id: x.publicId,
-  name: x.name || "",
-  category: x.category || "",
-  unit: x.unit || "",
-  stock: Number(x.qty || 0),
-  minStock: Number(x.reorderLevel || 0),
-  usedIn: Array.isArray(x.usedIn) ? x.usedIn : [],
-  supplier: x.supplier || "",
-  location: x.location || "",
-  expiryDate: x.expiryDate || "",
-  unitCost: Number(x.unitCost || 0),
-  original: x,
-});
+/**
+ * Receptionist's DTO shape, built on the same core mapper owner uses (see
+ * services/shared/inventory.js) — only the key names differ (stock/minStock
+ * vs qty/reorderLevel), matching this role's existing frontend contract.
+ * lowStock/outOfStock/expiryState come straight from the core, so the badge
+ * and filter logic can never drift from what the owner side computes.
+ */
+const toUiItem = (x, today = "") => {
+  const core = mapInventoryItemCore(x, today);
+  return {
+    id: core.id,
+    name: core.name,
+    category: core.category,
+    unit: core.unit,
+    stock: core.qty,
+    minStock: core.reorderLevel,
+    maximumStock: core.maximumStock,
+    batchNumber: core.batchNumber,
+    usedIn: core.usedIn,
+    supplier: core.supplier,
+    location: core.location,
+    expiryDate: core.expiryDate,
+    unitCost: core.unitCost,
+    lowStock: core.lowStock,
+    outOfStock: core.outOfStock,
+    expiryState: core.expiryState,
+    original: x,
+  };
+};
 
 export async function receptionistListInventory(_receptionistId, { q, stockFilter, page, limit, sortBy, sortDir } = {}) {
   const { page: P, limit: L, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
@@ -1559,28 +1592,30 @@ export async function receptionistListInventory(_receptionistId, { q, stockFilte
   }
 
   const sort = buildSort(sb, sd, { createdAt: -1 });
+  const today = await clinicToday();
   const rows = await InventoryItem.find(filter).sort(sort).lean();
 
-  let mapped = rows.map(toUiItem);
+  let mapped = rows.map((r) => toUiItem(r, today));
 
   const sf = String(stockFilter || "").trim();
   if (sf && sf !== "All") {
-    if (sf === "Out") mapped = mapped.filter((i) => i.stock === 0);
-    if (sf === "Low") mapped = mapped.filter((i) => i.stock <= i.minStock && i.stock > 0);
-    if (sf === "InStock") mapped = mapped.filter((i) => i.stock > i.minStock);
+    if (sf === "Out") mapped = mapped.filter((i) => i.outOfStock);
+    if (sf === "Low") mapped = mapped.filter((i) => i.lowStock);
+    if (sf === "InStock") mapped = mapped.filter((i) => !i.lowStock && !i.outOfStock);
   }
 
   return paginateArray(mapped, P, L);
 }
 
 export async function receptionistInventoryStats(_receptionistId) {
+  const today = await clinicToday();
   const rows = await InventoryItem.find({}).lean();
-  const items = rows.map(toUiItem);
+  const items = rows.map((r) => toUiItem(r, today));
 
   return {
     totalItems: items.length,
-    lowStock: items.filter((i) => i.stock <= i.minStock && i.stock > 0).length,
-    outOfStock: items.filter((i) => i.stock === 0).length,
+    lowStock: items.filter((i) => i.lowStock).length,
+    outOfStock: items.filter((i) => i.outOfStock).length,
   };
 }
 
@@ -1598,24 +1633,36 @@ export async function receptionistCreateInventoryItem(_receptionistId, body) {
         .map((x) => x.trim())
         .filter(Boolean);
 
-  const created = await InventoryItem.create({
-    // publicId auto-generated by model hook
-    name,
-    sku: String(body?.sku || "").trim(),
-    category: String(body?.category || "").trim(),
-    unit: String(body?.unit || "").trim(),
+  const created = await InventoryItem.create(
+    applyInventoryExtraFields(
+      {
+        // publicId auto-generated by model hook
+        name,
+        sku: String(body?.sku || "").trim(),
+        category: String(body?.category || "").trim(),
+        unit: String(body?.unit || "").trim(),
 
-    qty: Number.isFinite(qty) && qty >= 0 ? qty : 0,
-    reorderLevel: Number.isFinite(reorderLevel) && reorderLevel >= 0 ? reorderLevel : 0,
-    unitCost: Number(body?.unitCost || 0) || 0,
+        qty: Number.isFinite(qty) && qty >= 0 ? qty : 0,
+        reorderLevel: Number.isFinite(reorderLevel) && reorderLevel >= 0 ? reorderLevel : 0,
+        unitCost: Number(body?.unitCost || 0) || 0,
 
-    supplier: String(body?.supplier || "").trim(),
-    location: String(body?.location || "").trim(),
-    expiryDate: String(body?.expiryDate || "").trim(),
-    usedIn,
-  });
+        supplier: String(body?.supplier || "").trim(),
+        location: String(body?.location || "").trim(),
+        expiryDate: String(body?.expiryDate || "").trim(),
+        usedIn,
+      },
+      body
+    )
+  );
 
-  return toUiItem(created.toJSON());
+  // PRE-EXISTING BUG, found while verifying this change: `.toJSON()` runs the
+  // toJSON plugin transform, which collapses `publicId` into `.id` and DELETES
+  // the `publicId` key — but toUiItem/mapInventoryItemCore read `x.publicId`.
+  // The create response's `id` was therefore always undefined. Reading the
+  // saved doc back with `.lean()` matches every other mapper call in this
+  // file (list/update both already do this) and keeps `publicId` intact.
+  const saved = await InventoryItem.findById(created._id).lean();
+  return toUiItem(saved, await clinicToday());
 }
 
 export async function receptionistUpdateInventoryItem(_receptionistId, itemPublicId, body) {
@@ -1663,10 +1710,12 @@ export async function receptionistUpdateInventoryItem(_receptionistId, itemPubli
     item.usedIn = usedIn;
   }
 
+  applyInventoryExtraFields(item, body);
+
   await item.save();
   const fresh = await InventoryItem.findById(item._id).lean();
 
-  return toUiItem(fresh);
+  return toUiItem(fresh, await clinicToday());
 }
 
 export async function receptionistDeleteInventoryItem(_receptionistId, itemPublicId) {
@@ -1676,4 +1725,13 @@ export async function receptionistDeleteInventoryItem(_receptionistId, itemPubli
   await InventoryItem.deleteOne({ _id: item._id });
 
   return { message: "Deleted", id: itemPublicId };
+}
+
+/**
+ * Suppliers list — delegates to the SAME shared query the owner side uses
+ * (services/shared/inventory.js), so the front desk can pick from real
+ * suppliers instead of typing a name that may not match anything.
+ */
+export async function receptionistListSuppliers(_receptionistId, params = {}) {
+  return listSuppliersShared(params);
 }

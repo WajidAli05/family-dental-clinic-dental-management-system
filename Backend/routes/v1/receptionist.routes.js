@@ -39,6 +39,7 @@ import {
   createInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
+  listInventorySuppliers,
   getCatalogTreatments,
   getInvoiceFeeSchedules,
   getCatalogSampleTypes,
@@ -136,6 +137,7 @@ router.delete("/invoices/:id/payments/:paymentId", requirePermission("tab_recept
 // inventory tab
 router.get("/inventory", requirePermission("tab_receptionist_inventory"), listInventory);
 router.get("/inventory/stats", requirePermission("tab_receptionist_inventory"), inventoryStats);
+router.get("/inventory/suppliers", requirePermission("tab_receptionist_inventory"), listInventorySuppliers);
 router.post("/inventory", requirePermission("tab_receptionist_inventory"), createInventoryItem);
 router.patch("/inventory/:id", requirePermission("tab_receptionist_inventory"), updateInventoryItem);
 router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"), deleteInventoryItem);

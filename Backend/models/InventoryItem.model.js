@@ -22,6 +22,9 @@ const inventoryItemSchema = new Schema(
     location: { type: String, default: "" },
     expiryDate: { type: String, default: "" }, // "YYYY-MM-DD"
 
+    batchNumber: { type: String, default: "", trim: true }, // lot tracking / recalls
+    maximumStock: { type: Number, min: 0, default: 0 }, // upper threshold (reorderLevel is the minimum)
+
     usedIn: { type: [String], default: [] }, // ["Cleaning","Extraction"]
   },
   { timestamps: true }

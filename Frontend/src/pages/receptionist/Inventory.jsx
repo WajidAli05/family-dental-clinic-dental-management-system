@@ -23,6 +23,8 @@ const Inventory = () => {
     fetchItems,
     stats: serverStats,
     fetchStats,
+    suppliers,
+    fetchSuppliers,
     loading,
     error,
     pagination,
@@ -50,6 +52,11 @@ const Inventory = () => {
     };
     run();
   }, [fetchItems, fetchStats, query, stockFilter, page, limit]);
+
+  // Suppliers only need loading once — powers the Add/Edit supplier picker.
+  useEffect(() => {
+    if (typeof fetchSuppliers === "function") fetchSuppliers();
+  }, [fetchSuppliers]);
 
   const handleQueryChange = (q) => { setQuery(q); resetPage(); };
   const handleStockFilterChange = (s) => { setStockFilter(s); resetPage(); };
@@ -141,11 +148,12 @@ const Inventory = () => {
       </Card>
 
       {/* Modals */}
-      <AddInventoryModal open={addOpen} onOpenChange={setAddOpen} />
+      <AddInventoryModal open={addOpen} onOpenChange={setAddOpen} suppliers={suppliers} />
 
       <EditInventoryModal
         open={!!editItem}
         item={editItem}
+        suppliers={suppliers}
         onOpenChange={(v) => {
           if (!v) setEditItem(null);
         }}

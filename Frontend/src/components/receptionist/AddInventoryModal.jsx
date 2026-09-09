@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useInventoryStore } from "@/store/inventoryStore";
 import {
   Select,
@@ -22,11 +22,10 @@ import {
 
 const UNITS = ["boxes", "pairs", "vials", "tubes", "pieces", "bottles"];
 
-const AddInventoryModal = ({ open, onOpenChange }) => {
+const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
   const { createItem } = useInventoryStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notification, setNotification] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -36,6 +35,8 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
     packSize: "",
     stock: "",
     minStock: "",
+    maximumStock: "",
+    batchNumber: "",
     usedIn: "",
     supplier: "",
     unitCost: "",
@@ -43,9 +44,16 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
     expiryDate: "",
   });
 
+  // Supplier is stored as a plain name string on the item (no schema
+  // migration to a ref). When suppliers exist, offer a picker; otherwise fall
+  // back to free text so the form still works with an empty Supplier list.
+  const supplierNames = useMemo(
+    () => (suppliers || []).map((s) => s.name).filter(Boolean),
+    [suppliers]
+  );
+
   const reset = () => {
     setIsSubmitting(false);
-    setNotification(null);
     setForm({
       name: "",
       sku: "",
@@ -54,6 +62,8 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
       packSize: "",
       stock: "",
       minStock: "",
+      maximumStock: "",
+      batchNumber: "",
       usedIn: "",
       supplier: "",
       unitCost: "",
@@ -76,23 +86,22 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
 
   const submit = async () => {
     if (!form.name.trim()) {
-      setNotification({ type: "error", message: "Item name is required." });
+      toast.error("Item name is required.");
       return;
     }
 
     const stock = Number(form.stock);
     const minStock = Number(form.minStock);
     if (Number.isNaN(stock) || stock < 0) {
-      setNotification({ type: "error", message: "Stock must be 0 or more." });
+      toast.error("Stock must be 0 or more.");
       return;
     }
     if (Number.isNaN(minStock) || minStock < 0) {
-      setNotification({ type: "error", message: "Min stock must be 0 or more." });
+      toast.error("Min stock must be 0 or more.");
       return;
     }
 
     setIsSubmitting(true);
-    setNotification(null);
 
     try {
       await createItem({
@@ -103,6 +112,8 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
         packSize: Number(form.packSize || 0) || 0,
         stock,
         minStock,
+        maximumStock: Math.max(0, Number(form.maximumStock || 0) || 0),
+        batchNumber: form.batchNumber.trim(),
         usedIn: usedInArray,
         supplier: form.supplier.trim(),
         unitCost: Number(form.unitCost || 0) || 0,
@@ -110,12 +121,13 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
         expiryDate: form.expiryDate.trim(),
       });
 
-      setNotification({ type: "success", message: "Inventory item added." });
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 800);
+      toast.success("Inventory item added.");
+      onOpenChange(false);
     } catch (e) {
-      setNotification({ type: "error", message: e.message || "Failed to add item." });
+      // Modal stays open with the entered data intact so the user can
+      // correct and retry — only the submit lock is released.
+      toast.error(e.message || "Failed to add item.");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -191,6 +203,25 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>Maximum Stock (optional)</Label>
+            <Input
+              type="number"
+              placeholder="Upper threshold"
+              value={form.maximumStock}
+              onChange={(e) => setForm({ ...form, maximumStock: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Batch Number (optional)</Label>
+            <Input
+              placeholder="For lot tracking / recalls"
+              value={form.batchNumber}
+              onChange={(e) => setForm({ ...form, batchNumber: e.target.value })}
+            />
+          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label>Used In (comma separated)</Label>
             <Textarea
@@ -202,7 +233,26 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
 
           <div className="space-y-2">
             <Label>Supplier (optional)</Label>
-            <Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
+            {supplierNames.length ? (
+              <Select
+                value={form.supplier}
+                onValueChange={(v) => setForm({ ...form, supplier: v === "__none" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Select a supplier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {supplierNames.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                placeholder="Supplier name"
+                value={form.supplier}
+                onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -228,23 +278,6 @@ const AddInventoryModal = ({ open, onOpenChange }) => {
             />
           </div>
         </div>
-
-        {notification && (
-          <Alert
-            className={
-              notification.type === "success"
-                ? "bg-green-50 border-green-200 text-green-800"
-                : "bg-red-50 border-red-200 text-red-800"
-            }
-          >
-            {notification.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            ) : (
-              <XCircle className="h-4 w-4 text-red-600" />
-            )}
-            <AlertDescription className="ml-2">{notification.message}</AlertDescription>
-          </Alert>
-        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
