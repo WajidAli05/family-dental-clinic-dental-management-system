@@ -1,10 +1,20 @@
 import mongoose from "mongoose";
 import { getNextSequence } from "../services/shared/counters.js";
 import toJSON from "./plugins/toJSON.js";
+import softDelete from "./plugins/softDelete.js";
 
 const { Schema } = mongoose;
 
 const pad = (n, w = 4) => String(n).padStart(w, "0");
+
+/**
+ * Lifecycle, in creation order. `cancelled` is reachable from any
+ * non-terminal state — see PO_TRANSITIONS in services/shared/purchaseOrders.js,
+ * the single place this list is interpreted.
+ */
+export const PO_STATUSES = Object.freeze([
+  "draft", "sent", "confirmed", "partially_received", "received", "closed", "cancelled",
+]);
 
 const purchaseItemSchema = new Schema(
   {
@@ -13,9 +23,24 @@ const purchaseItemSchema = new Schema(
     sku: { type: String, default: "" },
     name: { type: String, default: "" },
     unit: { type: String, default: "" },
+    // NOTE: kept as `qty` (not renamed to `qtyOrdered`) for backward
+    // compatibility with every existing stored document and every existing
+    // reader (ownerInventoryListPurchases/GetPurchase). It means "quantity
+    // ordered" and is exposed as `qtyOrdered` at the DTO layer in
+    // services/shared/purchaseOrders.js — the rename happens at the mapper,
+    // not the schema.
     qty: { type: Number, min: 0, required: true },
     unitCost: { type: Number, min: 0, default: 0 },
     lineTotal: { type: Number, min: 0, default: 0 },
+    // Additive — absent on every pre-existing line item. A missing value
+    // reads as 0 received, EXCEPT for legacy POs, which the DTO mapper
+    // treats specially (see mapPurchaseOrderCore): those already had their
+    // stock effect applied at creation time under the old ad-hoc flow, so
+    // they display as fully received rather than falsely showing a 100%
+    // shortfall.
+    qtyReceived: { type: Number, min: 0, default: 0 },
+    batchNumber: { type: String, default: "" },
+    expiryDate: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -23,11 +48,18 @@ const purchaseItemSchema = new Schema(
 const purchaseOrderSchema = new Schema(
   {
     publicId: { type: String, required: true, unique: true, index: true }, // "PO-1001"
-    date: { type: String, required: true, index: true },
+    date: { type: String, required: true, index: true }, // orderDate
+    expectedDeliveryDate: { type: String, default: "", index: true },
     supplier: { type: Schema.Types.ObjectId, ref: "Supplier", required: true, index: true },
     invoiceNo: { type: String, default: "" },
+    // Absent on every pre-existing document. The mapper reads a missing
+    // status as "received" — see the comment above and
+    // services/shared/purchaseOrders.js — because those rows already had
+    // their stock effect applied at creation under the old flow; treating
+    // them as still-open would let someone "receive" them a second time and
+    // double the stock.
+    status: { type: String, enum: PO_STATUSES, default: "draft", index: true },
 
-    // ✅ Add items (required for modal details)
     items: { type: [purchaseItemSchema], default: [] },
 
     total: { type: Number, min: 0, default: 0 },
@@ -60,7 +92,8 @@ purchaseOrderSchema.pre("validate", async function () {
   this.publicId = `PO-${n}`;
 });
 
-// ✅ compute totals
+// ✅ compute totals — derived, never independently stored (same rule as
+// treatment-plan totals): every write recomputes it from the line items.
 purchaseOrderSchema.pre("save", function () {
   const items = Array.isArray(this.items) ? this.items : [];
   let total = 0;
@@ -77,6 +110,7 @@ purchaseOrderSchema.pre("save", function () {
 });
 
 purchaseOrderSchema.plugin(toJSON);
+purchaseOrderSchema.plugin(softDelete);
 
 export default mongoose.models.PurchaseOrder ||
   mongoose.model("PurchaseOrder", purchaseOrderSchema);

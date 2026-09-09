@@ -14,8 +14,6 @@ import CommissionRules from "../models/CommissionRules.model.js";
 import Permissions from "../models/Permissions.model.js";
 
 import InventoryItem from "../models/InventoryItem.model.js";
-import Supplier from "../models/Supplier.model.js";
-import PurchaseOrder from "../models/PurchaseOrder.model.js";
 import InventoryConsumption from "../models/InventoryConsumption.model.js";
 import ClinicalMaster from "../models/ClinicalMaster.model.js";
 import ClinicSettings from "../models/ClinicSettings.model.js";
@@ -53,8 +51,17 @@ import {
 import { updateLabCaseStatus as sharedUpdateLabCaseStatus, mapLabCase, applyCaseFields, INITIAL_STATUS } from "./shared/labCases.js";
 import { clinicToday } from "./shared/clinicDate.js";
 import { getNextSequence } from "./shared/counters.js";
-import { mapInventoryItemCore, applyInventoryExtraFields, listSuppliersShared, nextInventorySku, computeStockAdjustment } from "./shared/inventory.js";
+import { mapInventoryItemCore, applyInventoryExtraFields, nextInventorySku, computeStockAdjustment } from "./shared/inventory.js";
 import { sweepInventoryThresholdNotifications } from "./shared/inventoryNotifications.js";
+import {
+  listSuppliersShared, createSupplierShared, updateSupplierShared, softDeleteSupplierShared,
+  supplierLedger, supplierDuesSummary, recordSupplierPaymentShared,
+} from "./shared/suppliers.js";
+import {
+  listPurchaseOrdersShared, getPurchaseOrderShared, createPurchaseOrderShared,
+  updatePurchaseOrderStatusShared, deletePurchaseOrderShared, receivePurchaseOrderShared,
+} from "./shared/purchaseOrders.js";
+import { sweepPoOverdueNotifications, sweepSupplierOutstandingNotifications } from "./shared/purchaseOrderNotifications.js";
 import { notifyCaseAssigned, sweepOverdueNotifications } from "./shared/labCaseNotifications.js";
 import { OPEN_CASE_STATUSES } from "./shared/labCaseConfig.js";
 import { canonicalStatus, statusLabel, allowedNextStatuses, isEditLocked, ALL_STORED_STATUSES } from "./shared/appointmentConfig.js";
@@ -1369,73 +1376,83 @@ export async function ownerInventoryDeleteItem(_ownerId, itemPublicId) {
   return { message: "Deleted", id };
 }
 
-// Suppliers list (for filters/columns; do NOT remove even if tab removed).
-// Delegates to the shared query so owner and receptionist see the identical
-// supplier list — this used to be owner-only logic duplicated nowhere yet,
-// but the receptionist supplier selector now needs the exact same data.
+// ─── SUPPLIERS ───────────────────────────────────────────────────────────────
+// One shared path (services/shared/suppliers.js) for both roles — suppliers
+// had NO create path anywhere in the codebase before this.
+
 export async function ownerInventoryListSuppliers(_ownerId, params = {}) {
-  return listSuppliersShared(params);
+  const result = await listSuppliersShared(params);
+  // Outstanding-balance notifications are derived on read from rows already
+  // in hand — no scheduler. Only meaningful once real ledger data exists, so
+  // failures here must never break the list itself.
+  try {
+    const dues = await supplierDuesSummary();
+    await sweepSupplierOutstandingNotifications(dues);
+  } catch { /* best-effort */ }
+  return result;
 }
 
-// Purchases list
-export async function ownerInventoryListPurchases(_ownerId, { page, limit, sortBy, sortDir } = {}) {
-  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
-  const sort = buildSort(sb, sd, { date: -1, createdAt: -1 });
-  const [total, rows] = await Promise.all([
-    PurchaseOrder.countDocuments({}),
-    PurchaseOrder.find({}).populate("supplier", "publicId name").sort(sort).skip(skip).limit(L).lean(),
-  ]);
-  const mapped = rows.map((p) => ({
-    id: p.publicId,
-    date: p.date,
-    supplierId: p.supplier?.publicId || "",
-    supplierName: p.supplier?.name || "",
-    invoiceNo: p.invoiceNo || "",
-    total: Number(p.total || 0),
-    notes: p.notes || "",
-  }));
-  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
+export async function ownerCreateSupplier(_ownerId, body = {}) {
+  return createSupplierShared(body);
 }
 
-// Purchase details (modal)
+export async function ownerUpdateSupplier(_ownerId, supplierId, body = {}) {
+  return updateSupplierShared(supplierId, body);
+}
+
+export async function ownerDeleteSupplier(_ownerId, supplierId) {
+  return softDeleteSupplierShared(supplierId);
+}
+
+export async function ownerGetSupplierLedger(_ownerId, supplierId, { page, limit } = {}) {
+  return supplierLedger(supplierId, { page, limit });
+}
+
+export async function ownerListSupplierDues(_ownerId) {
+  return supplierDuesSummary();
+}
+
+/** Recording a payment is owner-only (money out) — enforced at the route/controller layer. */
+export async function ownerRecordSupplierPayment(_ownerId, supplierId, body = {}) {
+  return recordSupplierPaymentShared({ ...body, supplierId });
+}
+
+// ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────
+// One shared path (services/shared/purchaseOrders.js) for both roles.
+
+export async function ownerInventoryListPurchases(_ownerId, { page, limit, sortBy, sortDir, supplierId, status } = {}) {
+  const result = await listPurchaseOrdersShared({ page, limit, sortBy, sortDir, supplierId, status, role: "owner" });
+  try {
+    await sweepPoOverdueNotifications(result.rows, await clinicToday());
+  } catch { /* best-effort */ }
+  return result;
+}
+
 export async function ownerInventoryGetPurchase(_ownerId, purchasePublicId) {
-  const id = normalize(purchasePublicId);
-  if (!id) throw new Error("Purchase id is required");
+  return getPurchaseOrderShared(purchasePublicId, "owner");
+}
 
-  const p = await PurchaseOrder.findOne({ publicId: id })
-    .populate("supplier", "publicId name phone email address")
-    .populate("items.item", "publicId sku name unit")
-    .lean();
+/**
+ * Creates a PO in "draft" status — NO stock effect. Stock only moves via
+ * ownerReceivePurchaseOrder now (the point of the module, per the brief).
+ * The pre-existing behavior (instant stock increment at creation) has been
+ * superseded; there is no live data on the old shape to migrate (confirmed:
+ * zero pre-existing PurchaseOrder documents).
+ */
+export async function ownerInventoryCreatePurchase(_ownerId, payload = {}) {
+  return createPurchaseOrderShared(payload, "owner");
+}
 
-  if (!p) throw new Error("Purchase not found");
+export async function ownerUpdatePurchaseOrderStatus(_ownerId, poId, status) {
+  return updatePurchaseOrderStatusShared(poId, status, { role: "owner" });
+}
 
-  return {
-    id: p.publicId,
-    date: p.date,
-    supplier: p.supplier
-      ? {
-          id: p.supplier.publicId,
-          name: p.supplier.name || "",
-          phone: p.supplier.phone || "",
-          email: p.supplier.email || "",
-          address: p.supplier.address || "",
-        }
-      : null,
-    invoiceNo: p.invoiceNo || "",
-    total: Number(p.total || 0),
-    notes: p.notes || "",
-    items: Array.isArray(p.items)
-      ? p.items.map((it) => ({
-          itemId: it.item?.publicId || it.itemPublicId || "",
-          sku: it.item?.sku || it.sku || "",
-          name: it.item?.name || it.name || "",
-          unit: it.item?.unit || it.unit || "",
-          qty: Number(it.qty || 0),
-          unitCost: Number(it.unitCost || 0),
-          lineTotal: Number(it.lineTotal || 0),
-        }))
-      : [],
-  };
+export async function ownerDeletePurchaseOrder(_ownerId, poId) {
+  return deletePurchaseOrderShared(poId, { role: "owner" });
+}
+
+export async function ownerReceivePurchaseOrder(_ownerId, poId, body = {}) {
+  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "owner" });
 }
 
 // Consumption list
@@ -1454,96 +1471,6 @@ export async function ownerInventoryListConsumption(_ownerId) {
     qtyUsed: Number(c.qtyUsed || 0),
     treatmentName: c.treatmentName || "",
   }));
-}
-
-// =====================================================
-// ✅ INVENTORY PURCHASE CREATE (stores items + updates stock)
-// =====================================================
-
-function normalizeStr(v) {
-  return String(v || "").trim();
-}
-
-export async function ownerInventoryCreatePurchase(_ownerId, payload = {}) {
-  const date = normalizeStr(payload.date);
-  const supplierId = normalizeStr(payload.supplierId);
-  const invoiceNo = normalizeStr(payload.invoiceNo);
-  const notes = normalizeStr(payload.notes);
-  const itemsIn = Array.isArray(payload.items) ? payload.items : [];
-
-  if (!date) throw new Error("date is required");
-  if (!supplierId) throw new Error("supplierId is required");
-  if (!itemsIn.length) throw new Error("items are required");
-
-  const supplier = await Supplier.findOne({ publicId: supplierId }).select("_id publicId name").lean();
-  if (!supplier) throw new Error("Supplier not found");
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const purchaseItems = [];
-
-    for (const row of itemsIn) {
-      const itemId = normalizeStr(row.itemId);
-      const qty = Number(row.qty);
-      const unitCost = Number(row.unitCost || 0);
-
-      if (!itemId) throw new Error("Each item requires itemId");
-      if (!Number.isFinite(qty) || qty <= 0) throw new Error("Each item requires qty > 0");
-
-      const itemDoc = await InventoryItem.findOne({ publicId: itemId }).session(session);
-      if (!itemDoc) throw new Error(`Inventory item not found: ${itemId}`);
-
-      purchaseItems.push({
-        item: itemDoc._id,
-        itemPublicId: itemDoc.publicId,
-        sku: itemDoc.sku || "",
-        name: itemDoc.name || "",
-        unit: itemDoc.unit || "",
-        qty,
-        unitCost: Math.max(0, unitCost),
-        lineTotal: Math.max(0, qty * Math.max(0, unitCost)),
-      });
-
-      itemDoc.qty = Math.max(0, Number(itemDoc.qty || 0) + qty);
-      if (Number.isFinite(unitCost) && unitCost > 0) itemDoc.unitCost = unitCost;
-
-      await itemDoc.save({ session });
-    }
-
-    const po = await PurchaseOrder.create(
-      [
-        {
-          date,
-          supplier: supplier._id,
-          invoiceNo,
-          notes,
-          items: purchaseItems,
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    session.endSession();
-
-    const saved = await PurchaseOrder.findById(po[0]._id).populate("supplier", "publicId name").lean();
-
-    return {
-      id: saved.publicId,
-      date: saved.date,
-      supplierId: saved.supplier?.publicId || "",
-      supplierName: saved.supplier?.name || "",
-      invoiceNo: saved.invoiceNo || "",
-      total: Number(saved.total || 0),
-      notes: saved.notes || "",
-    };
-  } catch (e) {
-    await session.abortTransaction();
-    session.endSession();
-    throw e;
-  }
 }
 
 // ==============================
@@ -1936,11 +1863,11 @@ function sanitizeClinicPayload(payload = {}) {
       : payload;
 
   return {
-    name: normalizeStr(c.name),
-    logoUrl: normalizeStr(c.logoUrl),
-    phone: normalizeStr(c.phone),
-    whatsapp: normalizeStr(c.whatsapp),
-    address: normalizeStr(c.address),
+    name: normalize(c.name),
+    logoUrl: normalize(c.logoUrl),
+    phone: normalize(c.phone),
+    whatsapp: normalize(c.whatsapp),
+    address: normalize(c.address),
   };
 }
 

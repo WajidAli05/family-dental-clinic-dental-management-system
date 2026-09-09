@@ -61,10 +61,19 @@ import {
   ownerInventoryUpdateStock,
   ownerInventoryDeleteItem,
   ownerInventoryListSuppliers,
+  ownerCreateSupplier,
+  ownerUpdateSupplier,
+  ownerDeleteSupplier,
+  ownerGetSupplierLedger,
+  ownerListSupplierDues,
+  ownerRecordSupplierPayment,
   ownerInventoryListPurchases,
   ownerInventoryGetPurchase,
   ownerInventoryListConsumption,
   ownerInventoryCreatePurchase,
+  ownerUpdatePurchaseOrderStatus,
+  ownerDeletePurchaseOrder,
+  ownerReceivePurchaseOrder,
 
     ownerClinicalMasterGetAll,
 
@@ -521,11 +530,73 @@ export const ownerInventoryGetSuppliers = async (req, res) => {
 
 export const ownerInventoryGetPurchases = async (req, res) => {
   try {
-    const { page, limit, sortBy, sortDir } = req.query;
-    const result = await ownerInventoryListPurchases(req.user?._id, { page, limit, sortBy, sortDir });
+    const { page, limit, sortBy, sortDir, supplierId, status } = req.query;
+    const result = await ownerInventoryListPurchases(req.user?._id, { page, limit, sortBy, sortDir, supplierId, status });
     return res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+// ─── SUPPLIER CRUD + LEDGER ─────────────────────────────────────────────────
+
+export const ownerCreateSupplierController = async (req, res) => {
+  try {
+    const data = await ownerCreateSupplier(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "supplier.create", entityType: "Supplier", entityId: data.id, entityLabel: data.name, after: data });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdateSupplierController = async (req, res) => {
+  try {
+    const data = await ownerUpdateSupplier(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "supplier.update", entityType: "Supplier", entityId: req.params.id, entityLabel: data.name, after: data });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerDeleteSupplierController = async (req, res) => {
+  try {
+    const data = await ownerDeleteSupplier(req.user?._id, req.params.id);
+    await recordAudit({ req, action: "supplier.delete", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerGetSupplierLedgerController = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const data = await ownerGetSupplierLedger(req.user?._id, req.params.id, { page, limit });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerGetSupplierDuesController = async (req, res) => {
+  try {
+    const data = await ownerListSupplierDues(req.user?._id);
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/** Owner-only — recording a supplier payment is money out. */
+export const ownerRecordSupplierPaymentController = async (req, res) => {
+  try {
+    const data = await ownerRecordSupplierPayment(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "supplier.payment", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id, after: data });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
   }
 };
 
@@ -550,6 +621,40 @@ export const ownerInventoryGetConsumption = async (req, res) => {
 export const ownerInventoryCreatePurchaseController = async (req, res) => {
   try {
     const data = await ownerInventoryCreatePurchase(req.user?._id, req.body || {});
+    await recordAudit({ req, action: "purchaseorder.create", entityType: "PurchaseOrder", entityId: data.id, entityLabel: data.id, after: data });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerUpdatePurchaseOrderStatusController = async (req, res) => {
+  try {
+    const data = await ownerUpdatePurchaseOrderStatus(req.user?._id, req.params.id, req.body?.status);
+    await recordAudit({ req, action: "purchaseorder.status_change", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id, after: { status: data.status } });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerDeletePurchaseOrderController = async (req, res) => {
+  try {
+    const data = await ownerDeletePurchaseOrder(req.user?._id, req.params.id);
+    await recordAudit({ req, action: "purchaseorder.delete", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const ownerReceivePurchaseOrderController = async (req, res) => {
+  try {
+    const data = await ownerReceivePurchaseOrder(req.user?._id, req.params.id, req.body || {});
+    await recordAudit({
+      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id,
+      after: { status: data.status, discrepancy: data.discrepancy },
+    });
     return res.json({ success: true, data });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

@@ -39,7 +39,7 @@ async function request(path, { method = "GET", params, body } = {}) {
 export const receptionistInventoryApi = {
   list: (params) => request("/receptionist/inventory", { params }),
   stats: () => request("/receptionist/inventory/stats"),
-  listSuppliers: () => request("/receptionist/inventory/suppliers"),
+  listSuppliers: (params) => request("/receptionist/inventory/suppliers", { params }),
 
   create: (body) =>
     request("/receptionist/inventory", { method: "POST", body }),
@@ -53,4 +53,17 @@ export const receptionistInventoryApi = {
 
   remove: (id) =>
     request(`/receptionist/inventory/${id}`, { method: "DELETE" }),
+
+  // ── Suppliers (full CRUD; recording a payment is owner-only, no route here) ──
+  createSupplier: (body) => request("/receptionist/suppliers", { method: "POST", body }),
+  updateSupplier: (id, body) => request(`/receptionist/suppliers/${id}`, { method: "PATCH", body }),
+  deleteSupplier: (id) => request(`/receptionist/suppliers/${id}`, { method: "DELETE" }),
+  getSupplierLedger: (id, params) => request(`/receptionist/suppliers/${id}/ledger`, { params }),
+
+  // ── Purchase orders (create/receive; no delete route here — owner-only) ──
+  listPurchaseOrders: (params) => request("/receptionist/inventory/purchases", { params }),
+  getPurchaseOrder: (id) => request(`/receptionist/inventory/purchases/${id}`),
+  createPurchaseOrder: (body) => request("/receptionist/inventory/purchases", { method: "POST", body }),
+  updatePurchaseOrderStatus: (id, status) => request(`/receptionist/inventory/purchases/${id}/status`, { method: "PATCH", body: { status } }),
+  receivePurchaseOrder: (id, body) => request(`/receptionist/inventory/purchases/${id}/receive`, { method: "PATCH", body }),
 };

@@ -55,15 +55,62 @@ export const useInventoryStore = create((set, get) => ({
 
   // Was missing entirely — the front desk had no way to see existing
   // suppliers, so Add/Edit modals fell back to a free-text field.
-  fetchSuppliers: async () => {
+  fetchSuppliers: async (params) => {
     try {
-      const res = await receptionistInventoryApi.listSuppliers();
+      const res = await receptionistInventoryApi.listSuppliers(params);
       set({ suppliers: Array.isArray(res.data) ? res.data : [] });
-      return res.data;
+      return { rows: res.data || [], total: res.total || 0, page: res.page || 1, pages: res.pages || 1 };
     } catch {
       set({ suppliers: [] });
-      return [];
+      return { rows: [], total: 0, page: 1, pages: 1 };
     }
+  },
+
+  createSupplier: async (body) => {
+    const res = await receptionistInventoryApi.createSupplier(body);
+    await get().fetchSuppliers();
+    return res?.data;
+  },
+  updateSupplier: async (id, body) => {
+    const res = await receptionistInventoryApi.updateSupplier(id, body);
+    await get().fetchSuppliers();
+    return res?.data;
+  },
+  deleteSupplier: async (id) => {
+    await receptionistInventoryApi.deleteSupplier(id);
+    await get().fetchSuppliers();
+  },
+  getSupplierLedger: async (id, params) => {
+    const res = await receptionistInventoryApi.getSupplierLedger(id, params);
+    return res?.data;
+  },
+
+  // ---------------- purchase orders ----------------
+  purchaseOrders: [],
+  fetchPurchaseOrders: async (params) => {
+    const res = await receptionistInventoryApi.listPurchaseOrders(params);
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    set({ purchaseOrders: rows });
+    return { rows, total: res?.total || 0, page: res?.page || 1, pages: res?.pages || 1 };
+  },
+  getPurchaseOrder: async (id) => {
+    const res = await receptionistInventoryApi.getPurchaseOrder(id);
+    return res?.data;
+  },
+  createPurchaseOrder: async (body) => {
+    const res = await receptionistInventoryApi.createPurchaseOrder(body);
+    await get().fetchPurchaseOrders();
+    return res?.data;
+  },
+  updatePurchaseOrderStatus: async (id, status) => {
+    const res = await receptionistInventoryApi.updatePurchaseOrderStatus(id, status);
+    await get().fetchPurchaseOrders();
+    return res?.data;
+  },
+  receivePurchaseOrder: async (id, body) => {
+    const res = await receptionistInventoryApi.receivePurchaseOrder(id, body);
+    await Promise.all([get().fetchPurchaseOrders(), get().fetchItems()]);
+    return res?.data;
   },
 
   createItem: async (payload) => {

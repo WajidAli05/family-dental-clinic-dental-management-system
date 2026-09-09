@@ -18,7 +18,6 @@
  * contract is out of scope for this gap-fill.
  */
 
-import Supplier from "../../models/Supplier.model.js";
 import InventoryItem from "../../models/InventoryItem.model.js";
 import { parsePagination, buildSort } from "./paginate.js";
 import { getNextSequence } from "./counters.js";
@@ -149,24 +148,8 @@ export function computeStockAdjustment(currentQty, mode, qty) {
   return Math.max(0, next);
 }
 
-/**
- * Supplier listing — was previously only on the owner side; the receptionist
- * add/edit modals had free-text supplier entry with no selector. One shared
- * query so both roles see the identical supplier list.
- */
-export async function listSuppliersShared({ page, limit, sortBy, sortDir } = {}) {
-  const { page: P, limit: L, skip, sortDir: sd, sortBy: sb } = parsePagination({ page, limit, sortBy, sortDir });
-  const sort = buildSort(sb, sd, { name: 1 });
-  const [total, rows] = await Promise.all([
-    Supplier.countDocuments({}),
-    Supplier.find({}).sort(sort).skip(skip).limit(L).lean(),
-  ]);
-  const mapped = rows.map((s) => ({
-    id: s.publicId,
-    name: s.name || "",
-    phone: s.phone || "",
-    email: s.email || "",
-    address: s.address || "",
-  }));
-  return { rows: mapped, total, page: P, pages: Math.max(1, Math.ceil(total / L)) };
-}
+// Supplier listing moved to services/shared/suppliers.js (listSuppliersShared),
+// which now also carries the fuller Supplier record (contactPerson,
+// paymentTerms, notes, active) and a `full` mode for the item-supplier
+// picker. This file no longer defines it, to avoid two functions with the
+// same name and diverging shapes.

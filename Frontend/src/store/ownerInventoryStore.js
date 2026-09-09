@@ -117,17 +117,19 @@ export const useOwnerInventoryStore = create((set, get) => ({
 
   // ---------------- CRUD ----------------
   createItem: async (form) => {
-    // ✅ DO NOT send sku
+    // ✅ DO NOT send sku — always server-generated
     const payload = {
       name: form.name,
       category: form.category,
       unit: form.unit,
       qty: Number(form.qty || 0),
       reorderLevel: Number(form.reorderLevel || 0),
+      maximumStock: Number(form.maximumStock || 0),
       unitCost: Number(form.unitCost || 0),
       supplier: form.supplier || "",
       location: form.location || "",
       expiryDate: form.expiryDate || "",
+      batchNumber: form.batchNumber || "",
       usedIn: Array.isArray(form.usedIn) ? form.usedIn : [],
     };
     await ownerApi.createInventoryItem(payload);
@@ -150,5 +152,65 @@ export const useOwnerInventoryStore = create((set, get) => ({
   updateStock: async (id, { mode = "set", qty }) => {
     await ownerApi.updateInventoryStock(id, { mode, qty });
     await get().fetchItems();
+  },
+
+  // ---------------- suppliers ----------------
+  fetchSuppliers: async (params) => {
+    const res = await ownerApi.listSuppliers(params);
+    set({ suppliers: Array.isArray(res?.data) ? res.data : [] });
+    return { rows: res?.data || [], total: res?.total || 0, page: res?.page || 1, pages: res?.pages || 1 };
+  },
+  createSupplier: async (body) => {
+    const res = await ownerApi.createSupplier(body);
+    await get().fetchSuppliers();
+    return res?.data;
+  },
+  updateSupplier: async (id, body) => {
+    const res = await ownerApi.updateSupplier(id, body);
+    await get().fetchSuppliers();
+    return res?.data;
+  },
+  deleteSupplier: async (id) => {
+    await ownerApi.deleteSupplier(id);
+    await get().fetchSuppliers();
+  },
+  getSupplierLedger: async (id, params) => {
+    const res = await ownerApi.getSupplierLedger(id, params);
+    return res?.data;
+  },
+  recordSupplierPayment: async (id, body) => {
+    const res = await ownerApi.recordSupplierPayment(id, body);
+    return res?.data;
+  },
+
+  // ---------------- purchase orders ----------------
+  fetchPurchaseOrders: async (params) => {
+    const res = await ownerApi.listPurchases(params);
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    set({ purchases: rows });
+    return { rows, total: res?.total || 0, page: res?.page || 1, pages: res?.pages || 1 };
+  },
+  getPurchaseOrder: async (id) => {
+    const res = await ownerApi.getPurchaseDetails(id);
+    return res?.data;
+  },
+  createPurchaseOrder: async (body) => {
+    const res = await ownerApi.createPurchase(body);
+    await get().fetchPurchaseOrders();
+    return res?.data;
+  },
+  updatePurchaseOrderStatus: async (id, status) => {
+    const res = await ownerApi.updatePurchaseOrderStatus(id, status);
+    await get().fetchPurchaseOrders();
+    return res?.data;
+  },
+  receivePurchaseOrder: async (id, body) => {
+    const res = await ownerApi.receivePurchaseOrder(id, body);
+    await Promise.all([get().fetchPurchaseOrders(), get().fetchItems()]);
+    return res?.data;
+  },
+  deletePurchaseOrder: async (id) => {
+    await ownerApi.deletePurchaseOrder(id);
+    await get().fetchPurchaseOrders();
   },
 }));

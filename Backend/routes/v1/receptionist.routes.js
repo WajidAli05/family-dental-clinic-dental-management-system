@@ -41,6 +41,15 @@ import {
   updateInventoryItem,
   deleteInventoryItem,
   listInventorySuppliers,
+  createSupplier,
+  updateSupplier,
+  deleteSupplier,
+  getSupplierLedger,
+  listPurchaseOrders,
+  getPurchaseOrder,
+  createPurchaseOrder,
+  updatePurchaseOrderStatus,
+  receivePurchaseOrder,
   getCatalogTreatments,
   getInvoiceFeeSchedules,
   getCatalogSampleTypes,
@@ -143,6 +152,20 @@ router.post("/inventory", requirePermission("tab_receptionist_inventory"), creat
 router.patch("/inventory/:id", requirePermission("tab_receptionist_inventory"), updateInventoryItem);
 router.patch("/inventory/:id/stock", requirePermission("tab_receptionist_inventory"), updateInventoryStock);
 router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"), deleteInventoryItem);
+
+// Suppliers — full CRUD, gated by the same existing inventory permission.
+// Recording a payment is deliberately NOT here — owner-only (money out).
+router.post("/suppliers", requirePermission("tab_receptionist_inventory"), createSupplier);
+router.patch("/suppliers/:id", requirePermission("tab_receptionist_inventory"), updateSupplier);
+router.delete("/suppliers/:id", requirePermission("tab_receptionist_inventory"), deleteSupplier); // soft-delete
+router.get("/suppliers/:id/ledger", requirePermission("tab_receptionist_inventory"), getSupplierLedger);
+
+// Purchase orders — both roles create/receive; no delete route here (owner-only).
+router.get("/inventory/purchases", requirePermission("tab_receptionist_inventory"), listPurchaseOrders);
+router.get("/inventory/purchases/:id", requirePermission("tab_receptionist_inventory"), getPurchaseOrder);
+router.post("/inventory/purchases", requirePermission("tab_receptionist_inventory"), createPurchaseOrder);
+router.patch("/inventory/purchases/:id/status", requirePermission("tab_receptionist_inventory"), updatePurchaseOrderStatus);
+router.patch("/inventory/purchases/:id/receive", requirePermission("tab_receptionist_inventory"), receivePurchaseOrder);
 
 // price catalog (read-only — billing tab permission since used in invoice creation)
 router.get("/catalog/treatments", requirePermission("tab_receptionist_billing"), getCatalogTreatments);

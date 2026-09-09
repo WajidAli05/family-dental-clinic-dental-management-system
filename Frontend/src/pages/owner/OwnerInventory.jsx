@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 import OwnerPageHeader from "@/components/owner/OwnerPageHeader";
 import OwnerInventoryFilters from "@/components/owner/OwnerInventoryFilters";
@@ -13,13 +15,22 @@ import InventoryItemsTable from "@/components/owner/inventory/InventoryItemsTabl
 import UpdateStockModal from "@/components/owner/inventory/UpdateStockModal";
 import EditItemModal from "@/components/owner/inventory/EditItemModal";
 import DeleteConfirmDialog from "@/components/owner/inventory/DeleteConfirmDialog";
+import SuppliersPanel from "@/components/common/SuppliersPanel";
+import PurchaseOrdersPanel from "@/components/common/PurchaseOrdersPanel";
 
 import { useOwnerInventoryStore } from "@/store/ownerInventoryStore";
 import TableSkeleton from "@/components/ui/TableSkeleton";
 
+const TABS = [
+  { key: "items", label: "Items" },
+  { key: "suppliers", label: "Suppliers" },
+  { key: "purchases", label: "Purchase Orders" },
+];
+
 const OwnerInventory = () => {
   const setActiveTab = useOwnerInventoryStore((s) => s.setActiveTab);
-  const activeTab = "items"; // ✅ owner always uses items
+  const activeTab = "items"; // ✅ owner filters always use items
+  const [uiTab, setUiTab] = useState("items");
 
   const filters = useOwnerInventoryStore((s) => s.filters);
   const setFilter = useOwnerInventoryStore((s) => s.setFilter);
@@ -34,8 +45,25 @@ const OwnerInventory = () => {
   const stockModal = useOwnerInventoryStore((s) => s.stockModal);
   const updateStock = useOwnerInventoryStore((s) => s.updateStock);
 
+  const createItem = useOwnerInventoryStore((s) => s.createItem);
   const updateItem = useOwnerInventoryStore((s) => s.updateItem);
   const deleteItem = useOwnerInventoryStore((s) => s.deleteItem);
+
+  // Suppliers + purchase orders — one shared panel component, this page just
+  // hands it its own store-bound functions.
+  const fetchSuppliers = useOwnerInventoryStore((s) => s.fetchSuppliers);
+  const createSupplier = useOwnerInventoryStore((s) => s.createSupplier);
+  const updateSupplier = useOwnerInventoryStore((s) => s.updateSupplier);
+  const deleteSupplier = useOwnerInventoryStore((s) => s.deleteSupplier);
+  const getSupplierLedger = useOwnerInventoryStore((s) => s.getSupplierLedger);
+  const recordSupplierPayment = useOwnerInventoryStore((s) => s.recordSupplierPayment);
+
+  const fetchPurchaseOrders = useOwnerInventoryStore((s) => s.fetchPurchaseOrders);
+  const getPurchaseOrder = useOwnerInventoryStore((s) => s.getPurchaseOrder);
+  const createPurchaseOrder = useOwnerInventoryStore((s) => s.createPurchaseOrder);
+  const updatePurchaseOrderStatus = useOwnerInventoryStore((s) => s.updatePurchaseOrderStatus);
+  const receivePurchaseOrder = useOwnerInventoryStore((s) => s.receivePurchaseOrder);
+  const deletePurchaseOrder = useOwnerInventoryStore((s) => s.deletePurchaseOrder);
 
   useEffect(() => {
     // ✅ ensure store is initialized and force items as active
@@ -112,6 +140,7 @@ const OwnerInventory = () => {
 
   // ---------- local UI state ----------
   const [editOpen, setEditOpen] = useState(false);
+  const [editMode, setEditMode] = useState("edit"); // "edit" | "create" — BUG 1 fix
   const [editItemRow, setEditItemRow] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -123,52 +152,126 @@ const OwnerInventory = () => {
     <div className="space-y-6">
       <OwnerPageHeader
         title="Inventory"
-        subtitle="Owner visibility: low stock and item management"
+        subtitle="Owner visibility: low stock, suppliers and purchasing"
       />
 
-      {/* FIX 6a: visible, actionable alert ribbon — clicking a segment
-          filters the table to those items via the existing Stock filter. */}
-      <InventoryAlertRibbon
-        outOfStock={stats.outOfStockCount}
-        lowStock={stats.lowStockCount}
-        expiring={stats.expiringCount}
-        onFilterOutOfStock={() => setFilter("items", "stock", "out")}
-        onFilterLowStock={() => setFilter("items", "stock", "low")}
-        onFilterExpiring={() => setFilter("items", "stock", "expiring")}
-      />
+      {/* Suppliers/Purchase Orders were scaffolded (activeTab/setActiveTab)
+          but never built — this revives that design instead of new routes. */}
+      <div className="flex gap-2 border-b border-gray-200">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setUiTab(t.key)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              uiTab === t.key
+                ? "border-[#2ec4b6] text-[#2ec4b6]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {/* ✅ Stats cards below header */}
-      <OwnerInventoryStats stats={stats} />
+      {uiTab === "items" && (
+        <>
+          {/* FIX 6a: visible, actionable alert ribbon — clicking a segment
+              filters the table to those items via the existing Stock filter. */}
+          <InventoryAlertRibbon
+            outOfStock={stats.outOfStockCount}
+            lowStock={stats.lowStockCount}
+            expiring={stats.expiringCount}
+            onFilterOutOfStock={() => setFilter("items", "stock", "out")}
+            onFilterLowStock={() => setFilter("items", "stock", "low")}
+            onFilterExpiring={() => setFilter("items", "stock", "expiring")}
+          />
 
-      {lowStockList.length ? <LowStockAlerts data={lowStockList.slice(0, 6)} /> : null}
+          {/* ✅ Stats cards below header */}
+          <OwnerInventoryStats stats={stats} />
 
-      {/* ✅ Filters (items only) */}
-      <OwnerInventoryFilters
-        tab={activeTab}
-        filters={filters?.items || {}}
-        supplierOptions={supplierOptions}
-        onChange={(key, value) => setFilter("items", key, value)}
-        onReset={() => resetFilters("items")}
-      />
+          {lowStockList.length ? <LowStockAlerts data={lowStockList.slice(0, 6)} /> : null}
 
-      <Card className="rounded-2xl">
-        <CardContent className="p-6">
-          {loading ? <TableSkeleton rows={8} cols={6} /> : (
-            <InventoryItemsTable
-              data={itemsData}
-              onUpdateStock={(item) => openStockModal(item)}
-              onEdit={(item) => {
-                setEditItemRow(item);
+          {/* ✅ Filters (items only) */}
+          <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+            <OwnerInventoryFilters
+              tab={activeTab}
+              filters={filters?.items || {}}
+              supplierOptions={supplierOptions}
+              onChange={(key, value) => setFilter("items", key, value)}
+              onReset={() => resetFilters("items")}
+            />
+            {/* BUG 1: this button — and the create-mode EditItemModal it opens —
+                was entirely missing. openCreateItem/createItem already existed
+                in the store, unused; the backend endpoint always worked. */}
+            <Button
+              className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
+              onClick={() => {
+                setEditMode("create");
+                setEditItemRow(null);
                 setEditOpen(true);
               }}
-              onDelete={(item) => {
-                setDeleteRow(item);
-                setDeleteOpen(true);
-              }}
+            >
+              <Plus className="w-4 h-4 me-1" />
+              Add Item
+            </Button>
+          </div>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-6">
+              {loading ? <TableSkeleton rows={8} cols={6} /> : (
+                <InventoryItemsTable
+                  data={itemsData}
+                  onUpdateStock={(item) => openStockModal(item)}
+                  onEdit={(item) => {
+                    setEditMode("edit");
+                    setEditItemRow(item);
+                    setEditOpen(true);
+                  }}
+                  onDelete={(item) => {
+                    setDeleteRow(item);
+                    setDeleteOpen(true);
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {uiTab === "suppliers" && (
+        <Card className="rounded-2xl">
+          <CardContent className="p-6">
+            <SuppliersPanel
+              fetchSuppliers={fetchSuppliers}
+              createSupplier={createSupplier}
+              updateSupplier={updateSupplier}
+              deleteSupplier={deleteSupplier}
+              fetchLedger={getSupplierLedger}
+              recordPayment={recordSupplierPayment}
+              canRecordPayment
             />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {uiTab === "purchases" && (
+        <Card className="rounded-2xl">
+          <CardContent className="p-6">
+            <PurchaseOrdersPanel
+              suppliers={supplierOptions}
+              items={items}
+              fetchPurchaseOrders={fetchPurchaseOrders}
+              fetchPurchaseOrder={getPurchaseOrder}
+              createPurchaseOrder={createPurchaseOrder}
+              updatePurchaseOrderStatus={updatePurchaseOrderStatus}
+              receivePurchaseOrder={receivePurchaseOrder}
+              deletePurchaseOrder={deletePurchaseOrder}
+              canDelete
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stock modal — owns its own toast/loading/close lifecycle now, so
           this just performs the update. */}
@@ -182,9 +285,10 @@ const OwnerInventory = () => {
         }}
       />
 
-      {/* Edit item modal */}
+      {/* Add / Edit item modal — one component, two modes */}
       <EditItemModal
         open={editOpen}
+        mode={editMode}
         item={editItemRow}
         supplierOptions={supplierOptions}
         loading={editSaving}
@@ -193,15 +297,20 @@ const OwnerInventory = () => {
           setEditItemRow(null);
         }}
         onSubmit={async (patch) => {
-          if (!editItemRow?.id) return;
+          if (editMode === "edit" && !editItemRow?.id) return;
           setEditSaving(true);
           try {
-            await updateItem(editItemRow.id, patch);
-            toast.success("Item updated.");
+            if (editMode === "create") {
+              await createItem(patch);
+              toast.success("Item created.");
+            } else {
+              await updateItem(editItemRow.id, patch);
+              toast.success("Item updated.");
+            }
             setEditOpen(false);
             setEditItemRow(null);
           } catch (e) {
-            toast.error(e?.message || "Failed to update item.");
+            toast.error(e?.message || "Failed to save item.");
           } finally {
             setEditSaving(false);
           }

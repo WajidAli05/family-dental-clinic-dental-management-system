@@ -42,6 +42,15 @@
   receptionistUpdateInventoryStock,
   receptionistDeleteInventoryItem,
   receptionistListSuppliers,
+  receptionistCreateSupplier,
+  receptionistUpdateSupplier,
+  receptionistDeleteSupplier,
+  receptionistGetSupplierLedger,
+  receptionistListPurchaseOrders,
+  receptionistGetPurchaseOrder,
+  receptionistCreatePurchaseOrder,
+  receptionistUpdatePurchaseOrderStatus,
+  receptionistReceivePurchaseOrder,
 } from "../services/receptionist.service.js";
 
 import { getActiveTreatments, getActiveSampleTypes } from "../services/shared/catalog.js";
@@ -448,13 +457,109 @@ export const updateInventoryStock = async (req, res) => {
   }
 };
 
-// Suppliers — read-only, so the Add/Edit item modals can offer a picker
-// instead of free-text (delegates to the same shared query as the owner side).
+// Suppliers — the item picker's read (delegates to the same shared query as
+// the owner side) PLUS full CRUD, matching the receptionist's existing full
+// CRUD on inventory items. Recording a PAYMENT is owner-only (money out) —
+// there is deliberately no receptionist route for it.
 export const listInventorySuppliers = async (req, res) => {
   try {
-    const { page, limit, sortBy, sortDir } = req.query;
-    const result = await receptionistListSuppliers(req.user?.id, { page, limit, sortBy, sortDir });
+    const { page, limit, sortBy, sortDir, q, full } = req.query;
+    const result = await receptionistListSuppliers(req.user?.id, { page, limit, sortBy, sortDir, q, full: full === "true" });
     res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const createSupplier = async (req, res) => {
+  try {
+    const data = await receptionistCreateSupplier(req.user?.id, req.body || {});
+    await recordAudit({ req, action: "supplier.create", entityType: "Supplier", entityId: data.id, entityLabel: data.name, after: data });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updateSupplier = async (req, res) => {
+  try {
+    const data = await receptionistUpdateSupplier(req.user?.id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "supplier.update", entityType: "Supplier", entityId: req.params.id, entityLabel: data.name, after: data });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const deleteSupplier = async (req, res) => {
+  try {
+    const data = await receptionistDeleteSupplier(req.user?.id, req.params.id);
+    await recordAudit({ req, action: "supplier.delete", entityType: "Supplier", entityId: req.params.id, entityLabel: req.params.id });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getSupplierLedger = async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const data = await receptionistGetSupplierLedger(req.user?.id, req.params.id, { page, limit });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// ── Purchase orders — both roles create/receive; delete stays owner-only ──
+
+export const listPurchaseOrders = async (req, res) => {
+  try {
+    const { page, limit, sortBy, sortDir, supplierId, status } = req.query;
+    const result = await receptionistListPurchaseOrders(req.user?.id, { page, limit, sortBy, sortDir, supplierId, status });
+    res.json({ success: true, data: result.rows, total: result.total, page: result.page, pages: result.pages });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const getPurchaseOrder = async (req, res) => {
+  try {
+    const data = await receptionistGetPurchaseOrder(req.user?.id, req.params.id);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const createPurchaseOrder = async (req, res) => {
+  try {
+    const data = await receptionistCreatePurchaseOrder(req.user?.id, req.body || {});
+    await recordAudit({ req, action: "purchaseorder.create", entityType: "PurchaseOrder", entityId: data.id, entityLabel: data.id, after: data });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+export const updatePurchaseOrderStatus = async (req, res) => {
+  try {
+    const data = await receptionistUpdatePurchaseOrderStatus(req.user?.id, req.params.id, req.body?.status);
+    await recordAudit({ req, action: "purchaseorder.status_change", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id, after: { status: data.status } });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(e.status || 400).json({ success: false, message: e.message });
+  }
+};
+
+export const receivePurchaseOrder = async (req, res) => {
+  try {
+    const data = await receptionistReceivePurchaseOrder(req.user?.id, req.params.id, req.body || {});
+    await recordAudit({
+      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id,
+      after: { status: data.status, discrepancy: data.discrepancy },
+    });
+    res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
   }

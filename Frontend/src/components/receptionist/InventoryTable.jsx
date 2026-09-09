@@ -57,16 +57,20 @@ const InventoryTable = ({ data, onEdit, onDelete, onUpdateStock }) => {
                   {item.outOfStock ? "Out" : item.lowStock ? "Low" : "OK"}
                 </Badge>
               </TableCell>
+              {/* BUG 2: this column previously rendered only the derived
+                  badge — the item's actual expiryDate never appeared here. */}
               <TableCell>
-                {item.expiryState === "expired" && (
-                  <Badge variant="destructive">Expired</Badge>
-                )}
-                {item.expiryState === "near_expiry" && (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
-                    Expiring soon
-                  </Badge>
-                )}
-                {!item.expiryState && <span className="text-sm text-muted-foreground">—</span>}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{item.expiryDate || "—"}</span>
+                  {item.expiryState === "expired" && (
+                    <Badge variant="destructive">Expired</Badge>
+                  )}
+                  {item.expiryState === "near_expiry" && (
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                      Soon
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-sm text-gray-500">
                 {(item.usedIn || []).length > 0 ? item.usedIn.join(", ") : "—"}

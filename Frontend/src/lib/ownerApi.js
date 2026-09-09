@@ -168,10 +168,20 @@ export const ownerApi = {
   deleteInventoryItem: (id) => request(`/owner/inventory/items/${id}`, { method: "DELETE" }),
   updateInventoryStock: (id, body) => request(`/owner/inventory/items/${id}/stock`, { method: "PATCH", body }),
 
-  listSuppliers: () => request("/owner/inventory/suppliers"),
-  listPurchases: () => request("/owner/inventory/purchases"),
+  listSuppliers: (params) => request("/owner/inventory/suppliers", { params }),
+  createSupplier: (body) => request("/owner/suppliers", { method: "POST", body }),
+  updateSupplier: (id, body) => request(`/owner/suppliers/${id}`, { method: "PATCH", body }),
+  deleteSupplier: (id) => request(`/owner/suppliers/${id}`, { method: "DELETE" }),
+  getSupplierLedger: (id, params) => request(`/owner/suppliers/${id}/ledger`, { params }),
+  getSupplierDues: () => request("/owner/suppliers/dues"),
+  recordSupplierPayment: (id, body) => request(`/owner/suppliers/${id}/payments`, { method: "POST", body }),
+
+  listPurchases: (params) => request("/owner/inventory/purchases", { params }),
   getPurchaseDetails: (purchaseId) => request(`/owner/inventory/purchases/${purchaseId}`),
   createPurchase: (body) => request("/owner/inventory/purchases", { method: "POST", body }),
+  updatePurchaseOrderStatus: (id, status) => request(`/owner/inventory/purchases/${id}/status`, { method: "PATCH", body: { status } }),
+  receivePurchaseOrder: (id, body) => request(`/owner/inventory/purchases/${id}/receive`, { method: "PATCH", body }),
+  deletePurchaseOrder: (id) => request(`/owner/inventory/purchases/${id}`, { method: "DELETE" }),
 
   listConsumption: () => request("/owner/inventory/consumption"),
 

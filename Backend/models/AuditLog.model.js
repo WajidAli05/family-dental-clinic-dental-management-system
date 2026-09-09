@@ -25,6 +25,8 @@ const ACTIONS = [
   "system.backup",
   "patient.erasure",
   "inventory.create",    "inventory.update",      "inventory.delete",
+  "supplier.create",     "supplier.update",       "supplier.delete",       "supplier.payment",
+  "purchaseorder.create", "purchaseorder.status_change", "purchaseorder.receive", "purchaseorder.delete",
 ];
 
 const auditLogSchema = new Schema(

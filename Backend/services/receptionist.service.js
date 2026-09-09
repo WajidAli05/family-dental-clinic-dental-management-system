@@ -7,8 +7,17 @@ import LabBill from "../models/LabBill.model.js";
 import SampleType from "../models/SampleType.model.js";
 import Invoice from "../models/Invoice.model.js";
 import InventoryItem from "../models/InventoryItem.model.js";
-import { mapInventoryItemCore, applyInventoryExtraFields, listSuppliersShared, nextInventorySku, computeStockAdjustment } from "./shared/inventory.js";
+import { mapInventoryItemCore, applyInventoryExtraFields, nextInventorySku, computeStockAdjustment } from "./shared/inventory.js";
 import { sweepInventoryThresholdNotifications } from "./shared/inventoryNotifications.js";
+import {
+  listSuppliersShared, createSupplierShared, updateSupplierShared, softDeleteSupplierShared,
+  supplierLedger, supplierDuesSummary,
+} from "./shared/suppliers.js";
+import {
+  listPurchaseOrdersShared, getPurchaseOrderShared, createPurchaseOrderShared,
+  updatePurchaseOrderStatusShared, receivePurchaseOrderShared,
+} from "./shared/purchaseOrders.js";
+import { sweepPoOverdueNotifications, sweepSupplierOutstandingNotifications } from "./shared/purchaseOrderNotifications.js";
 import { revenueCollected, outstanding, invoiceStatus } from "./shared/billing.js";
 import {
   validateAndPriceItems,
@@ -1764,10 +1773,61 @@ export async function receptionistDeleteInventoryItem(_receptionistId, itemPubli
 }
 
 /**
- * Suppliers list — delegates to the SAME shared query the owner side uses
- * (services/shared/inventory.js), so the front desk can pick from real
- * suppliers instead of typing a name that may not match anything.
+ * Suppliers — the SAME shared path the owner side uses
+ * (services/shared/suppliers.js). Receptionist gets full CRUD, matching its
+ * existing full CRUD on inventory items; recording a PAYMENT stays
+ * owner-only (money out) — enforced at the route/controller layer, not
+ * duplicated here.
  */
 export async function receptionistListSuppliers(_receptionistId, params = {}) {
-  return listSuppliersShared(params);
+  const result = await listSuppliersShared(params);
+  try {
+    const dues = await supplierDuesSummary();
+    await sweepSupplierOutstandingNotifications(dues);
+  } catch { /* best-effort */ }
+  return result;
+}
+
+export async function receptionistCreateSupplier(_receptionistId, body = {}) {
+  return createSupplierShared(body);
+}
+
+export async function receptionistUpdateSupplier(_receptionistId, supplierId, body = {}) {
+  return updateSupplierShared(supplierId, body);
+}
+
+export async function receptionistDeleteSupplier(_receptionistId, supplierId) {
+  return softDeleteSupplierShared(supplierId);
+}
+
+export async function receptionistGetSupplierLedger(_receptionistId, supplierId, { page, limit } = {}) {
+  return supplierLedger(supplierId, { page, limit });
+}
+
+// ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────
+// One shared path (services/shared/purchaseOrders.js) — same functions the
+// owner side calls, so stock math and lifecycle rules cannot diverge.
+
+export async function receptionistListPurchaseOrders(_receptionistId, { page, limit, sortBy, sortDir, supplierId, status } = {}) {
+  const result = await listPurchaseOrdersShared({ page, limit, sortBy, sortDir, supplierId, status, role: "receptionist" });
+  try {
+    await sweepPoOverdueNotifications(result.rows, await clinicToday());
+  } catch { /* best-effort */ }
+  return result;
+}
+
+export async function receptionistGetPurchaseOrder(_receptionistId, poId) {
+  return getPurchaseOrderShared(poId, "receptionist");
+}
+
+export async function receptionistCreatePurchaseOrder(_receptionistId, payload = {}) {
+  return createPurchaseOrderShared(payload, "receptionist");
+}
+
+export async function receptionistUpdatePurchaseOrderStatus(_receptionistId, poId, status) {
+  return updatePurchaseOrderStatusShared(poId, status, { role: "receptionist" });
+}
+
+export async function receptionistReceivePurchaseOrder(_receptionistId, poId, body = {}) {
+  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "receptionist" });
 }

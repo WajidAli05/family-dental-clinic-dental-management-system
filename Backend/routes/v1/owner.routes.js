@@ -65,10 +65,19 @@ import {
   ownerInventoryUpdateStockController,
   ownerInventoryDeleteItemController,
   ownerInventoryGetSuppliers,
+  ownerCreateSupplierController,
+  ownerUpdateSupplierController,
+  ownerDeleteSupplierController,
+  ownerGetSupplierLedgerController,
+  ownerGetSupplierDuesController,
+  ownerRecordSupplierPaymentController,
   ownerInventoryGetPurchases,
   ownerInventoryGetPurchaseDetails,
   ownerInventoryGetConsumption,
     ownerInventoryCreatePurchaseController,
+  ownerUpdatePurchaseOrderStatusController,
+  ownerDeletePurchaseOrderController,
+  ownerReceivePurchaseOrderController,
 
       ownerClinicalMasterGetAllController,
   ownerListFeeSchedulesController,
@@ -247,10 +256,23 @@ router.patch("/inventory/items/:id/stock", ownerInventoryUpdateStockController);
 router.delete("/inventory/items/:id", ownerInventoryDeleteItemController);
 
 router.get("/inventory/suppliers", ownerInventoryGetSuppliers); // keep for filters/columns
+router.get("/inventory/consumption", ownerInventoryGetConsumption);
+
+// ── Suppliers (full CRUD + ledger) ──
+router.post("/suppliers", ownerCreateSupplierController);
+router.patch("/suppliers/:id", ownerUpdateSupplierController);
+router.delete("/suppliers/:id", ownerDeleteSupplierController); // soft-delete
+router.get("/suppliers/dues", ownerGetSupplierDuesController);
+router.get("/suppliers/:id/ledger", ownerGetSupplierLedgerController);
+router.post("/suppliers/:id/payments", ownerRecordSupplierPaymentController); // owner-only: money out
+
+// ── Purchase orders (full lifecycle) ──
 router.get("/inventory/purchases", ownerInventoryGetPurchases);
 router.get("/inventory/purchases/:id", ownerInventoryGetPurchaseDetails);
-router.get("/inventory/consumption", ownerInventoryGetConsumption);
 router.post("/inventory/purchases", ownerInventoryCreatePurchaseController);
+router.patch("/inventory/purchases/:id/status", ownerUpdatePurchaseOrderStatusController);
+router.patch("/inventory/purchases/:id/receive", ownerReceivePurchaseOrderController);
+router.delete("/inventory/purchases/:id", ownerDeletePurchaseOrderController); // owner-only
 
 // ==============================
 // ✅ CLINICAL MASTER (OWNER)
