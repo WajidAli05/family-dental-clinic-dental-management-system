@@ -157,17 +157,6 @@ const OwnerInventory = () => {
       <OwnerPageHeader
         title="Inventory"
         subtitle="Owner visibility: low stock, suppliers and purchasing"
-        action={
-          uiTab === "items" ? (
-            <Button
-              className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
-              onClick={() => setAddOpen(true)}
-            >
-              <Plus className="w-4 h-4 me-1" />
-              Add Item
-            </Button>
-          ) : null
-        }
       />
 
       {/* Suppliers/Purchase Orders were scaffolded (activeTab/setActiveTab)
@@ -207,13 +196,24 @@ const OwnerInventory = () => {
 
           {lowStockList.length ? <LowStockAlerts data={lowStockList.slice(0, 6)} /> : null}
 
-          {/* ✅ Filters (items only) — Add Item now lives in the header stripe */}
+          {/* ✅ Filters (items only) — Add Item now lives in this stripe,
+              end-aligned next to Reset (matches the app's filter-bar action
+              styling), instead of the page title header. */}
           <OwnerInventoryFilters
             tab={activeTab}
             filters={filters?.items || {}}
             supplierOptions={supplierOptions}
             onChange={(key, value) => setFilter("items", key, value)}
             onReset={() => resetFilters("items")}
+            action={
+              <Button
+                className="bg-[#2ec4b6] hover:bg-[#26a699] text-white rounded-xl shrink-0"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="w-4 h-4 me-1" />
+                Add Item
+              </Button>
+            }
           />
 
           <Card className="rounded-2xl">

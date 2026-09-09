@@ -572,12 +572,20 @@ export const updatePurchaseOrderStatus = async (req, res) => {
   }
 };
 
+/**
+ * receivedBy/receivedByName come from req.user ONLY — never req.body.
+ */
 export const receivePurchaseOrder = async (req, res) => {
   try {
-    const data = await receptionistReceivePurchaseOrder(req.user?.id, req.params.id, req.body || {});
+    const actor = { recordedBy: req.user?.publicId || "", recordedByName: req.user?.name || "" };
+    const data = await receptionistReceivePurchaseOrder(req.user?.id, req.params.id, req.body || {}, actor);
     await recordAudit({
-      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id,
-      after: { status: data.status, discrepancy: data.discrepancy },
+      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: data.lastReceiptId || req.params.id, entityLabel: req.params.id,
+      after: {
+        status: data.status, discrepancy: data.discrepancy, receiptId: data.lastReceiptId,
+        receivedByName: actor.recordedByName,
+        lines: (req.body?.lines || []).map((l) => ({ itemId: l.itemId, qtyReceived: l.qtyReceived })),
+      },
     });
     res.json({ success: true, data });
   } catch (e) {

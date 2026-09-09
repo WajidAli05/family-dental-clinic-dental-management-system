@@ -5,15 +5,24 @@ import { Button } from "@/components/ui/button";
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#2ec4b6]/30";
 
-const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, onReset }) => {
+/**
+ * `action` is an optional slot for the tab's primary button (currently only
+ * "Add Item" on the items tab). `justify-between` + no directional classes
+ * mirrors correctly under RTL — Reset and the action just swap visual sides,
+ * their relative order in markup is unaffected.
+ */
+const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, onReset, action }) => {
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-          <Button variant="outline" className="rounded-xl" onClick={onReset}>
-            Reset
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" className="rounded-xl" onClick={onReset}>
+              Reset
+            </Button>
+            {action}
+          </div>
         </div>
 
         {/* ITEMS */}

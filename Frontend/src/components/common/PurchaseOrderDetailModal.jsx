@@ -143,6 +143,56 @@ const PurchaseOrderDetailModal = ({ open, poId, onClose, fetchPo, onStatusChange
                 </div>
               </div>
 
+              {/* Receiving history — immutable, always shown regardless of
+                  status (including cancelled): what was received, when, and
+                  by whom is a permanent record, not something a later status
+                  change should hide. */}
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-2">Receiving History</p>
+                {po.receiptsPredateHistory ? (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    This purchase order was received before per-event history was tracked.
+                    The line items above show the total quantity received, but individual
+                    receiving events are not available.
+                  </div>
+                ) : po.receipts?.length ? (
+                  <div className="space-y-3">
+                    {po.receipts.map((r) => (
+                      <div key={r.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="flex items-center justify-between gap-3 flex-wrap bg-gray-50 px-4 py-2 text-sm">
+                          <span className="font-medium text-gray-800">{r.id}</span>
+                          <span className="text-gray-500">
+                            {new Date(r.receivedAt).toLocaleString()} · Received by {r.receivedByName || "—"}
+                          </span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-left">
+                              <th className="py-1.5 px-4 font-semibold text-gray-700">Item</th>
+                              <th className="py-1.5 px-4 font-semibold text-gray-700">Qty Received</th>
+                              <th className="py-1.5 px-4 font-semibold text-gray-700">Batch</th>
+                              <th className="py-1.5 px-4 font-semibold text-gray-700">Expiry</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.lines.map((l, i) => (
+                              <tr key={`${r.id}-${l.itemId}-${i}`} className="border-b border-gray-50 last:border-0">
+                                <td className="py-1.5 px-4">{l.name || l.itemId}</td>
+                                <td className="py-1.5 px-4">{l.qtyReceived}</td>
+                                <td className="py-1.5 px-4">{l.batchNumber || "—"}</td>
+                                <td className="py-1.5 px-4">{l.expiryDate || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No deliveries received yet.</p>
+                )}
+              </div>
+
               {po.canReceive && receivableItems.length > 0 && (
                 <div className="rounded-xl border border-gray-100 p-4">
                   <p className="text-sm font-semibold text-gray-800 mb-3">Receive Delivery</p>

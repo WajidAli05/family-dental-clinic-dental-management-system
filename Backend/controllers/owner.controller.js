@@ -656,12 +656,22 @@ export const ownerDeletePurchaseOrderController = async (req, res) => {
   }
 };
 
+/**
+ * receivedBy/receivedByName come from req.user ONLY — the authenticated
+ * actor, never anything the client could set via req.body. Same
+ * accountability pattern as supplier payments.
+ */
 export const ownerReceivePurchaseOrderController = async (req, res) => {
   try {
-    const data = await ownerReceivePurchaseOrder(req.user?._id, req.params.id, req.body || {});
+    const actor = { recordedBy: req.user?.publicId || "", recordedByName: req.user?.name || "" };
+    const data = await ownerReceivePurchaseOrder(req.user?._id, req.params.id, req.body || {}, actor);
     await recordAudit({
-      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: req.params.id, entityLabel: req.params.id,
-      after: { status: data.status, discrepancy: data.discrepancy },
+      req, action: "purchaseorder.receive", entityType: "PurchaseOrder", entityId: data.lastReceiptId || req.params.id, entityLabel: req.params.id,
+      after: {
+        status: data.status, discrepancy: data.discrepancy, receiptId: data.lastReceiptId,
+        receivedByName: actor.recordedByName,
+        lines: (req.body?.lines || []).map((l) => ({ itemId: l.itemId, qtyReceived: l.qtyReceived })),
+      },
     });
     return res.json({ success: true, data });
   } catch (e) {

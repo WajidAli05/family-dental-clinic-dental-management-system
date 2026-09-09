@@ -16,6 +16,44 @@ export const PO_STATUSES = Object.freeze([
   "draft", "sent", "confirmed", "partially_received", "received", "closed", "cancelled",
 ]);
 
+/**
+ * One line within one receiving event. `item`/`itemPublicId`/`name` are
+ * snapshotted (mirrors purchaseItemSchema's own snapshot fields) so a
+ * receipt keeps reading correctly even if the inventory item is later
+ * renamed or removed.
+ */
+const receiptLineSchema = new Schema(
+  {
+    item: { type: Schema.Types.ObjectId, ref: "InventoryItem", required: true },
+    itemPublicId: { type: String, default: "" },
+    name: { type: String, default: "" },
+    qtyReceived: { type: Number, min: 0, required: true },
+    batchNumber: { type: String, default: "" },
+    expiryDate: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+/**
+ * ONE receiving event, immutable once written — entries are appended, never
+ * mutated or deleted, including when the PO is later cancelled (see
+ * cancelling notes in services/shared/purchaseOrders.js).
+ *
+ * receivedBy/receivedByName are stamped from the AUTHENTICATED actor only
+ * (see receivePurchaseOrderShared) — the same accountability pattern already
+ * used for SupplierPayment.recordedBy/recordedByName.
+ */
+const receiptSchema = new Schema(
+  {
+    receiptId: { type: String, required: true }, // "RCV-######", atomic
+    receivedAt: { type: Date, required: true },
+    receivedBy: { type: String, default: "" }, // User.publicId
+    receivedByName: { type: String, default: "" },
+    lines: { type: [receiptLineSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const purchaseItemSchema = new Schema(
   {
     item: { type: Schema.Types.ObjectId, ref: "InventoryItem", required: true },
@@ -62,6 +100,25 @@ const purchaseOrderSchema = new Schema(
 
     items: { type: [purchaseItemSchema], default: [] },
 
+    /**
+     * STORAGE CHOICE: embedded on the PO, not a separate collection.
+     *
+     * Receipts are intrinsically owned by one PO, are always read/written in
+     * that PO's context (the detail view, the receive transaction), and are
+     * never queried across POs in isolation — there is no "list all receipts
+     * this month" feature requested here. A separate collection would need
+     * its own atomic id sequence AND still have to be joined back to the PO
+     * for every read, for no benefit this app actually uses. This mirrors
+     * the existing convention for lab-case timeline entries and treatment
+     * plan line items: intrinsically-owned history embeds with the parent.
+     *
+     * Absent (undefined/[]) on every PO created before this change — the
+     * mapper treats that as "history predates this change" and falls back to
+     * displaying the aggregate qtyReceived total instead of an empty list
+     * (see mapPurchaseOrderCore's `receiptsPredateHistory` flag).
+     */
+    receipts: { type: [receiptSchema], default: [] },
+
     total: { type: Number, min: 0, default: 0 },
     notes: { type: String, default: "" },
   },
@@ -91,6 +148,27 @@ purchaseOrderSchema.pre("validate", async function () {
   const n = await getNextSequence("purchaseorder", computePurchaseOrderIdSeed);
   this.publicId = `PO-${n}`;
 });
+
+/**
+ * Receipt ids are atomic via the shared counter (services/shared/counters.js)
+ * even though receipts are embedded, not a separate collection — readable,
+ * traceable ids (matching every other entity in this codebase) rather than
+ * a bare array index, and recordAudit needs a stable entityId to point at.
+ */
+export async function computePurchaseOrderReceiptIdSeed() {
+  const rows = await mongoose.models.PurchaseOrder.find({ "receipts.0": { $exists: true } })
+    .setOptions({ includeDeleted: true })
+    .select("receipts.receiptId")
+    .lean();
+  let max = 0;
+  for (const po of rows) {
+    for (const r of po.receipts || []) {
+      const m = /^RCV-(\d+)$/.exec(String(r.receiptId || ""));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+  }
+  return max;
+}
 
 // ✅ compute totals — derived, never independently stored (same rule as
 // treatment-plan totals): every write recomputes it from the line items.

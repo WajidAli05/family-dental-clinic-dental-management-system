@@ -1451,8 +1451,8 @@ export async function ownerDeletePurchaseOrder(_ownerId, poId) {
   return deletePurchaseOrderShared(poId, { role: "owner" });
 }
 
-export async function ownerReceivePurchaseOrder(_ownerId, poId, body = {}) {
-  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "owner" });
+export async function ownerReceivePurchaseOrder(_ownerId, poId, body = {}, actor = {}) {
+  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "owner", actor });
 }
 
 // Consumption list

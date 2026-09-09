@@ -18,7 +18,8 @@
  */
 
 import mongoose from "mongoose";
-import PurchaseOrder, { PO_STATUSES } from "../../models/PurchaseOrder.model.js";
+import PurchaseOrder, { PO_STATUSES, computePurchaseOrderReceiptIdSeed } from "../../models/PurchaseOrder.model.js";
+import { getNextSequence } from "./counters.js";
 import InventoryItem from "../../models/InventoryItem.model.js";
 import Supplier from "../../models/Supplier.model.js";
 import { parsePagination, buildSort } from "./paginate.js";
@@ -107,6 +108,25 @@ export function mapPurchaseOrderCore(doc, role) {
   const totalOrdered = items.reduce((s, i) => s + i.qtyOrdered, 0);
   const totalReceived = items.reduce((s, i) => s + i.qtyReceived, 0);
 
+  // Receipt history — immutable, append-only, visible regardless of status
+  // (including cancelled: cancelling never touches this array — see
+  // updatePurchaseOrderStatusShared). A PO created before this change has no
+  // entries here even though it may carry a non-zero qtyReceived total; the
+  // `receiptsPredateHistory` flag tells the UI to show that total with a
+  // note instead of rendering a misleading empty history.
+  const receipts = (Array.isArray(doc.receipts) ? doc.receipts : []).map((r) => ({
+    id: r.receiptId,
+    receivedAt: r.receivedAt,
+    receivedByName: r.receivedByName || "",
+    lines: (Array.isArray(r.lines) ? r.lines : []).map((l) => ({
+      itemId: l.itemPublicId || "",
+      name: l.name || "",
+      qtyReceived: Number(l.qtyReceived || 0),
+      batchNumber: l.batchNumber || "",
+      expiryDate: l.expiryDate || "",
+    })),
+  }));
+
   return {
     id: doc.publicId,
     date: doc.date,
@@ -120,6 +140,8 @@ export function mapPurchaseOrderCore(doc, role) {
     notes: doc.notes || "",
     total: Number(doc.total || 0),
     items,
+    receipts,
+    receiptsPredateHistory: receipts.length === 0 && totalReceived > 0,
     // A discrepancy is only meaningful once something has been received —
     // for a fresh draft/sent PO every line is legitimately 0-received.
     discrepancy: ["partially_received", "received", "closed"].includes(status)
@@ -220,6 +242,28 @@ export async function createPurchaseOrderShared(body = {}, role) {
 
 // ── Status transitions (non-receiving) ──────────────────────────────────────
 
+/**
+ * CANCELLING A PARTIALLY-RECEIVED PO — exactly what happens, stated plainly:
+ *
+ * DOES:
+ *   - Sets status to "cancelled". That's the only field this function ever
+ *     touches on the `items`/`receipts` data.
+ *   - Stops further receiving: canReceivePo() excludes "cancelled", so the
+ *     receive action is no longer offered or accepted for this PO.
+ *
+ * DOES NOT:
+ *   - Does NOT delete, mutate, or hide the `receipts` array. Every receiving
+ *     event that happened stays exactly as recorded — date, receiver,
+ *     per-line quantities, batch/expiry — and the DTO mapper returns them
+ *     regardless of status, so a cancelled PO's history renders identically
+ *     to any other PO's.
+ *   - Does NOT touch `items[].qtyReceived` or reverse the inventory stock
+ *     that receiving already added. The goods physically exist in stock;
+ *     cancelling a PO after a partial delivery means "do not expect or
+ *     accept the remainder," not "undo what already arrived." Reversing
+ *     stock here would also silently corrupt the receipt history's own
+ *     guarantee that qtyReceived always equals the sum of receipt entries.
+ */
 export async function updatePurchaseOrderStatusShared(poPublicId, nextStatus, { role } = {}) {
   const id = normalize(poPublicId);
   const next = normalize(nextStatus).toLowerCase();
@@ -274,7 +318,7 @@ async function hydrate(doc) {
  * adjustment can never diverge and a partially-applied receipt can never
  * leave the PO and the stock disagreeing about what happened.
  */
-export async function receivePurchaseOrderShared(poPublicId, { lines = [], actor, role } = {}) {
+export async function receivePurchaseOrderShared(poPublicId, { lines = [], actor = {}, role } = {}) {
   const id = normalize(poPublicId);
   const doc = await PurchaseOrder.findOne({ publicId: id });
   if (!doc) throw new Error("Purchase order not found");
@@ -296,62 +340,100 @@ export async function receivePurchaseOrderShared(poPublicId, { lines = [], actor
   const byItemId = new Map((Array.isArray(lines) ? lines : []).map((l) => [normalize(l.itemId), l]));
   if (!byItemId.size) throw new Error("At least one line with a received quantity is required");
 
+  // One immutable entry for THIS event — appended below, never mutated.
+  // receivedBy/receivedByName come only from `actor`, which the controller
+  // populates from req.user; there is no client-controlled equivalent.
+  const receiptLines = [];
+
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
     let anyReceived = false;
-    let allComplete = true;
 
     for (const line of doc.items) {
       const input = byItemId.get(line.itemPublicId);
       const already = Number(line.qtyReceived || 0);
       const ordered = Number(line.qty || 0);
+      if (!input) continue;
 
-      if (input) {
-        const delta = Number(input.qtyReceived);
-        if (delta < 0 || !Number.isFinite(delta)) {
-          throw new Error(`Received quantity for ${line.itemPublicId} must be 0 or greater`);
-        }
-        const remaining = Math.max(0, ordered - already);
-        if (delta > remaining) {
-          throw new Error(
-            `Cannot receive ${delta} of ${line.itemPublicId} — only ${remaining} remain on this order`
-          );
-        }
-        if (delta > 0) {
-          anyReceived = true;
-          const itemDoc = await InventoryItem.findById(line.item).session(session);
-          if (!itemDoc) throw new Error(`Inventory item not found: ${line.itemPublicId}`);
-
-          // THE shared stock path — identical math to the manual "Add" mode.
-          itemDoc.qty = computeStockAdjustment(itemDoc.qty, "add", delta);
-          if (normalize(input.batchNumber)) itemDoc.batchNumber = normalize(input.batchNumber).slice(0, 120);
-          if (normalize(input.expiryDate)) itemDoc.expiryDate = normalize(input.expiryDate);
-          await itemDoc.save({ session });
-
-          line.qtyReceived = already + delta;
-          if (normalize(input.batchNumber)) line.batchNumber = normalize(input.batchNumber);
-          if (normalize(input.expiryDate)) line.expiryDate = normalize(input.expiryDate);
-        }
+      const delta = Number(input.qtyReceived);
+      if (delta < 0 || !Number.isFinite(delta)) {
+        throw new Error(`Received quantity for ${line.itemPublicId} must be 0 or greater`);
       }
+      const remaining = Math.max(0, ordered - already);
+      if (delta > remaining) {
+        throw new Error(
+          `Cannot receive ${delta} of ${line.itemPublicId} — only ${remaining} remain on this order`
+        );
+      }
+      if (delta <= 0) continue;
 
-      if (Number(line.qtyReceived || 0) < ordered) allComplete = false;
+      anyReceived = true;
+      const itemDoc = await InventoryItem.findById(line.item).session(session);
+      if (!itemDoc) throw new Error(`Inventory item not found: ${line.itemPublicId}`);
+
+      const batchNumber = normalize(input.batchNumber);
+      const expiryDate = normalize(input.expiryDate);
+
+      // THE shared stock path — identical math to the manual "Add" mode.
+      itemDoc.qty = computeStockAdjustment(itemDoc.qty, "add", delta);
+      if (batchNumber) itemDoc.batchNumber = batchNumber.slice(0, 120);
+      if (expiryDate) itemDoc.expiryDate = expiryDate;
+      await itemDoc.save({ session });
+
+      if (batchNumber) line.batchNumber = batchNumber;
+      if (expiryDate) line.expiryDate = expiryDate;
+
+      receiptLines.push({
+        item: line.item,
+        itemPublicId: line.itemPublicId,
+        name: line.name,
+        qtyReceived: delta,
+        batchNumber,
+        expiryDate,
+      });
     }
 
     if (!anyReceived) throw new Error("No received quantity was entered for any line");
+
+    const receiptId = `RCV-${String(
+      await getNextSequence("purchaseorderreceipt", computePurchaseOrderReceiptIdSeed)
+    ).padStart(6, "0")}`;
+
+    doc.receipts.push({
+      receiptId,
+      receivedAt: new Date(),
+      receivedBy: normalize(actor.recordedBy),
+      receivedByName: normalize(actor.recordedByName),
+      lines: receiptLines,
+    });
+
+    // RECONCILE: each line's running total is the SUM of that item's
+    // quantities across every receipt entry (the one just pushed included),
+    // never an incremental add. The total can then never drift from the
+    // history — it is derived from it every time, by construction.
+    let allComplete = true;
+    for (const line of doc.items) {
+      const sumFromReceipts = doc.receipts.reduce((s, r) => {
+        const l = r.lines.find((x) => x.itemPublicId === line.itemPublicId);
+        return s + (l ? Number(l.qtyReceived || 0) : 0);
+      }, 0);
+      line.qtyReceived = sumFromReceipts;
+      if (sumFromReceipts < Number(line.qty || 0)) allComplete = false;
+    }
 
     doc.status = allComplete ? "received" : "partially_received";
     await doc.save({ session });
 
     await session.commitTransaction();
     session.endSession();
+
+    return { ...mapPurchaseOrderCore(await hydrate(doc), role), lastReceiptId: receiptId };
   } catch (e) {
     await session.abortTransaction();
     session.endSession();
     throw e;
   }
-
-  return mapPurchaseOrderCore(await hydrate(doc), role);
 }
 
 export { PO_STATUSES };

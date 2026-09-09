@@ -1838,6 +1838,6 @@ export async function receptionistUpdatePurchaseOrderStatus(_receptionistId, poI
   return updatePurchaseOrderStatusShared(poId, status, { role: "receptionist" });
 }
 
-export async function receptionistReceivePurchaseOrder(_receptionistId, poId, body = {}) {
-  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "receptionist" });
+export async function receptionistReceivePurchaseOrder(_receptionistId, poId, body = {}, actor = {}) {
+  return receivePurchaseOrderShared(poId, { lines: body?.lines, role: "receptionist", actor });
 }
