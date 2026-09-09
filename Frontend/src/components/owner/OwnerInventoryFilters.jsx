@@ -33,6 +33,7 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
                 <option value="all">All</option>
                 <option value="low">Low Stock</option>
                 <option value="out">Out of Stock</option>
+                <option value="expiring">Near/Expired</option>
               </select>
             </Field>
 

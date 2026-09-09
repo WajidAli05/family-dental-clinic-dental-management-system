@@ -47,6 +47,10 @@ export const receptionistInventoryApi = {
   update: (id, body) =>
     request(`/receptionist/inventory/${id}`, { method: "PATCH", body }),
 
+  // Parity with the owner's add/subtract/set flow — same shared backend math.
+  updateStock: (id, body) =>
+    request(`/receptionist/inventory/${id}/stock`, { method: "PATCH", body }),
+
   remove: (id) =>
     request(`/receptionist/inventory/${id}`, { method: "DELETE" }),
 };

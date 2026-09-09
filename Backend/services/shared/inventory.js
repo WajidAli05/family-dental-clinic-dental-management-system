@@ -19,7 +19,9 @@
  */
 
 import Supplier from "../../models/Supplier.model.js";
+import InventoryItem from "../../models/InventoryItem.model.js";
 import { parsePagination, buildSort } from "./paginate.js";
+import { getNextSequence } from "./counters.js";
 
 /** A case is near-expiry when its expiryDate falls within this many days. */
 export const NEAR_EXPIRY_DAYS = 30;
@@ -87,6 +89,64 @@ export function applyInventoryExtraFields(doc, body = {}) {
     doc.maximumStock = Number.isFinite(n) && n >= 0 ? n : 0;
   }
   return doc;
+}
+
+/**
+ * SKU generation — shared by both create paths.
+ *
+ * Owner's create already used the atomic counter (migrated in the prior
+ * session). Receptionist's create never called it at all — it accepted a
+ * free-text `sku` straight from the form and defaulted to "" when absent,
+ * which is why new receptionist-created items showed a blank SKU. Both
+ * creates now call this one function; the client can no longer set `sku`.
+ */
+async function computeInventorySkuSeed() {
+  const rows = await InventoryItem.find({ sku: { $regex: /^SKU-\d+$/ } })
+    .select("sku")
+    .lean();
+  let max = 0;
+  for (const r of rows) {
+    const m = /^SKU-(\d+)$/.exec(String(r.sku || ""));
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max;
+}
+
+export async function nextInventorySku() {
+  const n = await getNextSequence("inventoryitem_sku", computeInventorySkuSeed);
+  return `SKU-${String(n).padStart(6, "0")}`;
+}
+
+/**
+ * Stock adjustment math — the ONE place quantity changes for either role, so
+ * "add"/"subtract"/"set" cannot compute differently per role.
+ *
+ * VALIDATION GAP THIS CLOSES: `Number("")` evaluates to `0` in JS, so an
+ * empty quantity field previously passed `Number.isFinite` and silently
+ * "succeeded" — in "set" mode (the modal's previous default) that meant an
+ * owner opening the dialog and clicking Save without typing anything would
+ * silently ZERO OUT the item, with no error and (before this session's other
+ * fixes) no feedback that anything had happened at all. `add`/`subtract` of
+ * an unspecified/zero quantity is never meaningful, so those two modes now
+ * require qty > 0; `set` still permits an EXPLICIT 0 (deliberately marking an
+ * item fully depleted is legitimate) but the frontend must send a real
+ * number, not the coerced result of a blank input — enforced in the modal.
+ */
+export function computeStockAdjustment(currentQty, mode, qty) {
+  const n = Number(qty);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error("Quantity must be a valid number, 0 or greater");
+  }
+  const m = String(mode || "set").toLowerCase();
+  if ((m === "add" || m === "subtract") && n <= 0) {
+    throw new Error(`Quantity must be greater than 0 to ${m === "add" ? "add" : "subtract"} stock`);
+  }
+  const current = Number(currentQty || 0);
+  let next = current;
+  if (m === "add") next = current + n;
+  else if (m === "subtract") next = current - n;
+  else next = n; // set
+  return Math.max(0, next);
 }
 
 /**

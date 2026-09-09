@@ -29,7 +29,6 @@ const EditInventoryModal = ({ open, onOpenChange, item, suppliers = [] }) => {
 
   const [form, setForm] = useState({
     name: "",
-    sku: "",
     category: "Consumable",
     unit: "boxes",
     packSize: "",
@@ -60,7 +59,6 @@ const EditInventoryModal = ({ open, onOpenChange, item, suppliers = [] }) => {
 
     setForm({
       name: item.name || "",
-      sku: item.sku || "",
       category: item.category || "Consumable",
       unit: item.unit || "boxes",
       packSize: String(item.packSize || ""),
@@ -107,7 +105,7 @@ const EditInventoryModal = ({ open, onOpenChange, item, suppliers = [] }) => {
     try {
       await updateItem(item.id, {
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        // sku is backend-generated and never editable from the client.
         category: form.category,
         unit: form.unit,
         packSize: Number(form.packSize || 0) || 0,
@@ -139,18 +137,16 @@ const EditInventoryModal = ({ open, onOpenChange, item, suppliers = [] }) => {
     <Dialog open={open} onOpenChange={(v) => !isSubmitting && onOpenChange(v)}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Inventory Item — {item.name}</DialogTitle>
+          <DialogTitle>
+            Edit Inventory Item — {item.name}
+            {item.sku ? <span className="text-sm font-normal text-gray-500"> ({item.sku})</span> : null}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Item Name *</Label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>SKU</Label>
-            <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
           </div>
 
           <div className="space-y-2">

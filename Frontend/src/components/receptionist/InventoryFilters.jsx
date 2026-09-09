@@ -31,6 +31,7 @@ const InventoryFilters = ({
           <SelectItem value="InStock">In Stock</SelectItem>
           <SelectItem value="Low">Low Stock</SelectItem>
           <SelectItem value="Out">Out of Stock</SelectItem>
+          <SelectItem value="Expiring">Near/Expired</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -661,6 +661,14 @@
     "labcase_overdue": {
       "title": "لیب کیس تاخیر شدہ",
       "message": "لیب کیس {{caseId}} تاخیر کا شکار ہے (مقررہ {{dueDate}})۔"
+    },
+    "inventory_low_stock": {
+      "title": "اسٹاک کم ہے",
+      "message": "{{name}} ({{itemId}}) کا اسٹاک کم ہے: {{qty}} باقی ہے (دوبارہ آرڈر {{reorderLevel}} پر)۔"
+    },
+    "inventory_out_of_stock": {
+      "title": "اسٹاک ختم",
+      "message": "{{name}} ({{itemId}}) کا اسٹاک ختم ہو گیا ہے۔"
     }
   },
   "common": {

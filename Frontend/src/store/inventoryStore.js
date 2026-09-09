@@ -15,6 +15,7 @@ export const useInventoryStore = create((set, get) => ({
       totalItems: items.length,
       lowStock: items.filter((i) => i.stock <= i.minStock && i.stock > 0).length,
       outOfStock: items.filter((i) => i.stock === 0).length,
+      expiring: items.filter((i) => !!i.expiryState).length,
     };
   },
 
@@ -73,6 +74,16 @@ export const useInventoryStore = create((set, get) => ({
 
   updateItem: async (id, payload) => {
     const res = await receptionistInventoryApi.update(id, payload);
+    set((state) => ({
+      items: (state.items || []).map((x) => (x.id === id ? res.data : x)),
+    }));
+    return res.data;
+  },
+
+  // Parity with the owner's stock adjustment — same shared backend math, so
+  // the resulting quantity can never diverge between the two roles.
+  updateStock: async (id, { mode = "set", qty }) => {
+    const res = await receptionistInventoryApi.updateStock(id, { mode, qty });
     set((state) => ({
       items: (state.items || []).map((x) => (x.id === id ? res.data : x)),
     }));

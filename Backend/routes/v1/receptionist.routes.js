@@ -36,6 +36,7 @@ import {
   updateInvoiceCtrl,
   listInventory,
   inventoryStats,
+  updateInventoryStock,
   createInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
@@ -140,6 +141,7 @@ router.get("/inventory/stats", requirePermission("tab_receptionist_inventory"), 
 router.get("/inventory/suppliers", requirePermission("tab_receptionist_inventory"), listInventorySuppliers);
 router.post("/inventory", requirePermission("tab_receptionist_inventory"), createInventoryItem);
 router.patch("/inventory/:id", requirePermission("tab_receptionist_inventory"), updateInventoryItem);
+router.patch("/inventory/:id/stock", requirePermission("tab_receptionist_inventory"), updateInventoryStock);
 router.delete("/inventory/:id", requirePermission("tab_receptionist_inventory"), deleteInventoryItem);
 
 // price catalog (read-only — billing tab permission since used in invoice creation)

@@ -39,6 +39,7 @@
   receptionistInventoryStats,
   receptionistCreateInventoryItem,
   receptionistUpdateInventoryItem,
+  receptionistUpdateInventoryStock,
   receptionistDeleteInventoryItem,
   receptionistListSuppliers,
 } from "../services/receptionist.service.js";
@@ -429,6 +430,18 @@ export const deleteInventoryItem = async (req, res) => {
   try {
     const data = await receptionistDeleteInventoryItem(req.user?.id, req.params.id);
     await recordAudit({ req, action: "inventory.delete", entityType: "InventoryItem", entityId: req.params.id, entityLabel: req.params.id });
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message });
+  }
+};
+
+// Stock adjustment — parity with the owner's add/subtract/set flow, through
+// the same shared computeStockAdjustment.
+export const updateInventoryStock = async (req, res) => {
+  try {
+    const data = await receptionistUpdateInventoryStock(req.user?.id, req.params.id, req.body || {});
+    await recordAudit({ req, action: "inventory.update", entityType: "InventoryItem", entityId: req.params.id, entityLabel: data?.name || req.params.id, after: { mode: req.body?.mode, stock: data?.stock } });
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });

@@ -7,6 +7,7 @@ import OwnerInventoryFilters from "@/components/owner/OwnerInventoryFilters";
 
 import OwnerInventoryStats from "@/components/owner/inventory/OwnerInventoryStats";
 import LowStockAlerts from "@/components/owner/inventory/LowStockAlerts";
+import InventoryAlertRibbon from "@/components/common/InventoryAlertRibbon";
 import InventoryItemsTable from "@/components/owner/inventory/InventoryItemsTable";
 
 import UpdateStockModal from "@/components/owner/inventory/UpdateStockModal";
@@ -69,6 +70,7 @@ const OwnerInventory = () => {
 
       if (stock === "low" && !(qty <= reorder && qty > 0)) return false;
       if (stock === "out" && qty !== 0) return false;
+      if (stock === "expiring" && !x.expiryState) return false;
 
       if (selectedSupplierName && String(x.supplier || "") !== selectedSupplierName) return false;
 
@@ -88,11 +90,13 @@ const OwnerInventory = () => {
       (i) => Number(i.qty || 0) <= Number(i.reorderLevel || 0) && Number(i.qty || 0) > 0
     ).length;
     const out = list.filter((i) => Number(i.qty || 0) === 0).length;
+    const expiring = list.filter((i) => !!i.expiryState).length;
     const totalValue = list.reduce((sum, i) => sum + Number(i.qty || 0) * Number(i.unitCost || 0), 0);
 
     return {
       lowStockCount: low,
       outOfStockCount: out,
+      expiringCount: expiring,
       inventoryValue: Math.round(totalValue),
       purchasesTotal: 0, // ✅ not used anymore, but component expects it
     };
@@ -120,6 +124,17 @@ const OwnerInventory = () => {
       <OwnerPageHeader
         title="Inventory"
         subtitle="Owner visibility: low stock and item management"
+      />
+
+      {/* FIX 6a: visible, actionable alert ribbon — clicking a segment
+          filters the table to those items via the existing Stock filter. */}
+      <InventoryAlertRibbon
+        outOfStock={stats.outOfStockCount}
+        lowStock={stats.lowStockCount}
+        expiring={stats.expiringCount}
+        onFilterOutOfStock={() => setFilter("items", "stock", "out")}
+        onFilterLowStock={() => setFilter("items", "stock", "low")}
+        onFilterExpiring={() => setFilter("items", "stock", "expiring")}
       />
 
       {/* ✅ Stats cards below header */}
@@ -155,22 +170,15 @@ const OwnerInventory = () => {
         </CardContent>
       </Card>
 
-      {/* Stock modal */}
+      {/* Stock modal — owns its own toast/loading/close lifecycle now, so
+          this just performs the update. */}
       <UpdateStockModal
         open={stockModal?.open}
         item={stockModal?.payload}
         onClose={closeStockModal}
-        onSubmit={async ({ mode, qty }) => {
-          if (!stockModal?.payload?.id) return;
-          try {
-            await updateStock(stockModal.payload.id, { mode, qty });
-            toast.success("Stock updated.");
-            closeStockModal();
-          } catch (e) {
-            // Previously an unhandled rejection — a failed save gave the
-            // owner no feedback at all. Modal stays open for a clean retry.
-            toast.error(e?.message || "Failed to update stock.");
-          }
+        onSubmit={({ mode, qty }) => {
+          if (!stockModal?.payload?.id) throw new Error("No item selected");
+          return updateStock(stockModal.payload.id, { mode, qty });
         }}
       />
 

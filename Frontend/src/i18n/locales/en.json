@@ -661,6 +661,14 @@
     "labcase_overdue": {
       "title": "Lab Case Overdue",
       "message": "Lab case {{caseId}} is overdue (due {{dueDate}})."
+    },
+    "inventory_low_stock": {
+      "title": "Low Stock",
+      "message": "{{name}} ({{itemId}}) is low on stock: {{qty}} left (reorder at {{reorderLevel}})."
+    },
+    "inventory_out_of_stock": {
+      "title": "Out of Stock",
+      "message": "{{name}} ({{itemId}}) is out of stock."
     }
   },
   "common": {

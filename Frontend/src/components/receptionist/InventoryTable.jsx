@@ -8,13 +8,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, PackagePlus } from "lucide-react";
 
-const InventoryTable = ({ data, onEdit, onDelete }) => {
+const InventoryTable = ({ data, onEdit, onDelete, onUpdateStock }) => {
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>SKU</TableHead>
           <TableHead>Item</TableHead>
           <TableHead>Category</TableHead>
           <TableHead>Stock</TableHead>
@@ -30,6 +31,7 @@ const InventoryTable = ({ data, onEdit, onDelete }) => {
         {data.map((item) => {
           return (
             <TableRow key={item.id}>
+              <TableCell className="text-sm text-gray-800">{item.sku || "-"}</TableCell>
               <TableCell className="font-medium">{item.name}</TableCell>
               <TableCell>{item.category}</TableCell>
               <TableCell>
@@ -72,6 +74,16 @@ const InventoryTable = ({ data, onEdit, onDelete }) => {
 
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
+                  {onUpdateStock && (
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      title="Update stock"
+                      onClick={() => onUpdateStock(item)}
+                    >
+                      <PackagePlus className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button size="icon" variant="outline" onClick={() => onEdit(item)}>
                     <Pencil className="w-4 h-4" />
                   </Button>

@@ -12,6 +12,10 @@ import InventoryTable from "@/components/receptionist/InventoryTable";
 import AddInventoryModal from "@/components/receptionist/AddInventoryModal";
 import EditInventoryModal from "@/components/receptionist/EditInventoryModal";
 import ConfirmDeleteDialog from "@/components/ConfirmDeleteDialog";
+// FIX 5: reuse the owner's stock modal rather than a second implementation —
+// this codebase has repeatedly suffered from divergent per-role copies.
+import UpdateStockModal from "@/components/owner/inventory/UpdateStockModal";
+import InventoryAlertRibbon from "@/components/common/InventoryAlertRibbon";
 
 import TablePagination from "@/components/ui/TablePagination";
 import TableSkeleton from "@/components/ui/TableSkeleton";
@@ -30,6 +34,7 @@ const Inventory = () => {
     pagination,
     getStats,
     deleteItem,
+    updateStock,
   } = useInventoryStore();
 
   const { page, limit, setPage, resetPage } = usePagination(50);
@@ -41,6 +46,8 @@ const Inventory = () => {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const [stockItem, setStockItem] = useState(null);
 
   // fetch from backend
   useEffect(() => {
@@ -77,6 +84,8 @@ const Inventory = () => {
         matchesStock = i.stock === 0;
       } else if (stockFilter === "InStock") {
         matchesStock = i.stock > i.minStock;
+      } else if (stockFilter === "Expiring") {
+        matchesStock = !!i.expiryState;
       }
 
       return matchesQuery && matchesStock;
@@ -102,6 +111,17 @@ const Inventory = () => {
       {error ? (
         <div className="rounded-xl bg-red-50 text-red-700 p-3 text-sm">{error}</div>
       ) : null}
+
+      {/* FIX 6a — visible, actionable alert ribbon; click-through filters
+          the table via the existing Stock Level filter. */}
+      <InventoryAlertRibbon
+        outOfStock={stats.outOfStock}
+        lowStock={stats.lowStock}
+        expiring={stats.expiring}
+        onFilterOutOfStock={() => handleStockFilterChange("Out")}
+        onFilterLowStock={() => handleStockFilterChange("Low")}
+        onFilterExpiring={() => handleStockFilterChange("Expiring")}
+      />
 
       <InventoryStats stats={stats} />
 
@@ -130,6 +150,7 @@ const Inventory = () => {
             <InventoryTable
               data={filtered}
               onEdit={(item) => setEditItem(item)}
+              onUpdateStock={(item) => setStockItem(item)}
               onDelete={(item) => {
                 setDeleteTarget(item);
                 setConfirmOpen(true);
@@ -148,6 +169,16 @@ const Inventory = () => {
       </Card>
 
       {/* Modals */}
+      <UpdateStockModal
+        open={!!stockItem}
+        item={stockItem}
+        onClose={() => setStockItem(null)}
+        onSubmit={({ mode, qty }) => {
+          if (!stockItem?.id) throw new Error("No item selected");
+          return updateStock(stockItem.id, { mode, qty });
+        }}
+      />
+
       <AddInventoryModal open={addOpen} onOpenChange={setAddOpen} suppliers={suppliers} />
 
       <EditInventoryModal

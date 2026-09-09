@@ -661,6 +661,14 @@
     "labcase_overdue": {
       "title": "حالة مختبر متأخرة",
       "message": "حالة المختبر {{caseId}} متأخرة (استحقاق {{dueDate}})."
+    },
+    "inventory_low_stock": {
+      "title": "مخزون منخفض",
+      "message": "{{name}} ({{itemId}}) منخفض المخزون: {{qty}} متبقٍ (إعادة الطلب عند {{reorderLevel}})."
+    },
+    "inventory_out_of_stock": {
+      "title": "نفاد المخزون",
+      "message": "{{name}} ({{itemId}}) نفد من المخزون."
     }
   },
   "common": {

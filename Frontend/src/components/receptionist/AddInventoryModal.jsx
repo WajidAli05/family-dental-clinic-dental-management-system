@@ -29,7 +29,6 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
 
   const [form, setForm] = useState({
     name: "",
-    sku: "",
     category: "Consumable",
     unit: "boxes",
     packSize: "",
@@ -56,8 +55,7 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
     setIsSubmitting(false);
     setForm({
       name: "",
-      sku: "",
-      category: "Consumable",
+        category: "Consumable",
       unit: "boxes",
       packSize: "",
       stock: "",
@@ -106,7 +104,7 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
     try {
       await createItem({
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        // sku is always backend-generated — never sent from the client.
         category: form.category,
         unit: form.unit,
         packSize: Number(form.packSize || 0) || 0,
@@ -143,11 +141,6 @@ const AddInventoryModal = ({ open, onOpenChange, suppliers = [] }) => {
           <div className="space-y-2">
             <Label>Item Name *</Label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>SKU (optional)</Label>
-            <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
           </div>
 
           <div className="space-y-2">
