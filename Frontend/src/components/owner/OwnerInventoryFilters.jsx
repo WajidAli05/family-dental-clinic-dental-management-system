@@ -30,7 +30,8 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+        {/* text-start (logical), not a bare block default — mirrors correctly under RTL. */}
+        <h2 className="text-lg font-semibold text-gray-900 text-start">Filters</h2>
 
         {/* ITEMS */}
         {tab === "items" ? (

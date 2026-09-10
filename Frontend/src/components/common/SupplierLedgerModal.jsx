@@ -106,7 +106,14 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
               )}
 
               {payOpen && (
-                <div className="rounded-xl border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                // items-start (not items-end): the Amount cell is taller than
+                // its siblings because of the "Outstanding" helper line below
+                // it. Bottom-aligning the row made Amount's input sit visibly
+                // higher than Date/Method/Reference's; top-aligning keeps
+                // every label+input starting at the same line, and the extra
+                // helper line just extends Amount's cell further down without
+                // shifting its input relative to the others.
+                <div className="rounded-xl border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
                   <div>
                     <p className="text-xs font-semibold text-gray-600 mb-1">Amount</p>
                     {/* max is a UX aid only, not the guard — see handleRecordPayment. */}
@@ -114,7 +121,9 @@ const SupplierLedgerModal = ({ open, supplierId, canRecordPayment, onClose, fetc
                       type="number" min={0} max={data.outstanding} className={inputClass}
                       value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Outstanding: {money(data.outstanding)}</p>
+                    {/* Helper text below the field, muted — consistent with
+                        the app's form-helper-text convention. */}
+                    <p className="text-xs text-muted-foreground mt-1">Outstanding: {money(data.outstanding)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-600 mb-1">Date</p>
