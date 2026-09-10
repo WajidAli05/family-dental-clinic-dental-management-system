@@ -7,12 +7,10 @@ const inputClass =
 
 /**
  * `action` is an optional slot for the tab's primary button (currently only
- * "Add Item" on the items tab). Reset + action sit in the SAME row as the
- * filter fields now (one row, per the fix) rather than a separate header row
- * above them — a Field-shaped invisible label spacer keeps their button
- * bottom-aligned with the inputs' bottom edge, matching every other cell in
- * the row. `ms-auto` (not `ml-auto`) pushes the group to the end so it mirrors
- * correctly under RTL.
+ * "Add Item" on the items tab). It sits at the END of the Filters HEADING
+ * row (top-end corner of the card) — `justify-between` on that row, no
+ * directional classes, so it mirrors to the top-start corner under RTL.
+ * Reset stays with the filter fields, in its own row below, unaffected.
  */
 const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, onReset, action }) => {
   const buttonGroup = (
@@ -22,7 +20,6 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
         <Button variant="outline" className="rounded-xl" onClick={onReset}>
           Reset
         </Button>
-        {action}
       </div>
     </div>
   );
@@ -30,8 +27,11 @@ const OwnerInventoryFilters = ({ tab, filters, supplierOptions = [], onChange, o
   return (
     <Card className="rounded-2xl">
       <CardContent className="p-6">
-        {/* text-start (logical), not a bare block default — mirrors correctly under RTL. */}
-        <h2 className="text-lg font-semibold text-gray-900 text-start">Filters</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* text-start (logical), not a bare block default — mirrors correctly under RTL. */}
+          <h2 className="text-lg font-semibold text-gray-900 text-start">Filters</h2>
+          {action}
+        </div>
 
         {/* ITEMS */}
         {tab === "items" ? (
